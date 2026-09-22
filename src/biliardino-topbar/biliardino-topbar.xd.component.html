@@ -1,0 +1,16 @@
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="topbar__logo">🎱</span>
+    <span class="topbar__title">Biliardino</span>
+  </div>
+  <nav class="topbar__nav">
+    @for (page of pages; track page.route) {
+      <a class="nav-btn" href="{page.route}">
+        <span class="nav-btn__label">{page.title}</span>
+      </a>
+      @if (!$last()) {
+        <div class="nav-separator" />
+      }
+    }
+  </nav>
+</header>

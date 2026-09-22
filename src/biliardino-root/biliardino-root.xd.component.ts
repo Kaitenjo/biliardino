@@ -6,5 +6,4 @@ import { BaseWebComponent, WebComponent } from '@xaendar/core';
   templateUrl: './biliardino-root.xd.component.html'
 })
 export class BiliardinoRootComponent extends BaseWebComponent {
-
 }
