@@ -1,0 +1,11 @@
+{
+  "name": "biliardino",
+  "entry": "src/main.ts",
+  "outDir": "dist",
+  "assetsDir": "assets",
+  "generate": {
+    "components": {
+      "style": "css"
+    }
+  }
+}
