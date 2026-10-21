@@ -1,0 +1,275 @@
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
+
+<a class="back" href="#/">
+  <app-icon name="arrow-left" />
+  Torna alla classifica
+</a>
+
+@if (error()) {
+  <p class="error">{ error() }</p>
+}
+
+@for (player of profile(); track player().id) {
+  <section class="card hero">
+    <player-avatar icon="{player().icon}" label="{player().name}" size="xl" />
+    <div class="hero-body">
+      <div class="hero-head">
+        <h1>{ player().name }</h1>
+        @if (player().rank !== null) {
+          <span class="badge rank">{ player().rank }° in classifica</span>
+        }
+        <span class="badge">
+          @if (player().playsAttack) {
+            <app-icon class="attack" name="attack" />
+          }
+          @if (player().playsDefense) {
+            <app-icon class="defense" name="defense" />
+          }
+          { rolesLabel(player()) }
+        </span>
+        <span class="badge win">Win { winRate(player()) }%</span>
+      </div>
+      <div class="headline">
+        @for (figure of headline(); track figure().label) {
+          <div class="figure">
+            <span class="figure-label">
+              @if (figure().icon) {
+                <app-icon class="{figure().icon}" name="{figure().icon}" />
+              }
+              { figure().label }
+            </span>
+            <span class="figure-value">
+              <strong class="{figure().tone}">{ figure().value }</strong>
+              @if (figure().detail) {
+                <small>{ figure().detail }</small>
+              }
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <div class="cards">
+    @for (card of cards(); track card().title) {
+      <section class="card">
+        <h2>
+          <app-icon name="{card().icon}" />
+          { card().title }
+        </h2>
+        @for (line of card().lines; track line().label) {
+          <div class="line">
+            <span class="line-label">
+              @if (line().icon) {
+                <app-icon name="{line().icon}" />
+              }
+              { line().label }
+            </span>
+            <span class="line-value">
+              <strong class="{line().tone}">{ line().value }</strong>
+              @if (line().detail) {
+                <small>({ line().detail })</small>
+              }
+            </span>
+          </div>
+        }
+      </section>
+    }
+  </div>
+
+  <section class="card trend">
+    <header class="trend-head">
+      <h2>
+        <app-icon name="trend" />
+        Andamento ELO
+      </h2>
+      <div class="trend-tabs" role="tablist" aria-label="Ruolo">
+        @for (button of trendRoles; track button().value) {
+          <button type="button" role="tab" class="{`tab ${button().value}`}"
+            [class.active]="{trendRole() === button().value}" aria-selected="{String(trendRole() === button().value)}"
+            (click)="setTrendRole(button().value)">
+            <app-icon name="{button().value}" />
+            { button().label }
+          </button>
+        }
+      </div>
+    </header>
+    @if (trend().points.length) {
+      <div class="{`chart ${trendRole()}`}">
+        <div class="axis">
+          @for (tick of trend().ticks; track tick().value) {
+            <span style="{`top: ${tick().y}%`}">{ tick().value }</span>
+          }
+        </div>
+        <div class="plot" (pointermove)="hover($event)" (pointerleave)="leave()">
+          @for (tick of trend().ticks; track tick().value) {
+            <span class="grid-line" style="{`top: ${tick().y}%`}" />
+          }
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Andamento dell'ELO nel ruolo">
+            <polyline points="{trend().line}" vector-effect="non-scaling-stroke" />
+          </svg>
+          @for (point of trend().points; track $index()) {
+            @if (point().match) {
+              <span class="dot" [class.on]="{hovered() === $index()}"
+                style="{`left: ${point().x}%; top: ${point().y}%`}" />
+            }
+          }
+          @for (point of active(); track point().x) {
+            <span class="guide" style="{`left: ${point().x}%`}" />
+            <div class="{`preview ${point().x > 55 ? 'left' : 'right'}`}"
+              style="{`left: ${point().x}%; top: clamp(32%, ${point().y}%, 68%)`}">
+              @if (point().match) {
+                <div class="preview-head">
+                  <span class="preview-elo">ELO <strong>{ point().elo }</strong></span>
+                  <strong class="preview-delta" [class.up]="{(point().match?.delta ?? 0) >= 0}">
+                    { formatDelta(point().match?.delta ?? 0) }
+                  </strong>
+                </div>
+                <div class="teams">
+                  <div class="team red" [class.mine]="{point().match?.isRed}">
+                    <span class="team-label">Rossi</span>
+                    <span>
+                      @let defenseRed = point().match?.red?.defense;
+                      <app-icon name="defense" />
+                      <player-avatar icon="{defenseRed()?.icon ?? ''}" label="{defenseRed()?.name ?? ''}" />
+                    </span>
+                    <span>
+                      @let attackRed = point().match?.red?.attack;
+                      <app-icon class="attack" name="attack" />
+                      <player-avatar icon="{attackRed()?.icon ?? ''}" label="{attackRed()?.name ?? ''}" />
+                    </span>
+                  </div>
+                  <div class="team blue" [class.mine]="{!point().match?.isRed}">
+                    <span class="team-label">Blu</span>
+                    <span>
+                      @let defenseBlue = point().match?.blue?.defense;
+                      <app-icon name="defense" />
+                      <player-avatar icon="{defenseBlue()?.icon ?? ''}" label="{defenseBlue()?.name ?? ''}" />
+                    </span>
+                    <span>
+                      @let attackBlue = point().match?.blue?.attack;
+                      <app-icon class="attack" name="attack" />
+                      <player-avatar icon="{attackBlue()?.icon ?? ''}" label="{attackBlue()?.name ?? ''}" />
+                    </span>
+                  </div>
+                </div>
+                <div class="preview-score">
+                  <span class="result" [class.won]="{point().match?.won}">{ point().match?.score }</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+      <p class="muted hint">Passa sul grafico per vedere le partite.</p>
+    } @else {
+      <p class="muted">Ancora nessuna partita giocata in questo ruolo.</p>
+    }
+  </section>
+
+  @if (mentions().length) {
+    <section class="card">
+      <h2>
+        <app-icon name="users" />
+        Compagni e avversari
+      </h2>
+      <div class="mentions">
+        @for (mention of mentions(); track mention().label) {
+          <a class="mention" href="{`#/players/${mention().player.id}`}">
+            <player-avatar icon="{mention().player.icon}" label="{mention().player.name}" size="sm" />
+            <span class="mention-text">
+              <small>{ mention().label }</small>
+              <strong>{ mention().player.name }</strong>
+            </span>
+            <span class="{`mention-value ${mention().tone}`}">{ mention().value }</span>
+          </a>
+        }
+      </div>
+    </section>
+  }
+
+  @if (highlights().length) {
+    <section class="card">
+      <h2>
+        <app-icon name="award" />
+        Migliori e peggiori partite
+      </h2>
+      <div class="highlights">
+        @for (row of highlights(); track row().label) {
+          <div class="highlight" [class.won]="{row().won}">
+            <span class="highlight-label">{ row().label }</span>
+            <strong class="highlight-score">{ row().score }</strong>
+            <span class="highlight-detail">
+              vs { row().opponents[0]?.name } &amp; { row().opponents[1]?.name }
+              <br />
+              con { row().partner.name } ({ formatDelta(row().delta) } ELO)
+            </span>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <section class="card">
+    <h2>
+      <app-icon name="history" />
+      Storico partite
+    </h2>
+    @if (history().length) {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Esito</th>
+              <th class="num" title="Probabilità di vittoria secondo l'ELO">Prob.</th>
+              <th>Ruolo</th>
+              <th>Compagno</th>
+              <th>Avversari</th>
+              <th class="num">ELO</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of history(); track row().id) {
+              <tr [class.won]="{row().won}">
+                <td class="muted">{ row().date }</td>
+                <td>
+                  <span class="result">{ row().score }</span>
+                </td>
+                <td class="num muted">{ row().expected }%</td>
+                <td>
+                  <span class="role-cell">
+                    <app-icon name="{row().roleIcon}" />
+                    { row().role }
+                    <small class="muted" title="ELO nel ruolo, malus compreso">{ row().roleElo }</small>
+                  </span>
+                </td>
+                <td>
+                  <a href="{`#/players/${row().partner.id}`}">{ row().partner.name }</a>
+                </td>
+                <td>
+                  @for (opponent of row().opponents; track opponent().id) {
+                    <a class="opponent" href="{`#/players/${opponent().id}`}">{ opponent().name }</a>
+                  }
+                </td>
+                <td class="num delta" [class.up]="{row().delta >= 0}">{ formatDelta(row().delta) }</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if ((detail()?.matches?.length ?? 0) > history().length || showAll()) {
+        <button type="button" class="more" (click)="toggleHistory()">
+          { showAll() ? 'Mostra solo le ultime' : `Mostra tutte le ${detail()?.matches?.length} partite` }
+        </button>
+      }
+    } @else {
+      <p class="muted">Ancora nessuna partita giocata.</p>
+    }
+  </section>
+}
+
+@if (!profile().length && !error()) {
+  <p class="muted">Caricamento…</p>
+}

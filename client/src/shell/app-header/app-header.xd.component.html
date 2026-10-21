@@ -1,0 +1,49 @@
+@import { user } from '../../core/auth/session.ts'
+@import { routeName } from '../../core/router/router.ts'
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { UserMenuComponent } from '../user-menu/user-menu.xd.component.ts'
+
+<header>
+  <a class="brand" href="#/">
+    <img class="logo" src="/logo.svg" alt="" />
+    <span class="brand-text">
+      <strong>CAlcio Balilla</strong>
+      <small>CA Biliardino Championship</small>
+    </span>
+  </a>
+  <nav>
+    <a href="#/" aria-label="Classifica" [class.active]="{routeName() === 'home' || routeName() === 'player'}">
+      <app-icon name="trophy" />
+      @if (showIcon()) {
+        <span class="label">Classifica</span>
+      }
+    </a>
+    <a href="#/new-match" aria-label="Gioca" [class.active]="{routeName() === 'new-match'}">
+      <app-icon name="play" />
+      @if (showIcon()) {
+        <span class="label">Gioca</span>
+      }
+    </a>
+    @if (user()?.isAdmin) {
+      <a href="#/roles" aria-label="Ruoli" [class.active]="{routeName() === 'roles'}">
+        <app-icon name="shield-check" />
+        @if (showIcon()) {
+          <span class="label">Ruoli</span>
+        }
+      </a>
+    }
+    <a href="#/availability" aria-label="Disponibilità" [class.active]="{routeName() === 'availability'}">
+      <app-icon name="calendar" />
+      @if (showIcon()) {
+        <span class="label">Disponibilità</span>
+      }
+    </a>
+  </nav>
+  <div class="account">
+    @if (user()) {
+      <user-menu />
+    } @else {
+      <a class="login" href="#/login" [class.active]="{routeName() === 'login'}">Login</a>
+    }
+  </div>
+</header>

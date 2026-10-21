@@ -1,0 +1,28 @@
+@use '../../styles/mixins';
+
+:host {
+  @include mixins.page;
+
+  padding-top: 4rem;
+  text-align: center;
+}
+
+.icon {
+  margin: 0;
+  color: var(--primary);
+  font-size: 4.5rem;
+  filter: drop-shadow(0 0 18px var(--glow));
+}
+
+h1 {
+  margin: 0.5rem 0;
+}
+
+.muted {
+  margin: 0 0 1.5rem;
+  color: var(--text-muted);
+}
+
+.primary {
+  @include mixins.button;
+}

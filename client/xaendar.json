@@ -1,0 +1,8 @@
+{
+  "name": "biliardino",
+  "generate": {
+    "components": {
+      "style": "scss"
+    }
+  }
+}

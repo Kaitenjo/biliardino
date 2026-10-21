@@ -1,0 +1,226 @@
+[
+  {
+    "id": 1,
+    "name": "Nicola D'Effremo",
+    "icon": "",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 2,
+    "name": "Andrea Greco",
+    "icon": "/avatars/2.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 3,
+    "name": "Pasquale Ceglie",
+    "icon": "/avatars/3.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 4,
+    "name": "Leonardo Galluzzi",
+    "icon": "",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 5,
+    "name": "Nicola Sergio",
+    "icon": "",
+    "attack": false,
+    "defense": true
+  },
+  {
+    "id": 6,
+    "name": "Filippo Addabbo",
+    "icon": "/avatars/6.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 8,
+    "name": "Michele Porcu",
+    "icon": "/avatars/8.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 11,
+    "name": "Domenico Pace",
+    "icon": "/avatars/11.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 12,
+    "name": "Andrea Fraccalvieri",
+    "icon": "/avatars/12.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 13,
+    "name": "Michele Lillo",
+    "icon": "/avatars/13.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 14,
+    "name": "Gianluca De Vincenzo",
+    "icon": "/avatars/14.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 16,
+    "name": "Andrea Difonzo",
+    "icon": "/avatars/16.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 17,
+    "name": "Dario Spinosa",
+    "icon": "/avatars/17.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 18,
+    "name": "Francesco Molinari",
+    "icon": "/avatars/18.webp",
+    "attack": false,
+    "defense": true
+  },
+  {
+    "id": 19,
+    "name": "Giuseppe Latrofa",
+    "icon": "/avatars/19.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 20,
+    "name": "Davide Silletti",
+    "icon": "/avatars/20.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 21,
+    "name": "Luigi Denora",
+    "icon": "/avatars/21.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 22,
+    "name": "Michele Sette",
+    "icon": "/avatars/22.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 23,
+    "name": "Pietro Colonna",
+    "icon": "/avatars/23.webp",
+    "attack": false,
+    "defense": true
+  },
+  {
+    "id": 25,
+    "name": "Andrea Gargaro",
+    "icon": "/avatars/25.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 26,
+    "name": "Davide Colucci",
+    "icon": "/avatars/26.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 28,
+    "name": "Alfredo Sette",
+    "icon": "/avatars/28.webp",
+    "attack": false,
+    "defense": true
+  },
+  {
+    "id": 29,
+    "name": "Giorgio Masci",
+    "icon": "/avatars/29.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 30,
+    "name": "Marco De Luca",
+    "icon": "/avatars/30.webp",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 31,
+    "name": "Amedeo D'Amelio",
+    "icon": "/avatars/31.webp",
+    "attack": true,
+    "defense": false
+  },
+  {
+    "id": 32,
+    "name": "Onofrio Petragallo",
+    "icon": "",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 34,
+    "name": "Gianni Labarile",
+    "icon": "",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 36,
+    "name": "Giuseppe Larato",
+    "icon": "",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 40,
+    "name": "Gianni Nitti",
+    "icon": "",
+    "attack": true,
+    "defense": true
+  },
+  {
+    "id": 41,
+    "name": "Angela Tragni",
+    "icon": "",
+    "attack": false,
+    "defense": true
+  },
+  {
+    "id": 43,
+    "name": "Michele Morisco",
+    "icon": "",
+    "attack": false,
+    "defense": true
+  },
+  {
+    "id": 46,
+    "name": "Vincenzo Mizzi",
+    "icon": "",
+    "attack": true,
+    "defense": true
+  }
+]

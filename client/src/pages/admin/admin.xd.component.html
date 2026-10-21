@@ -1,0 +1,90 @@
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
+
+<section class="card intro">
+  <div>
+    <h1>
+      <app-icon name="shield-check" />
+      Ruoli
+    </h1>
+    <p class="muted">Cambia i ruoli di chiunque, senza il limite di un cambio al giorno. Ogni modifica è salvata subito.</p>
+  </div>
+  <input type="search" class="search" placeholder="Cerca un giocatore…" aria-label="Cerca un giocatore" (input)="search($event)" />
+</section>
+
+@if (error()) {
+  <p class="error">{ error() }</p>
+}
+
+@if (loading()) {
+  <p class="muted">Caricamento…</p>
+} @else {
+  <section class="card grid">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Giocatore</th>
+            <th class="cell">
+              <app-icon class="attack" name="attack" />
+              Attacco
+            </th>
+            <th class="cell">
+              <app-icon class="defense" name="defense" />
+              Difesa
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (player of rows(); track player().id) {
+            <tr>
+              <td>
+                <span class="player">
+                  <player-avatar icon="{player().icon}" label="{player().name}" size="sm" />
+                  <span class="name">{ player().name }</span>
+                </span>
+              </td>
+              <td class="cell">
+                <button
+                  @if (isSaving(player().id)) {
+                    disabled
+                  }
+                  type="button"
+                  class="toggle attack"
+                  [class.on]="{player().attack}"
+                  aria-pressed="{String(player().attack)}"
+                  aria-label="{`${player().name}, attacco`}"
+                  (click)="toggle(player(), 'attack')"
+                >
+                  @if (player().attack) {
+                    <app-icon name="check" />
+                  }
+                </button>
+              </td>
+              <td class="cell">
+                <button
+                  @if (isSaving(player().id)) {
+                    disabled
+                  }
+                  type="button"
+                  class="toggle defense"
+                  [class.on]="{player().defense}"
+                  aria-pressed="{String(player().defense)}"
+                  aria-label="{`${player().name}, difesa`}"
+                  (click)="toggle(player(), 'defense')"
+                >
+                  @if (player().defense) {
+                    <app-icon name="check" />
+                  }
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (!rows().length) {
+      <p class="muted empty">Nessun giocatore con questo nome.</p>
+    }
+  </section>
+}

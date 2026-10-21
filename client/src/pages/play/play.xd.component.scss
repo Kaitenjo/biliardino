@@ -1,0 +1,407 @@
+@use '../../styles/mixins';
+
+:host {
+  @include mixins.page;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.card {
+  @include mixins.card;
+
+  padding: 1.25rem;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+// Players
+
+.picker {
+  position: sticky;
+  top: 5rem;
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.count {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+
+  strong {
+    color: var(--primary);
+    font-size: 1.05rem;
+  }
+}
+
+.priority-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.3rem;
+  color: var(--warning);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.9rem 0 0.4rem;
+}
+
+.chip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--surface-alt);
+  }
+}
+
+.hint-star {
+  color: var(--warning);
+}
+
+.hint {
+  margin: 0 0 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.players {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(12.5rem, 100%), 1fr));
+  gap: 0.45rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 0.2rem;
+}
+
+.player {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.6rem;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: var(--surface-alt);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background-color 0.12s;
+
+  &:hover {
+    border-color: var(--border);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+  }
+
+  &.queue {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+  }
+
+  &.priority {
+    border-color: var(--warning);
+    background: var(--warning-soft);
+
+    .star {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+.player-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+
+  strong {
+    overflow: hidden;
+    font-size: 0.88rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meta-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+
+    &.attack app-icon {
+      color: var(--red);
+    }
+
+    &.defense app-icon {
+      color: var(--blue);
+    }
+  }
+}
+
+.star {
+  color: var(--warning);
+  margin-left: auto;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.generate {
+  @include mixins.button-cta;
+
+  gap: 0.5rem;
+
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.85rem;
+  font-size: 1.05rem;
+}
+
+// Side column
+
+.side {
+  display: grid;
+  gap: 1rem;
+}
+
+.rules {
+  padding: 0.9rem 1.25rem;
+
+  // A drawn chevron replaces the marker, which a flex summary loses
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+    font-weight: 800;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: '';
+      width: 0.45rem;
+      height: 0.45rem;
+      margin-left: auto;
+      border-right: 2px solid var(--text-muted);
+      border-bottom: 2px solid var(--text-muted);
+      transform: rotate(45deg);
+      transition: transform 0.15s;
+    }
+  }
+
+  &[open] summary::after {
+    transform: rotate(-135deg);
+  }
+
+  summary {
+    cursor: pointer;
+  }
+
+  ul {
+    margin: 0.75rem 0 0;
+    padding-left: 1.2rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+}
+
+.error {
+  @include mixins.error;
+}
+
+.saved {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-color: color-mix(in srgb, var(--win) 35%, transparent);
+  background: linear-gradient(135deg, var(--win-soft), var(--surface));
+
+  p {
+    margin: 0.2rem 0 0;
+  }
+
+  .red {
+    color: var(--red);
+    font-weight: 800;
+  }
+
+  .blue {
+    color: var(--blue);
+    font-weight: 800;
+  }
+}
+
+.saved-icon {
+  color: var(--gold);
+  font-size: 2.2rem;
+}
+
+.match-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.drop {
+  @include mixins.button-ghost;
+
+  padding: 0.4rem 0.8rem;
+  color: var(--loss);
+  font-size: 0.85rem;
+}
+
+.score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+
+  label {
+    @include mixins.field;
+
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .red {
+    color: var(--red);
+  }
+
+  .blue {
+    color: var(--blue);
+  }
+
+  input {
+    width: 5.5rem;
+    font-size: 1.6rem;
+    font-weight: 800;
+    text-align: center;
+    appearance: textfield;
+
+    // No up/down arrows: the score is typed
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      margin: 0;
+      appearance: none;
+    }
+  }
+}
+
+.dash {
+  padding-bottom: 0.55rem;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+}
+
+.save {
+  @include mixins.button;
+
+  margin-left: auto;
+  padding: 0.8rem 1.2rem;
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.5rem;
+  color: var(--text-muted);
+  text-align: center;
+
+  .empty-icon {
+    color: var(--primary);
+    font-size: 2.5rem;
+  }
+
+  p {
+    margin: 0;
+    max-width: 24rem;
+  }
+}
+
+@media (max-width: 900px) {
+  :host {
+    grid-template-columns: 1fr;
+  }
+
+  .picker {
+    position: static;
+  }
+
+  .players {
+    max-height: none;
+  }
+}
+
+// Somebody else generated a match in the meantime: the question to answer before overwriting it
+.conflict {
+  display: flex;
+  gap: 0.9rem;
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  background: linear-gradient(135deg, var(--warning-soft), var(--surface));
+}
+
+.conflict-icon {
+  flex: none;
+  color: var(--warning);
+  font-size: 1.7rem;
+}
+
+.conflict-body {
+  display: grid;
+  gap: 0.35rem;
+
+  strong {
+    font-size: 1.05rem;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.conflict-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

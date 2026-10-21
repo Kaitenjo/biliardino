@@ -1,0 +1,27 @@
+{
+  "name": "biliardino",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "xd build",
+    "start": "xd start",
+    "test": "xd test",
+    "xd": "xd"
+  },
+  "dependencies": {
+    "@xaendar/core": "^1.0.0",
+    "@xaendar/signals": "^1.0.0",
+    "@xaendar/types": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^8.0.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "@xaendar/cli": "^1.0.0",
+    "happy-dom": "^20.14.6",
+    "sass": "^1.105.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

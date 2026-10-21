@@ -1,0 +1,39 @@
+@import { user } from '../../core/auth/session.ts'
+
+<section class="card">
+  @if (user()) {
+    <h1>Ciao { user()?.name }!</h1>
+    <p class="muted">Hai già effettuato il login.</p>
+    <a class="primary" href="#/">Vai alla classifica</a>
+  } @else {
+    <h1>Login</h1>
+    <p class="muted">Entra per creare partite e cambiare la tua password.</p>
+    <form novalidate (submit)="submit($event, playerField.value, passwordField.value)">
+      <label>
+        Giocatore
+        <select #playerField autocomplete="username">
+          <option value="" disabled selected>Scegli chi sei…</option>
+          @for (player of players(); track player().id) {
+            <option value="{player().name}">{ player().name }</option>
+          }
+        </select>
+      </label>
+      <label>
+        Password
+        <input #passwordField type="password" autocomplete="current-password" />
+      </label>
+      @if (error()) {
+        <p class="error">{ error() }</p>
+      }
+      <button
+        @if (busy()) {
+          disabled
+        }
+        type="submit"
+        class="primary"
+      >
+        Entra
+      </button>
+    </form>
+  }
+</section>

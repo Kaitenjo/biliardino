@@ -1,0 +1,40 @@
+@use '../../styles/mixins';
+
+:host {
+  @include mixins.page;
+
+  max-width: 26rem;
+  padding-top: 3rem;
+}
+
+.card {
+  @include mixins.card;
+
+  padding: 1.75rem;
+}
+
+h1 {
+  margin: 0 0 0.4rem;
+}
+
+.muted {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}
+
+label {
+  @include mixins.field;
+}
+
+.primary {
+  @include mixins.button;
+}
+
+.error {
+  @include mixins.error;
+}

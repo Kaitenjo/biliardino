@@ -1,0 +1,120 @@
+// Styles shared by the components: page styles don't enter shadow roots, so each component includes what it uses.
+
+@mixin card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+@mixin button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.08s;
+
+  &:hover {
+    background: var(--primary-strong);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  &[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// The call to action, a glowing red
+@mixin button-cta {
+  @include button;
+
+  background: linear-gradient(135deg, var(--cta), var(--cta-strong));
+  color: var(--on-primary);
+
+  &:hover {
+    background: linear-gradient(135deg, var(--primary-strong), var(--primary));
+  }
+}
+
+@mixin button-ghost {
+  @include button;
+
+  border-color: var(--border);
+  background: var(--surface-solid);
+  color: var(--text);
+
+  &:hover {
+    background: var(--surface-alt);
+  }
+}
+
+@mixin field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+
+  input,
+  select {
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-solid);
+    color: var(--text);
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 500;
+
+    &:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: -1px;
+    }
+  }
+}
+
+@mixin page {
+  display: block;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+@mixin section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid var(--primary);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+@mixin error {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: var(--red-soft);
+  color: var(--loss);
+  font-weight: 600;
+}

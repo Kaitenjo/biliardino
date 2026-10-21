@@ -1,0 +1,45 @@
+@import { user } from '../../core/auth/session.ts'
+@import { isProtectedRoute, routeName } from '../../core/router/router.ts'
+@import { AdminPage } from '../../pages/admin/admin.xd.component.ts'
+@import { AvailabilityPage } from '../../pages/availability/availability.xd.component.ts'
+@import { HomePage } from '../../pages/home/home.xd.component.ts'
+@import { LoginPage } from '../../pages/login/login.xd.component.ts'
+@import { PlayPage } from '../../pages/play/play.xd.component.ts'
+@import { NotFoundPage } from '../../pages/not-found/not-found.xd.component.ts'
+@import { PlayerDetailPage } from '../../pages/player-detail/player-detail.xd.component.ts'
+@import { ProfilePage } from '../../pages/profile/profile.xd.component.ts'
+
+@if (isProtectedRoute() && !user()) {
+  <page-login />
+} @else {
+  @switch (routeName()) {
+    @case ('home') {
+      <page-home />
+    }
+    @case ('player') {
+      <page-player-detail />
+    }
+    @case ('new-match') {
+      <page-play />
+    }
+    @case ('roles') {
+      @if (user()?.isAdmin) {
+        <page-admin />
+      } @else {
+        <page-not-found />
+      }
+    }
+    @case ('availability') {
+      <page-availability />
+    }
+    @case ('login') {
+      <page-login />
+    }
+    @case ('profile') {
+      <page-profile />
+    }
+    @default {
+      <page-not-found />
+    }
+  }
+}

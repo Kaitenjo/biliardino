@@ -1,0 +1,70 @@
+:root {
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --bg: #070708;
+  // Red from the top down to the middle of the screen, then black
+  --bg-gradient:
+    radial-gradient(ellipse 110% 60% at 50% -5%, rgb(229 25 45 / 5%), transparent 70%),
+    linear-gradient(180deg, #3d0910 0%, #1e050a 15%, #0a0204 55%, #050506 100%);
+  --surface: rgb(21 21 24 / 86%);
+  --surface-solid: #151518;
+  --surface-alt: #1f1f23;
+  --border: rgb(255 255 255 / 8%);
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --primary: #e5192d;
+  --primary-strong: #ff3446;
+  --primary-soft: #2a0f13;
+  --on-primary: #ffffff;
+  --cta: #ff2a3d;
+  --cta-strong: #a50016;
+  --glow: rgb(229 25 45 / 35%);
+  --line: rgb(255 255 255 / 4%);
+  --red: #ff4655;
+  --red-soft: #2b1014;
+  --blue: #5b9bff;
+  --blue-soft: #101a2c;
+  --win: #22c55e;
+  --win-soft: rgb(34 197 94 / 13%);
+  --loss: #ff4655;
+  --loss-soft: rgb(255 70 85 / 12%);
+  --gold: #f4c542;
+  --gold-soft: #262010;
+  --silver: #b8bec7;
+  --silver-soft: #1d1f24;
+  --bronze: #cd8a55;
+  --bronze-soft: #261a12;
+  --warning: #fbbf24;
+  --warning-soft: #241b0a;
+  --shadow: 0 2px 18px rgb(0 0 0 / 45%);
+  --shadow-lg: 0 12px 36px rgb(0 0 0 / 55%);
+  --radius: 18px;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  background:
+    // The rods of a foosball table, barely visible
+    repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 1px), var(--line) calc(12.5% - 1px) 12.5%),
+    var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
+}

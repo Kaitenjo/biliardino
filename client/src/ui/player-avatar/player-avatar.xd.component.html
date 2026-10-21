@@ -1,0 +1,14 @@
+@switch (kind()) {
+  @case ('image') {
+    <img src="{icon()}" alt="{label()}" (error)="fail()" />
+  }
+  @case ('emoji') {
+    <span role="img" aria-label="{label()}">{ icon() }</span>
+  }
+  @default {
+    <svg viewBox="0 0 48 48" role="img" aria-label="{label()}">
+      <circle cx="24" cy="17" r="8" />
+      <path d="M8 44c0-9 7-15 16-15s16 6 16 15z" />
+    </svg>
+  }
+}

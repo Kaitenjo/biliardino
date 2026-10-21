@@ -1,0 +1,259 @@
+@use '../../styles/mixins';
+
+:host {
+  @include mixins.page;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  max-width: 900px;
+}
+
+.card {
+  @include mixins.card;
+
+  padding: 1.25rem;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.error {
+  @include mixins.error;
+}
+
+// Introduction
+
+.intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background:
+    radial-gradient(circle at 100% 0%, var(--primary-soft), transparent 60%),
+    var(--surface);
+
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 0.3rem;
+    color: var(--text);
+    font-size: 1.6rem;
+    font-weight: 900;
+  }
+
+  .muted {
+    max-width: 34rem;
+    font-size: 0.9rem;
+  }
+}
+
+.search {
+  flex: 1 1 14rem;
+  max-width: 18rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font: inherit;
+
+  &:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -1px;
+  }
+}
+
+// Players per day
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.day {
+  display: grid;
+  justify-items: center;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-solid);
+
+  span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    font-size: 1.6rem;
+    font-weight: 900;
+  }
+
+  small {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+
+  &.today {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: 0 0 22px var(--glow);
+
+    span,
+    small {
+      color: var(--primary-strong);
+    }
+  }
+}
+
+// Grid
+
+.grid {
+  padding: 0.75rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tr.me td {
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+.cell {
+  width: 4.5rem;
+  text-align: center;
+
+  &.today {
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+}
+
+th.cell.today {
+  color: var(--primary-strong);
+}
+
+.player {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.me-badge {
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-alt);
+  color: var(--on-primary);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, transform 0.08s;
+
+  &:hover {
+    border-color: var(--primary);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  &.on {
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+.empty {
+  padding: 1rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .summary {
+    gap: 0.35rem;
+  }
+
+  .day strong {
+    font-size: 1.25rem;
+  }
+
+  td,
+  th {
+    padding-right: 0.35rem;
+    padding-left: 0.35rem;
+  }
+
+  .cell {
+    width: 2.6rem;
+  }
+
+  .toggle {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+
+  .player player-avatar {
+    display: none;
+  }
+}

@@ -1,0 +1,290 @@
+[
+  {
+    "playerId": 18,
+    "weekday": 1
+  },
+  {
+    "playerId": 26,
+    "weekday": 1
+  },
+  {
+    "playerId": 11,
+    "weekday": 1
+  },
+  {
+    "playerId": 13,
+    "weekday": 1
+  },
+  {
+    "playerId": 22,
+    "weekday": 1
+  },
+  {
+    "playerId": 8,
+    "weekday": 1
+  },
+  {
+    "playerId": 17,
+    "weekday": 1
+  },
+  {
+    "playerId": 6,
+    "weekday": 1
+  },
+  {
+    "playerId": 30,
+    "weekday": 1
+  },
+  {
+    "playerId": 5,
+    "weekday": 1
+  },
+  {
+    "playerId": 14,
+    "weekday": 1
+  },
+  {
+    "playerId": 36,
+    "weekday": 1
+  },
+  {
+    "playerId": 18,
+    "weekday": 2
+  },
+  {
+    "playerId": 26,
+    "weekday": 2
+  },
+  {
+    "playerId": 13,
+    "weekday": 2
+  },
+  {
+    "playerId": 22,
+    "weekday": 2
+  },
+  {
+    "playerId": 8,
+    "weekday": 2
+  },
+  {
+    "playerId": 23,
+    "weekday": 2
+  },
+  {
+    "playerId": 2,
+    "weekday": 2
+  },
+  {
+    "playerId": 12,
+    "weekday": 2
+  },
+  {
+    "playerId": 28,
+    "weekday": 2
+  },
+  {
+    "playerId": 6,
+    "weekday": 2
+  },
+  {
+    "playerId": 19,
+    "weekday": 2
+  },
+  {
+    "playerId": 30,
+    "weekday": 2
+  },
+  {
+    "playerId": 5,
+    "weekday": 2
+  },
+  {
+    "playerId": 14,
+    "weekday": 2
+  },
+  {
+    "playerId": 18,
+    "weekday": 3
+  },
+  {
+    "playerId": 26,
+    "weekday": 3
+  },
+  {
+    "playerId": 11,
+    "weekday": 3
+  },
+  {
+    "playerId": 13,
+    "weekday": 3
+  },
+  {
+    "playerId": 22,
+    "weekday": 3
+  },
+  {
+    "playerId": 8,
+    "weekday": 3
+  },
+  {
+    "playerId": 20,
+    "weekday": 3
+  },
+  {
+    "playerId": 4,
+    "weekday": 3
+  },
+  {
+    "playerId": 6,
+    "weekday": 3
+  },
+  {
+    "playerId": 30,
+    "weekday": 3
+  },
+  {
+    "playerId": 5,
+    "weekday": 3
+  },
+  {
+    "playerId": 14,
+    "weekday": 3
+  },
+  {
+    "playerId": 17,
+    "weekday": 3
+  },
+  {
+    "playerId": 16,
+    "weekday": 3
+  },
+  {
+    "playerId": 36,
+    "weekday": 3
+  },
+  {
+    "playerId": 18,
+    "weekday": 4
+  },
+  {
+    "playerId": 26,
+    "weekday": 4
+  },
+  {
+    "playerId": 13,
+    "weekday": 4
+  },
+  {
+    "playerId": 22,
+    "weekday": 4
+  },
+  {
+    "playerId": 8,
+    "weekday": 4
+  },
+  {
+    "playerId": 23,
+    "weekday": 4
+  },
+  {
+    "playerId": 20,
+    "weekday": 4
+  },
+  {
+    "playerId": 2,
+    "weekday": 4
+  },
+  {
+    "playerId": 12,
+    "weekday": 4
+  },
+  {
+    "playerId": 28,
+    "weekday": 4
+  },
+  {
+    "playerId": 25,
+    "weekday": 4
+  },
+  {
+    "playerId": 31,
+    "weekday": 4
+  },
+  {
+    "playerId": 6,
+    "weekday": 4
+  },
+  {
+    "playerId": 19,
+    "weekday": 4
+  },
+  {
+    "playerId": 30,
+    "weekday": 4
+  },
+  {
+    "playerId": 5,
+    "weekday": 4
+  },
+  {
+    "playerId": 14,
+    "weekday": 4
+  },
+  {
+    "playerId": 18,
+    "weekday": 5
+  },
+  {
+    "playerId": 26,
+    "weekday": 5
+  },
+  {
+    "playerId": 13,
+    "weekday": 5
+  },
+  {
+    "playerId": 22,
+    "weekday": 5
+  },
+  {
+    "playerId": 8,
+    "weekday": 5
+  },
+  {
+    "playerId": 25,
+    "weekday": 5
+  },
+  {
+    "playerId": 17,
+    "weekday": 5
+  },
+  {
+    "playerId": 6,
+    "weekday": 5
+  },
+  {
+    "playerId": 21,
+    "weekday": 5
+  },
+  {
+    "playerId": 30,
+    "weekday": 5
+  },
+  {
+    "playerId": 5,
+    "weekday": 5
+  },
+  {
+    "playerId": 4,
+    "weekday": 5
+  },
+  {
+    "playerId": 14,
+    "weekday": 5
+  },
+  {
+    "playerId": 16,
+    "weekday": 5
+  }
+]

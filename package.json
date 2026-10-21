@@ -1,25 +1,8 @@
 {
-  "name": "biliardino",
-  "version": "0.0.1",
-  "type": "module",
-  "private": true,
   "scripts": {
-    "build": "vite build",
-    "start": "xd start",
-    "test": "vitest",
-    "xd": "xd"
-  },
-  "dependencies": {
-    "@xaendar/core": "^0.12.0",
-    "@xaendar/signals": "^0.12.0",
-    "@xaendar/types": "^0.12.0"
+    "start": "concurrently \"cd client && npm start\" \"cd server && npm start\""
   },
   "devDependencies": {
-    "@babel/plugin-proposal-decorators": "^8.0.2",
-    "@vitest/coverage-v8": "^5.0.1",
-    "@xaendar/cli": "^0.12.0",
-    "typescript": "^6.0.3",
-    "vite": "^8.3.0",
-    "vitest": "^5.0.1"
+    "concurrently": "10.0.6" 
   }
 }

@@ -1,0 +1,77 @@
+@use '../../styles/mixins';
+
+:host {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--surface-alt);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+.name {
+  font-weight: 600;
+}
+
+.caret {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.menu {
+  @include mixins.card;
+
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 11rem;
+  padding: 0.35rem;
+
+  a,
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      background: var(--surface-alt);
+    }
+  }
+}
+
+@media (max-width: 560px) {
+  .name {
+    display: none;
+  }
+}

@@ -1,0 +1,112 @@
+@use '../../styles/mixins';
+
+:host {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: block;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.logo {
+  width: 2.6rem;
+  height: 2.6rem;
+  object-fit: contain;
+  transition: transform 0.2s;
+}
+
+.brand:hover .logo {
+  transform: rotate(-8deg) scale(1.06);
+}
+
+.brand-text {
+  display: grid;
+  line-height: 1.1;
+
+  strong {
+    color: var(--primary);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  small {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+}
+
+nav {
+  display: flex;
+  flex: 1;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-x: auto;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+
+    &.active {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+  }
+}
+
+.login {
+  @include mixins.button;
+}
+
+@media (max-width: 640px) {
+  header {
+    gap: 0.6rem;
+  }
+
+  .brand-text {
+    display: none;
+  }
+
+  nav a {
+    padding: 0.5rem 0.65rem;
+    font-size: 1.1rem;
+  }
+
+  // Only the icons: the names don't fit
+  .label {
+    display: none;
+  }
+}

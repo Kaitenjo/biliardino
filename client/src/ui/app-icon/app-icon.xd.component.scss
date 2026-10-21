@@ -1,0 +1,40 @@
+:host {
+  display: inline-flex;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+}
+
+svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+// Solid parts: the dots of the pad and of the dice, the star, the bolt, the patch of the ball
+.dot,
+.fill {
+  fill: currentColor;
+}
+
+:host([data-name='star']) .fill,
+:host([data-name='zap']) .fill {
+  stroke-width: 1.2;
+}
+
+:host([data-name='medal']) {
+  .fill {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
+  .shine {
+    fill: rgb(0 0 0 / 30%);
+    stroke: none;
+  }
+}

@@ -1,0 +1,167 @@
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { MatchCardComponent } from '../../ui/match-card/match-card.xd.component.ts'
+@import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
+
+<section class="card picker">
+  <header class="picker-head">
+    <h2>Seleziona giocatori</h2>
+    <span class="count">
+      <strong>{ selectedIds().length }</strong>
+      selezionati
+      @if (priorityIds().length) {
+        <span class="priority-count">
+          <app-icon name="star" />
+          { priorityIds().length }
+        </span>
+      }
+    </span>
+  </header>
+  <div class="controls">
+    <button type="button" class="chip-button" (click)="pickToday()">
+      <app-icon name="calendar" />
+      Disponibili oggi
+    </button>
+    <button type="button" class="chip-button" (click)="pickAll()">Tutti</button>
+    <button type="button" class="chip-button" (click)="pickNone()">Nessuno</button>
+  </div>
+  <p class="hint">
+    Un tocco seleziona un giocatore o deseleziona il giocatore. Il tasto destro da la priorità
+    <app-icon class="hint-star" name="star" />
+  </p>
+  <div class="players">
+    @for (player of players(); track player().id) {
+      <button
+        type="button"
+        class="player"
+        [class.queue]="{pickOf(player().id) === 'queue'}"
+        [class.priority]="{pickOf(player().id) === 'priority'}"
+        aria-pressed="{String(pickOf(player().id) !== 'none')}"
+        (click)="cycle(player().id)"
+        (contextmenu)="mustPlay($event, player().id)"
+      >
+        <player-avatar icon="{player().icon}" label="{player().name}" size="sm" />
+        <span class="player-text">
+          <strong>{ player().name }</strong>
+          <span class="meta" title="ELO nei ruoli che gioca">
+            @if (player().playsAttack) {
+              <span class="meta-role attack">
+                <app-icon name="attack" />
+                { player().eloAttack }
+              </span>
+            }
+            @if (player().playsDefense) {
+              <span class="meta-role defense">
+                <app-icon name="defense" />
+                { player().eloDefense }
+              </span>
+            }
+          </span>
+        </span>
+        <app-icon class="star" name="star" />
+      </button>
+    }
+  </div>
+  <button
+    @if (selectedIds().length < 4 || busy() || running()) {
+      disabled
+    }
+    type="button"
+    class="generate"
+    (click)="generate()"
+  >
+    <app-icon name="zap" />
+    Genera partita
+  </button>
+</section>
+
+<div class="side">
+  <details class="card rules">
+    <summary>
+      <app-icon name="book" />
+      Regolamento
+    </summary>
+    <ul>
+      @for (rule of rules; track rule()) {
+        <li>{ rule() }</li>
+      }
+    </ul>
+  </details>
+
+  @if (error()) {
+    <p class="error">{ error() }</p>
+  }
+
+  @if (saved()) {
+    <section class="card saved">
+      <app-icon class="saved-icon" name="trophy" />
+      <div>
+        <strong>Partita salvata!</strong>
+        <p>
+          <span class="red">Rossi { formatDelta(saved()?.redDelta ?? 0) }</span>
+          { ' · ' }
+          <span class="blue">Blu { formatDelta(saved()?.blueDelta ?? 0) }</span>
+          { ' ' }punti ELO a testa.
+        </p>
+      </div>
+    </section>
+  }
+
+  @if (warning()) {
+    <section class="card conflict" role="alert" aria-live="assertive">
+      <app-icon class="conflict-icon" name="alert" />
+      <div class="conflict-body">
+        <p>{ warning() }</p>
+        <p class="conflict-note">La partita attuale è qui sotto: finché non viene salvata o eliminata non se ne può generare un'altra.</p>
+      </div>
+    </section>
+  }
+
+  @for (match of live(); track match().id) {
+    <section class="card match" aria-live="polite">
+      <header class="match-head">
+        <h2>Partita generata</h2>
+        <button
+          @if (busy()) {
+            disabled
+          }
+          type="button"
+          class="drop"
+          (click)="drop()"
+        >
+          <app-icon name="close" />
+          Elimina
+        </button>
+      </header>
+      <match-card match="{match()}">
+        <form class="score" novalidate (submit)="save($event, redScore.valueAsNumber, blueScore.valueAsNumber)">
+          <label class="red">
+            Rossi
+            <input #redScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+          </label>
+          <span class="dash">–</span>
+          <label class="blue">
+            Blu
+            <input #blueScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+          </label>
+          <button
+            @if (busy()) {
+              disabled
+            }
+            type="submit"
+            class="save"
+          >
+            <app-icon name="save" />
+            Salva partita
+          </button>
+        </form>
+      </match-card>
+    </section>
+  }
+
+  @if (!live().length && !saved()) {
+    <section class="card empty">
+      <app-icon class="empty-icon" name="dice" />
+      <p>Seleziona almeno 4 giocatori e premi <strong>Genera partita</strong>: il matchmaking sceglie la sfida più equilibrata.</p>
+    </section>
+  }
+</div>

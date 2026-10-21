@@ -1,0 +1,27 @@
+@import { user } from '../../core/auth/session.ts'
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
+
+<button
+  type="button"
+  class="trigger"
+  aria-haspopup="menu"
+  aria-expanded="{String(expanded())}"
+  (click)="toggle()"
+>
+  <player-avatar icon="{user()?.icon ?? ''}" label="{user()?.name ?? ''}" size="sm" />
+  <span class="name">{ user()?.name }</span>
+  <span class="caret" aria-hidden="true">▾</span>
+</button>
+@if (expanded()) {
+  <div class="menu" role="menu">
+    <a role="menuitem" href="#/profile" (click)="close()">
+      <app-icon name="user" />
+      Profilo
+    </a>
+    <button type="button" role="menuitem" (click)="logOut()">
+      <app-icon name="logout" />
+      Logout
+    </button>
+  </div>
+}

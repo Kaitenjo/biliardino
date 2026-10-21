@@ -1,0 +1,62 @@
+@import { Lineup, MatchOutcome, MatchPlayer } from '../../core/api/api.models.ts'
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
+
+<div class="teams">
+  @render team('Rossi', 'red', match().red, match().redElo)
+  <div class="vs" aria-hidden="true">VS</div>
+  @render team('Blu', 'blue', match().blue, match().blueElo)
+</div>
+<div class="odds" title="Probabilità di vittoria secondo l'ELO">
+  <div class="odds-red" style="{`flex-basis: ${redChance()}%`}">{ redChance() }%</div>
+  <div class="odds-blue">{ 100 - redChance() }%</div>
+</div>
+<div class="outcomes" aria-label="Variazione di ELO per ogni giocatore, a seconda del risultato">
+  @render outcomes('Se vincono i Rossi', 'red', redWins())
+  @render outcomes('Se vincono i Blu', 'blue', blueWins())
+</div>
+<slot />
+
+<template outcomes(title: string, color: string, results: MatchOutcome[])>
+  <div class="{`outcome-group ${color()}`}">
+    <span class="outcome-title">{ title() }</span>
+    @for (result of results(); track result().redScore) {
+      <div class="outcome">
+        <strong class="outcome-score">{ result().redScore }-{ result().blueScore }</strong>
+        <span class="outcome-delta">
+          <span class="red-label">Rossi</span>
+          <b [class.up]="{result().redDelta >= 0}">{ formatDelta(result().redDelta) }</b>
+        </span>
+        <span class="outcome-delta">
+          <span class="blue-label">Blu</span>
+          <b [class.up]="{result().blueDelta >= 0}">{ formatDelta(result().blueDelta) }</b>
+        </span>
+      </div>
+    }
+  </div>
+</template>
+
+<template team(label: string, color: string, lineup: Lineup<MatchPlayer>, elo: number)>
+  <div class="{`team ${color()}`}">
+    <header>
+      <h3>{ label() }</h3>
+      <span class="team-elo">ELO { elo() }</span>
+    </header>
+    @render seat('defense', 'Difesa', lineup().defense)
+    @render seat('attack', 'Attacco', lineup().attack)
+  </div>
+</template>
+
+<template seat(icon: string, role: string, player: MatchPlayer)>
+  <a class="seat" href="{`#/players/${player().id}`}">
+    <player-avatar icon="{player().icon}" label="{player().name}" size="lg" />
+    <span class="seat-text">
+      <span class="role">
+        <app-icon name="{icon()}" />
+        { role() }
+      </span>
+      <strong>{ player().name }</strong>
+      <span class="seat-elo">ELO { player().roleElo }</span>
+    </span>
+  </a>
+</template>
