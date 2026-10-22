@@ -10,18 +10,21 @@
     "xd": "xd"
   },
   "dependencies": {
-    "@xaendar/core": "^1.0.0",
-    "@xaendar/signals": "^1.0.0",
-    "@xaendar/types": "^1.0.0"
+    "@xaendar/core": "^1.0.4",
+    "@xaendar/signals": "^1.0.4",
+    "@xaendar/types": "^1.0.4"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@vitest/coverage-v8": "^5.0.5",
-    "@xaendar/cli": "^1.0.0",
-    "happy-dom": "^20.14.6",
-    "sass": "^1.105.2",
+    "@xaendar/cli": "^1.0.4",
+    "happy-dom": "^21.0.4",
+    "sass": "^1.106.1",
     "typescript": "^6.0.3",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

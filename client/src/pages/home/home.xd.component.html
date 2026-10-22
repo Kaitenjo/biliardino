@@ -54,13 +54,13 @@
   </svg>
 </section>
 
-@if (match()) {
+@if (running()) {
   <section class="card live">
     <h2>
       <span class="live-dot" aria-hidden="true" />
       Partita in corso
     </h2>
-    <match-card match="{match()}" />
+    <match-card match="{running()!}" />
   </section>
 }
 

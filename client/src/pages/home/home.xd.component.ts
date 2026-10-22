@@ -79,10 +79,6 @@ export class HomePage extends CustomElement {
    */
   public readonly podium = computed(() => this._computePodium());
   /**
-   * The match being played, as a list of at most one item, so that the template reads it without `null`.
-   */
-  public readonly match = computed(() => this._computeMatch());
-  /**
    * How many matches were played.
    */
   public readonly totalMatches = computed(() => this._computeTotalMatches());
@@ -327,15 +323,6 @@ export class HomePage extends CustomElement {
     }
 
     return places;
-  }
-
-  /**
-   * Computes the value of `live`.
-   *
-   * @returns The match being played, or none.
-   */
-  private _computeMatch(): RunningMatch {
-    return this.running() ?? null as unknown as RunningMatch
   }
 
   /**
