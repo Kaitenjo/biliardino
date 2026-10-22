@@ -90,6 +90,10 @@ export interface RatedPlayer extends PlayerSummary {
    * ELO in defence, not rounded.
    */
   eloDefense: number;
+  /**
+   * Matches played in the role it plays in the match.
+   */
+  roleMatches: number;
 }
 
 /**
@@ -131,15 +135,15 @@ interface RunningRow {
  *
  * @returns The match, `null` when there is none.
  */
-export function getRunningMatch(): MatchView | null {
-  const row = get<RunningRow>(
+export async function getRunningMatch(): Promise<MatchView | null> {
+  const row = await get<RunningRow>(
     `SELECT r.id, r.red_attack AS redAttack, r.red_defense AS redDefense, r.blue_attack AS blueAttack,
        r.blue_defense AS blueDefense, r.created_at AS createdAt, p.name AS generatedBy
      FROM running_match r
      LEFT JOIN users u ON u.id = r.created_by
      LEFT JOIN players p ON p.id = u.player_id`
   );
-  return row ? viewOf(row) : null;
+  return row ? await viewOf(row) : null;
 }
 
 /**
@@ -150,9 +154,9 @@ export function getRunningMatch(): MatchView | null {
  * @param userId - The user who generated it.
  * @returns The new match to play, `null` when somebody else stored one in the meantime (the table holds only one).
  */
-export function setRunningMatch(red: Lineup<number>, blue: Lineup<number>, userId: number): MatchView | null {
+export async function setRunningMatch(red: Lineup<number>, blue: Lineup<number>, userId: number): Promise<MatchView | null> {
   try {
-    run(
+    await run(
       'INSERT INTO running_match (red_attack, red_defense, blue_attack, blue_defense, created_by) VALUES (?, ?, ?, ?, ?)',
       red.attack,
       red.defense,
@@ -171,8 +175,8 @@ export function setRunningMatch(red: Lineup<number>, blue: Lineup<number>, userI
 /**
  * Deletes the match to play: a new one can be generated, or its result saved.
  */
-export function clearRunningMatch(): void {
-  run('DELETE FROM running_match');
+export async function clearRunningMatch(): Promise<void> {
+  await run('DELETE FROM running_match');
 }
 
 /**
@@ -181,13 +185,19 @@ export function clearRunningMatch(): void {
  * @param row - The row of the match.
  * @returns The view, `null` when one of its players doesn't exist anymore.
  */
-function viewOf(row: RunningRow): MatchView | null {
-  const red = { attack: findRatedPlayer(row.redAttack), defense: findRatedPlayer(row.redDefense) };
-  const blue = { attack: findRatedPlayer(row.blueAttack), defense: findRatedPlayer(row.blueDefense) };
-  if (!red.attack || !red.defense || !blue.attack || !blue.defense) {
+async function viewOf(row: RunningRow): Promise<MatchView | null> {
+  const [redAttack, redDefense, blueAttack, blueDefense] = await Promise.all([
+    findRatedPlayer(row.redAttack, 'attack'),
+    findRatedPlayer(row.redDefense, 'defense'),
+    findRatedPlayer(row.blueAttack, 'attack'),
+    findRatedPlayer(row.blueDefense, 'defense')
+  ]);
+  if (!redAttack || !redDefense || !blueAttack || !blueDefense) {
     return null;
   }
 
+  const red = { attack: redAttack, defense: redDefense };
+  const blue = { attack: blueAttack, defense: blueDefense };
   const redElo = (red.attack.eloAttack + red.defense.eloDefense) / 2;
   const blueElo = (blue.attack.eloAttack + blue.defense.eloDefense) / 2;
   const redPlayers = { attack: toEloPlayer(red.attack, 'attack'), defense: toEloPlayer(red.defense, 'defense') };
@@ -228,19 +238,22 @@ function roundAwayFromZero(value: number): number {
  * @returns The player in the role.
  */
 function toEloPlayer(player: RatedPlayer, role: Role): EloPlayer {
-  const matches = get<{ count: number }>('SELECT COUNT(*) AS count FROM match_players WHERE player_id = ? AND role = ?', player.id, role);
-  return { elo: role === 'attack' ? player.eloAttack : player.eloDefense, matches: matches?.count ?? 0 };
+  return { elo: role === 'attack' ? player.eloAttack : player.eloDefense, matches: player.roleMatches };
 }
 
 /**
- * Loads a player with its two ELOs.
+ * Loads a player with its two ELOs and the matches it played in a role.
  *
  * @param id - Its id.
+ * @param role - The role.
  * @returns The player, `undefined` when it doesn't exist anymore.
  */
-function findRatedPlayer(id: number): RatedPlayer | undefined {
-  const player = get<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number }>(
-    'SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense FROM players WHERE id = ?',
+async function findRatedPlayer(id: number, role: Role): Promise<RatedPlayer | undefined> {
+  const player = await get<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; roleMatches: number }>(
+    `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense,
+       (SELECT COUNT(*) FROM match_players WHERE player_id = players.id AND role = ?) AS roleMatches
+     FROM players WHERE id = ?`,
+    role,
     id
   );
   return player && { ...player, elo: Math.round(Math.max(player.eloAttack, player.eloDefense)) };

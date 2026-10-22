@@ -333,12 +333,15 @@ const FORM_LENGTH = 5;
  * ones who did, while the pages that pick a player (login, play, availability) need everybody.
  * @returns The players, by ELO.
  */
-export function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): LeaderboardEntry[] {
-  const players = all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number }>(
-    `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense
-     FROM players`
-  );
-  const weekdays = loadWeekdays();
+export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): Promise<LeaderboardEntry[]> {
+  const [players, weekdays, rows] = await Promise.all([
+    all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number }>(
+      `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense
+       FROM players`
+    ),
+    loadWeekdays(),
+    loadMatchRows()
+  ]);
   const entries = new Map<number, LeaderboardEntry>();
   const exactElos = new Map<number, Lineup<number>>();
   for (let i = 0; i < players.length; i++) {
@@ -366,7 +369,6 @@ export function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): L
     });
   }
 
-  const rows = loadMatchRows();
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const entry = entries.get(row.playerId);
@@ -459,8 +461,8 @@ function rankingElo(elos: Lineup<number>, entry: LeaderboardEntry, by: RankingMo
  * @param id - The id of the player.
  * @returns The player, its statistics, its ELO history and its matches; `undefined` when it doesn't exist.
  */
-export function findPlayerDetail(id: number): PlayerDetail | undefined {
-  const leaderboard = listLeaderboard();
+export async function findPlayerDetail(id: number): Promise<PlayerDetail | undefined> {
+  const [leaderboard, rows] = await Promise.all([listLeaderboard(), loadMatchRows()]);
   const player = leaderboard.find(entry => entry.id === id);
   if (!player) {
     return undefined;
@@ -472,7 +474,6 @@ export function findPlayerDetail(id: number): PlayerDetail | undefined {
     refs.set(refId, { id: refId, name, icon });
   }
 
-  const rows = loadMatchRows();
   const byMatch = new Map<number, MatchRow[]>();
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
@@ -673,7 +674,7 @@ function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<
  *
  * @returns The rows.
  */
-function loadMatchRows(): MatchRow[] {
+function loadMatchRows(): Promise<MatchRow[]> {
   return all(
     `SELECT m.id AS matchId, m.played_at AS playedAt, m.red_score AS redScore, m.blue_score AS blueScore, m.winner,
        m.red_expected AS redExpected, mp.player_id AS playerId, mp.team, mp.role,
@@ -688,9 +689,9 @@ function loadMatchRows(): MatchRow[] {
  *
  * @returns The days, by player.
  */
-function loadWeekdays(): Map<number, number[]> {
+async function loadWeekdays(): Promise<Map<number, number[]>> {
   const weekdays = new Map<number, number[]>();
-  const rows = all<{ playerId: number; weekday: number }>('SELECT player_id AS playerId, weekday FROM player_availability ORDER BY weekday');
+  const rows = await all<{ playerId: number; weekday: number }>('SELECT player_id AS playerId, weekday FROM player_availability ORDER BY weekday');
   for (let i = 0; i < rows.length; i++) {
     const { playerId, weekday } = rows[i]!;
     const days = weekdays.get(playerId);

@@ -3,14 +3,15 @@
 Classifica e partite di biliardino tra colleghi: l'evoluzione di `biliardino-elo` (Firebase) in un client/server.
 
 - `client/`: Xaendar (web components + signals), Vite
-- `server/`: Express 5 + SQLite (`node:sqlite`, integrato in Node: nessuna dipendenza nativa), TypeScript eseguito direttamente da Node
+- `server/`: Cloudflare Worker con Hono e database D1 (SQLite); serve anche la build del client come static assets
 
 ## Avvio in sviluppo
 
 ```bash
-# terminale 1: API su http://localhost:3000
+# terminale 1: API su http://localhost:3000 (wrangler dev, con un D1 locale in server/.wrangler)
 cd server
 npm install
+npx wrangler d1 migrations apply biliardino --local      # la prima volta: crea le tabelle
 npm run dev
 
 # terminale 2: client su http://localhost:4200 (/api inoltrato al server)
@@ -18,30 +19,40 @@ cd client
 npm start
 ```
 
-Al primo avvio il server crea il database (`server/data/biliardino.db`) e, se non ha giocatori, importa da solo quelli
-del vecchio progetto: per ripartire da zero basta cancellare quel file e riavviare. `npm run seed -- --reset` fa lo stesso
-senza cancellare il file, anche a server spento (partite comprese).
-Tutti partono da 1000 ELO, senza partite.
+Il D1 locale parte vuoto: per avere i dati del vecchio database SQLite (`server/data/biliardino.db`) vedi sotto
+`npm run export-db`, e importa il file con `--local` al posto di `--remote`.
 
-In produzione: `npm run build` in `client/`, poi `npm start` in `server/`, che serve anche `client/dist`.
+## Deploy su Cloudflare
 
-Variabili del server: `PORT` (3000), `DB_PATH` (`server/data/biliardino.db`).
+Un solo Worker: le richieste che corrispondono a un file di `client/dist` le servono gli static assets, le altre (`/api`)
+arrivano al Worker. Tutti i comandi vanno lanciati in `server/`.
 
-## Dati importati dal vecchio progetto
+La prima volta:
 
-[server/seed/](server/seed) contiene i giocatori esportati (in sola lettura) dalla collezione Firestore `playersShark`,
-con gli stessi ID, e la vecchia lista delle disponibilità per giorno; le vecchie partite non sono importate:
+```bash
+npx wrangler login
+npx wrangler d1 create biliardino                                   # copia l'id stampato in wrangler.jsonc (database_id)
+npx wrangler d1 migrations apply biliardino --remote                # crea le tabelle
+npm run export-db                                                   # dati del vecchio SQLite → data/d1-import.sql
+npx wrangler d1 execute biliardino --remote --file data/d1-import.sql
+```
 
-- 31 giocatori con nome e ruoli giocati, ricavati dalla vecchia predisposizione alla difesa: 0 → solo attacco,
-  100 → solo difesa, altrimenti entrambi (9 giocatori dell'export sono stati tolti dall'elenco);
-- gli avatar in [client/public/avatars](client/public/avatars), `<id>.webp`; chi non ne ha mostra una sagoma;
-- ELO iniziale 1000 per tutti, come nel vecchio progetto;
-- 3 nomi della lista disponibilità (Salvatore Defino, Loris Bevilacqua, Ilenia Taccogna) non sono più tra i giocatori.
+Poi, a ogni rilascio, `npm run deploy`: builda il client e pubblica il Worker. Con il deploy da Git di Cloudflare
+(Workers Builds) imposta la root directory `server`, come build command
+`npm --prefix ../client ci && npm --prefix ../client run build` e come deploy command `npx wrangler deploy`.
+
+Le modifiche allo schema vanno in un nuovo file di [server/migrations/](server/migrations), applicato con
+`npx wrangler d1 migrations apply biliardino --remote`. Dopo una modifica a `wrangler.jsonc`, `npm run types` rigenera
+`worker-configuration.d.ts`.
+
+Le password sono hash scrypt, verificati dal Worker al login e al cambio password: circa 30 ms di CPU, oltre i 10 ms per
+richiesta del piano gratuito dei Workers, quindi per quelle richieste serve il piano a pagamento (Workers Paid).
 
 ## Giocatori e utenti
 
 Non c'è registrazione. Ogni giocatore ha un utente, che ne riusa nome e icona e ha in più la password.
-Per aggiungerne uno (la password va salvata come hash, quindi meglio lo script che un INSERT a mano):
+Per aggiungerne uno (la password va salvata come hash, quindi meglio lo script che un INSERT a mano); lo script
+scrive nel D1 remoto, o in quello locale con `--local`:
 
 ```bash
 cd server
@@ -49,18 +60,21 @@ npm run add-player -- "Mario Rossi" /avatars/50.webp passwordiniziale         # 
 npm run add-player -- "Anna Bianchi" "" pwd 1000 D                             # senza avatar, solo difesa
 ```
 
+Gli avatar sono in [client/public/avatars](client/public/avatars), `<id>.webp`; chi non ne ha mostra una sagoma.
+
 Le disponibilità per giorno si gestiscono dalla pagina **📅 Disponibilità** (con login): una griglia giocatori ×
 lunedì–venerdì, un tocco per casella; la pagina Gioca preseleziona i disponibili di oggi.
 
 I ruoli giocati (attacco, difesa o entrambi) e la password li sceglie ogni utente dal **profilo**.
 
-Nome, icona e `start_elo` si possono poi cambiare direttamente nel DB, così come le partite in
-`matches`/`match_players`: all'avvio il server ricalcola tutti gli ELO. Le colonne `elo_attack` ed `elo_defense` sono
-derivate, non vanno toccate.
+Nome, icona e `start_elo` si possono poi cambiare direttamente nel DB
+(`npx wrangler d1 execute biliardino --remote --command "…"`), così come le partite in `matches`/`match_players`: gli ELO
+sono ricalcolati alla successiva partita salvata. Le colonne `elo_attack` ed `elo_defense` sono derivate, non vanno
+toccate.
 
 ## Database
 
-Schema in [server/src/db/schema.sql](server/src/db/schema.sql), applicato all'avvio:
+Schema in [server/migrations/0001_init.sql](server/migrations/0001_init.sql):
 
 | Tabella | Contenuto |
 | --- | --- |
@@ -119,7 +133,7 @@ i ruoli in cui ha giocato); i pulsanti Attacco e Difesa mostrano la classifica p
 delle sole partite in quel ruolo. Compare solo chi ha almeno una partita (nel ruolo).
 
 Come nel vecchio client, gli ELO si ottengono rigiocando tutte le partite in ordine dall'ELO iniziale
-([ratings.ts](server/src/elo/ratings.ts)): all'avvio del server e a ogni partita salvata. Le statistiche della pagina
+([ratings.ts](server/src/elo/ratings.ts)), a ogni partita salvata. Le statistiche della pagina
 giocatore (streak, compagni e avversari, partite migliori e peggiori, goal) sono il porting di `stats.service.ts`.
 
 ## API

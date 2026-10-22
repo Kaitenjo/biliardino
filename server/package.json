@@ -4,18 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.ts",
-    "dev": "node --watch src/index.ts",
+    "dev": "node -e \"require('fs').mkdirSync('../client/dist',{recursive:true})\" && wrangler dev",
+    "start": "npm run dev",
+    "deploy": "npm --prefix ../client run build && wrangler deploy",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "types": "wrangler types",
     "add-player": "node scripts/add-player.ts",
-    "seed": "node scripts/seed.ts"
-  },
-  "dependencies": {
-    "express": "^5.3.0"
+    "export-db": "node scripts/export-db.ts"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wrangler": "^4.151.3"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
   }
 }

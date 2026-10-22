@@ -1,7 +1,10 @@
-import { Router } from 'express';
-import { createSession, deleteSession, findUserByName, hashPassword, readToken, requireAuth, verifyPassword } from '../auth/auth.ts';
+import { Hono } from 'hono';
+import { createSession, deleteSession, findUserByName, readToken, requireAuth } from '../auth/auth.ts';
+import type { AppEnv } from '../auth/auth.ts';
+import { hashPassword, verifyPassword } from '../auth/password.ts';
 import { get, run } from '../db/db.ts';
 import type { AuthUser } from '../models.ts';
+import { readBody } from './read-body.ts';
 
 /**
  * Minimum length of a new password.
@@ -9,57 +12,65 @@ import type { AuthUser } from '../models.ts';
 const MIN_PASSWORD_LENGTH = 4;
 
 /**
+ * The time zone of the day in which the roles can be changed once.
+ */
+const TIME_ZONE = 'Europe/Rome';
+
+/**
  * Login, logout, current user, password change and the roles the user plays.
  */
-export const authRouter = Router();
+export const authRouter = new Hono<AppEnv>();
 
-authRouter.post('/login', (req, res) => {
-  const { name, password } = req.body ?? {};
-  const found = typeof name === 'string' && typeof password === 'string' ? findUserByName(name.trim()) : undefined;
-  if (!found || !verifyPassword(password, found.passwordHash)) {
-    res.status(401).json({ error: 'Nome o password errati' });
-    return;
+authRouter.post('/login', async c => {
+  const { name, password } = await readBody(c);
+  const found = typeof name === 'string' ? await findUserByName(name.trim()) : undefined;
+  if (!found || typeof password !== 'string' || !verifyPassword(password, found.passwordHash)) {
+    return c.json({ error: 'Nome o password errati' }, 401);
   }
 
   const user: AuthUser = { id: found.id, playerId: found.playerId, name: found.name, icon: found.icon, isAdmin: found.isAdmin };
-  res.json({ token: createSession(user.id), user });
+  return c.json({ token: await createSession(user.id), user });
 });
 
-authRouter.post('/logout', (req, res) => {
-  const token = readToken(req);
+authRouter.post('/logout', async c => {
+  const token = readToken(c.req.header('Authorization'));
   if (token) {
-    deleteSession(token);
+    await deleteSession(token);
   }
 
-  res.status(204).end();
+  return c.body(null, 204);
 });
 
-authRouter.get('/me', requireAuth, (_req, res) => {
-  res.json(res.locals['user']);
-});
+authRouter.get('/me', requireAuth, c => c.json(c.get('user')));
 
-authRouter.put('/password', requireAuth, (req, res) => {
-  const user = res.locals['user'] as AuthUser;
-  const { currentPassword, newPassword } = req.body ?? {};
+authRouter.put('/password', requireAuth, async c => {
+  const user = c.get('user');
+  const { currentPassword, newPassword } = await readBody(c);
   if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
-    res.status(400).json({ error: 'Dati mancanti' });
-    return;
+    return c.json({ error: 'Dati mancanti' }, 400);
   }
 
   if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    res.status(400).json({ error: `La nuova password deve avere almeno ${MIN_PASSWORD_LENGTH} caratteri` });
-    return;
+    return c.json({ error: `La nuova password deve avere almeno ${MIN_PASSWORD_LENGTH} caratteri` }, 400);
   }
 
-  const stored = get<{ passwordHash: string }>('SELECT password_hash AS passwordHash FROM users WHERE id = ?', user.id);
+  const stored = await get<{ passwordHash: string }>('SELECT password_hash AS passwordHash FROM users WHERE id = ?', user.id);
   if (!stored || !verifyPassword(currentPassword, stored.passwordHash)) {
-    res.status(400).json({ error: 'La password attuale non è corretta' });
-    return;
+    return c.json({ error: 'La password attuale non è corretta' }, 400);
   }
 
-  run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(newPassword), user.id);
-  res.status(204).end();
+  await run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(newPassword), user.id);
+  return c.body(null, 204);
 });
+
+/**
+ * Today in Italy: D1 knows only UTC.
+ *
+ * @returns The date, `YYYY-MM-DD`.
+ */
+function today(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date());
+}
 
 /**
  * The roles of a player and whether they can be changed today: they can, once a day.
@@ -67,43 +78,37 @@ authRouter.put('/password', requireAuth, (req, res) => {
  * @param playerId - The id of the player.
  * @returns The roles, `locked` when they were already changed today.
  */
-function readRoles(playerId: number): { attack: boolean; defense: boolean; locked: boolean } {
-  const row = get<{ attack: number; defense: number; locked: number }>(
-    `SELECT plays_attack AS attack, plays_defense AS defense, COALESCE(roles_changed_on = date('now', 'localtime'), 0) AS locked
-     FROM players WHERE id = ?`,
+async function readRoles(playerId: number): Promise<{ attack: boolean; defense: boolean; locked: boolean }> {
+  const row = await get<{ attack: number; defense: number; locked: number }>(
+    'SELECT plays_attack AS attack, plays_defense AS defense, COALESCE(roles_changed_on = ?, 0) AS locked FROM players WHERE id = ?',
+    today(),
     playerId
   );
   return { attack: Boolean(row?.attack), defense: Boolean(row?.defense), locked: Boolean(row?.locked) };
 }
 
-authRouter.get('/roles', requireAuth, (_req, res) => {
-  res.json(readRoles((res.locals['user'] as AuthUser).playerId));
-});
+authRouter.get('/roles', requireAuth, async c => c.json(await readRoles(c.get('user').playerId)));
 
-authRouter.put('/roles', requireAuth, (req, res) => {
-  const user = res.locals['user'] as AuthUser;
-  const { attack, defense } = req.body ?? {};
+authRouter.put('/roles', requireAuth, async c => {
+  const user = c.get('user');
+  const { attack, defense } = await readBody(c);
   if (typeof attack !== 'boolean' || typeof defense !== 'boolean') {
-    res.status(400).json({ error: 'Dati mancanti' });
-    return;
+    return c.json({ error: 'Dati mancanti' }, 400);
   }
 
   if (!attack && !defense) {
-    res.status(400).json({ error: 'Scegli almeno un ruolo' });
-    return;
+    return c.json({ error: 'Scegli almeno un ruolo' }, 400);
   }
 
-  const current = readRoles(user.playerId);
+  const current = await readRoles(user.playerId);
   if (attack === current.attack && defense === current.defense) {
-    res.json(current);
-    return;
+    return c.json(current);
   }
 
   if (current.locked) {
-    res.status(429).json({ error: 'Hai già cambiato ruolo oggi: potrai farlo di nuovo domani' });
-    return;
+    return c.json({ error: 'Hai già cambiato ruolo oggi: potrai farlo di nuovo domani' }, 429);
   }
 
-  run("UPDATE players SET plays_attack = ?, plays_defense = ?, roles_changed_on = date('now', 'localtime') WHERE id = ?", attack ? 1 : 0, defense ? 1 : 0, user.playerId);
-  res.json(readRoles(user.playerId));
+  await run('UPDATE players SET plays_attack = ?, plays_defense = ?, roles_changed_on = ? WHERE id = ?', attack ? 1 : 0, defense ? 1 : 0, today(), user.playerId);
+  return c.json(await readRoles(user.playerId));
 });

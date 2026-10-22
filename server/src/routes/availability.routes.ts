@@ -1,33 +1,30 @@
-import { Router } from 'express';
+import { Hono } from 'hono';
 import { requireAuth } from '../auth/auth.ts';
-import { db, get, transaction } from '../db/db.ts';
+import type { AppEnv } from '../auth/auth.ts';
+import { batch, get, statement } from '../db/db.ts';
+import { readBody } from './read-body.ts';
 
 /**
  * The days of the week each player is usually available. They are read with the leaderboard (`weekdays`).
  */
-export const availabilityRouter = Router();
+export const availabilityRouter = new Hono<AppEnv>();
 
-availabilityRouter.put('/:playerId', requireAuth, (req, res) => {
-  const playerId = Number(req.params.playerId);
-  const weekdays: unknown = req.body?.weekdays;
-  if (!Number.isInteger(playerId) || !get('SELECT 1 FROM players WHERE id = ?', playerId)) {
-    res.status(404).json({ error: 'Giocatore non trovato' });
-    return;
+availabilityRouter.put('/:playerId', requireAuth, async c => {
+  const playerId = Number(c.req.param('playerId'));
+  const { weekdays } = await readBody(c);
+  if (!Number.isInteger(playerId) || !(await get('SELECT 1 FROM players WHERE id = ?', playerId))) {
+    return c.json({ error: 'Giocatore non trovato' }, 404);
   }
 
   if (!Array.isArray(weekdays) || !weekdays.every(day => Number.isInteger(day) && day >= 0 && day <= 6)) {
-    res.status(400).json({ error: 'I giorni vanno da 0 (domenica) a 6 (sabato)' });
-    return;
+    return c.json({ error: 'I giorni vanno da 0 (domenica) a 6 (sabato)' }, 400);
   }
 
   const days = [...new Set(weekdays as number[])].sort();
-  transaction(() => {
-    db.prepare('DELETE FROM player_availability WHERE player_id = ?').run(playerId);
-    const insert = db.prepare('INSERT INTO player_availability (player_id, weekday) VALUES (?, ?)');
-    for (let i = 0; i < days.length; i++) {
-      insert.run(playerId, days[i]!);
-    }
-  });
+  await batch([
+    statement('DELETE FROM player_availability WHERE player_id = ?', playerId),
+    ...days.map(day => statement('INSERT INTO player_availability (player_id, weekday) VALUES (?, ?)', playerId, day))
+  ]);
 
-  res.json({ playerId, weekdays: days });
+  return c.json({ playerId, weekdays: days });
 });

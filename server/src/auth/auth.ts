@@ -1,34 +1,15 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { NextFunction, Request, Response } from 'express';
+import { randomBytes } from 'node:crypto';
+import { createMiddleware } from 'hono/factory';
 import { get, run } from '../db/db.ts';
 import type { AuthUser } from '../models.ts';
 
 /**
- * Hashes a password with scrypt and a random salt.
- *
- * @param password - The password.
- * @returns `scrypt$<salt>$<hash>`, both hex.
+ * The variables of a request: the logged user, set by `requireAuth`.
  */
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString('hex');
-  return `scrypt$${salt}$${scryptSync(password, salt, 64).toString('hex')}`;
-}
-
-/**
- * Checks a password against a hash made by `hashPassword`.
- *
- * @param password - The password.
- * @param stored - The stored hash.
- * @returns Whether the password matches.
- */
-export function verifyPassword(password: string, stored: string): boolean {
-  const [scheme, salt, hash] = stored.split('$');
-  if (scheme !== 'scrypt' || !salt || !hash) {
-    return false;
-  }
-
-  const expected = Buffer.from(hash, 'hex');
-  return timingSafeEqual(scryptSync(password, salt, expected.length), expected);
+export interface AppEnv {
+  Variables: {
+    user: AuthUser;
+  };
 }
 
 /**
@@ -37,9 +18,9 @@ export function verifyPassword(password: string, stored: string): boolean {
  * @param userId - The id of the user.
  * @returns The token of the session.
  */
-export function createSession(userId: number): string {
+export async function createSession(userId: number): Promise<string> {
   const token = randomBytes(32).toString('hex');
-  run('INSERT INTO sessions (token, user_id) VALUES (?, ?)', token, userId);
+  await run('INSERT INTO sessions (token, user_id) VALUES (?, ?)', token, userId);
   return token;
 }
 
@@ -48,18 +29,17 @@ export function createSession(userId: number): string {
  *
  * @param token - The token of the session.
  */
-export function deleteSession(token: string): void {
-  run('DELETE FROM sessions WHERE token = ?', token);
+export async function deleteSession(token: string): Promise<void> {
+  await run('DELETE FROM sessions WHERE token = ?', token);
 }
 
 /**
  * Reads the bearer token of a request.
  *
- * @param req - The request.
+ * @param header - The `Authorization` header of the request.
  * @returns The token, `undefined` when the request has none.
  */
-export function readToken(req: Request): string | undefined {
-  const header = req.headers.authorization;
+export function readToken(header: string | undefined): string | undefined {
   return header?.startsWith('Bearer ') ? header.slice(7) : undefined;
 }
 
@@ -69,8 +49,8 @@ export function readToken(req: Request): string | undefined {
  * @param name - The name of its player, case insensitive.
  * @returns The user, `undefined` when no player has that name.
  */
-export function findUserByName(name: string): (AuthUser & { passwordHash: string }) | undefined {
-  const user = get<AuthUser & { passwordHash: string }>(
+export async function findUserByName(name: string): Promise<(AuthUser & { passwordHash: string }) | undefined> {
+  const user = await get<AuthUser & { passwordHash: string }>(
     `SELECT u.id, u.player_id AS playerId, p.name, p.icon, p.is_admin AS isAdmin, u.password_hash AS passwordHash
      FROM users u JOIN players p ON p.id = u.player_id
      WHERE p.name = ?`,
@@ -85,8 +65,8 @@ export function findUserByName(name: string): (AuthUser & { passwordHash: string
  * @param token - The token of the session.
  * @returns The user, `undefined` when the token is unknown.
  */
-function findUserByToken(token: string): AuthUser | undefined {
-  const user = get<AuthUser>(
+async function findUserByToken(token: string): Promise<AuthUser | undefined> {
+  const user = await get<AuthUser>(
     `SELECT u.id, u.player_id AS playerId, p.name, p.icon, p.is_admin AS isAdmin
      FROM sessions s JOIN users u ON u.id = s.user_id JOIN players p ON p.id = u.player_id
      WHERE s.token = ?`,
@@ -97,33 +77,25 @@ function findUserByToken(token: string): AuthUser | undefined {
 
 /**
  * Middleware letting through only the super admin. It must come after `requireAuth`.
- *
- * @param _req - The request.
- * @param res - The response.
- * @param next - Passes to the next handler.
  */
-export function requireAdmin(_req: Request, res: Response, next: NextFunction): void {
-  if ((res.locals['user'] as AuthUser | undefined)?.isAdmin) {
-    next();
-  } else {
-    res.status(403).json({ error: "Riservato all'amministratore" });
+export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
+  if (!c.get('user').isAdmin) {
+    return c.json({ error: "Riservato all'amministratore" }, 403);
   }
-}
+
+  await next();
+});
 
 /**
- * Middleware letting through only logged requests, with their user in `res.locals.user`.
- *
- * @param req - The request.
- * @param res - The response.
- * @param next - Passes to the next handler.
+ * Middleware letting through only logged requests, with their user in the `user` variable.
  */
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const token = readToken(req);
-  const user = token ? findUserByToken(token) : undefined;
-  if (user) {
-    res.locals['user'] = user;
-    next();
-  } else {
-    res.status(401).json({ error: 'Login richiesto' });
+export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
+  const token = readToken(c.req.header('Authorization'));
+  const user = token ? await findUserByToken(token) : undefined;
+  if (!user) {
+    return c.json({ error: 'Login richiesto' }, 401);
   }
-}
+
+  c.set('user', user);
+  await next();
+});

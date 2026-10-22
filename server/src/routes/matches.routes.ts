@@ -1,12 +1,14 @@
-import { Router } from 'express';
+import { Hono } from 'hono';
 import { requireAuth } from '../auth/auth.ts';
-import { all, run, transaction } from '../db/db.ts';
+import type { AppEnv } from '../auth/auth.ts';
+import { all, batch, statement } from '../db/db.ts';
 import { recomputeRatings } from '../elo/ratings.ts';
 import { clearRunningMatch, getRunningMatch, setRunningMatch } from '../matches/running-match.ts';
 import type { MatchView } from '../matches/running-match.ts';
 import { loadMatchmakingContext } from '../matchmaking/matchmaking.context.ts';
 import { findBestMatch } from '../matchmaking/matchmaking.ts';
-import type { AuthUser, Lineup, Team } from '../models.ts';
+import type { Lineup, Team } from '../models.ts';
+import { readBody } from './read-body.ts';
 
 /**
  * Goals that win a match: it ends when a team scores them, so one team has exactly this and the other fewer.
@@ -16,122 +18,109 @@ const WINNING_SCORE = 8;
 /**
  * The match to play (only one at a time) and the saving of the results.
  */
-export const matchesRouter = Router();
+export const matchesRouter = new Hono<AppEnv>();
 
-matchesRouter.get('/running', (_req, res) => {
-  res.json(getRunningMatch());
-});
+matchesRouter.get('/running', async c => c.json(await getRunningMatch()));
 
-matchesRouter.post('/generate', requireAuth, (req, res) => {
-  const { playerIds, priorityIds } = req.body ?? {};
+matchesRouter.post('/generate', requireAuth, async c => {
+  const { playerIds, priorityIds } = await readBody(c);
   if (!isIdList(playerIds) || new Set(playerIds).size !== playerIds.length || playerIds.length < 4) {
-    res.status(400).json({ error: 'Seleziona almeno 4 giocatori diversi' });
-    return;
+    return c.json({ error: 'Seleziona almeno 4 giocatori diversi' }, 400);
   }
 
   const priority = priorityIds === undefined ? [] : priorityIds;
   if (!isIdList(priority) || priority.length > 4 || !priority.every(id => playerIds.includes(id))) {
-    res.status(400).json({ error: 'I giocatori con priorità devono essere al massimo 4, tra quelli selezionati' });
-    return;
+    return c.json({ error: 'I giocatori con priorità devono essere al massimo 4, tra quelli selezionati' }, 400);
   }
 
   // One match at a time: a page that doesn't show it (somebody generated it in the meantime) learns it from this answer
-  const running = getRunningMatch();
+  const running = await getRunningMatch();
   if (running) {
-    res.status(409).json(alreadyGenerated(running));
-    return;
+    return c.json(alreadyGenerated(running), 409);
   }
 
-  const context = loadMatchmakingContext();
+  const context = await loadMatchmakingContext();
   if (!playerIds.every(id => context.players.has(id))) {
-    res.status(400).json({ error: 'Giocatore non trovato' });
-    return;
+    return c.json({ error: 'Giocatore non trovato' }, 400);
   }
 
   const proposal = findBestMatch(context, playerIds, priority);
   if (!proposal) {
-    res.status(422).json({ error: 'Nessuna partita possibile con questi giocatori: i ruoli richiesti non tornano' });
-    return;
+    return c.json({ error: 'Nessuna partita possibile con questi giocatori: i ruoli richiesti non tornano' }, 422);
   }
 
-  const user = res.locals['user'] as AuthUser;
-  const generated = setRunningMatch(
+  const generated = await setRunningMatch(
     { attack: proposal.red.attack.id, defense: proposal.red.defense.id },
     { attack: proposal.blue.attack.id, defense: proposal.blue.defense.id },
-    user.id
+    c.get('user').id
   );
   if (generated) {
-    res.json(generated);
-    return;
+    return c.json(generated);
   }
 
   // Two users generated at the same time: the one that was stored first stays
-  const winner = getRunningMatch();
-  res.status(409).json(winner ? alreadyGenerated(winner) : { error: 'Riprova' });
+  const winner = await getRunningMatch();
+  return c.json(winner ? alreadyGenerated(winner) : { error: 'Riprova' }, 409);
 });
 
-matchesRouter.delete('/running', requireAuth, (_req, res) => {
-  clearRunningMatch();
-  res.status(204).end();
+matchesRouter.delete('/running', requireAuth, async c => {
+  await clearRunningMatch();
+  return c.body(null, 204);
 });
 
-matchesRouter.post('/', requireAuth, (req, res) => {
-  const { red, blue, redScore, blueScore } = req.body ?? {};
+matchesRouter.post('/', requireAuth, async c => {
+  const { red, blue, redScore, blueScore } = await readBody(c);
   if (!isLineup(red) || !isLineup(blue) || new Set([red.attack, red.defense, blue.attack, blue.defense]).size !== 4) {
-    res.status(400).json({ error: 'Formazioni non valide' });
-    return;
+    return c.json({ error: 'Formazioni non valide' }, 400);
   }
 
   if (!isScore(redScore) || !isScore(blueScore) || Math.max(redScore, blueScore) !== WINNING_SCORE || redScore === blueScore) {
-    res.status(400).json({ error: `Si vince a ${WINNING_SCORE}: una squadra deve fare ${WINNING_SCORE} e l'altra meno (ad esempio 8-5)` });
-    return;
+    return c.json({ error: `Si vince a ${WINNING_SCORE}: una squadra deve fare ${WINNING_SCORE} e l'altra meno (ad esempio 8-5)` }, 400);
   }
 
   const ids = [red.attack, red.defense, blue.attack, blue.defense];
-  const found = all<{ id: number }>(`SELECT id FROM players WHERE id IN (${ids.map(() => '?').join(', ')})`, ...ids);
+  const found = await all<{ id: number }>(`SELECT id FROM players WHERE id IN (${ids.map(() => '?').join(', ')})`, ...ids);
   if (found.length !== 4) {
-    res.status(400).json({ error: 'Giocatore non trovato' });
-    return;
+    return c.json({ error: 'Giocatore non trovato' }, 400);
   }
 
-  const user = res.locals['user'] as AuthUser;
-
-  // The ELO columns are filled by the recomputation, which replays every match in order
-  const matchId = transaction(() => {
-    const { lastInsertRowid } = run(
-      'INSERT INTO matches (red_score, blue_score, winner, created_by) VALUES (?, ?, ?, ?)',
+  // The match, its lineup and the end of the match to play together. The ELO columns are filled by the recomputation,
+  // which replays every match in order
+  const statements = [
+    statement(
+      'INSERT INTO matches (red_score, blue_score, winner, created_by) VALUES (?, ?, ?, ?) RETURNING id',
       redScore,
       blueScore,
       redScore > blueScore ? 'red' : 'blue',
-      user.id
-    );
-    for (const team of ['red', 'blue'] as const) {
-      for (const role of ['attack', 'defense'] as const) {
-        // Explicit zeros: databases created by the first schema have these columns without a default
-        run(
-          'INSERT INTO match_players (match_id, player_id, team, role, elo_before, role_elo, elo_delta) VALUES (?, ?, ?, ?, 0, 0, 0)',
-          lastInsertRowid,
-          (team === 'red' ? red : blue)[role],
-          team,
-          role
-        );
-      }
+      c.get('user').id
+    )
+  ];
+  for (const team of ['red', 'blue'] as const) {
+    for (const role of ['attack', 'defense'] as const) {
+      // The batch is a transaction: the last match is the one just inserted
+      statements.push(statement(
+        'INSERT INTO match_players (match_id, player_id, team, role) VALUES ((SELECT MAX(id) FROM matches), ?, ?, ?)',
+        (team === 'red' ? red : blue)[role],
+        team,
+        role
+      ));
     }
+  }
 
-    clearRunningMatch();
-    recomputeRatings();
-    return Number(lastInsertRowid);
-  });
+  statements.push(statement('DELETE FROM running_match'));
+  const [inserted] = await batch(statements);
+  const matchId = (inserted!.results[0] as { id: number }).id;
+  await recomputeRatings();
 
-  const deltas = all<{ team: Team; delta: number }>(
+  const deltas = await all<{ team: Team; delta: number }>(
     'SELECT team, CAST(ROUND(MAX(elo_delta)) AS INTEGER) AS delta FROM match_players WHERE match_id = ? GROUP BY team',
     matchId
   );
-  res.status(201).json({
+  return c.json({
     id: matchId,
     redDelta: deltas.find(row => row.team === 'red')?.delta ?? 0,
     blueDelta: deltas.find(row => row.team === 'blue')?.delta ?? 0
-  });
+  }, 201);
 });
 
 /**

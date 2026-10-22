@@ -11,7 +11,7 @@ export default defineConfig({
     open: true,
     port: 4200,
     forwardConsole: false,
-    // The Express server (server/, npm run dev) answers the API
+    // The worker (server/, npm run dev) answers the API
     proxy: {
       '/api': 'http://localhost:3000'
     }

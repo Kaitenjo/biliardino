@@ -9,23 +9,30 @@ import type { MatchmakingContext, MatchmakingPlayer } from './matchmaking.ts';
  *
  * @returns The context.
  */
-export function loadMatchmakingContext(): MatchmakingContext {
+export async function loadMatchmakingContext(): Promise<MatchmakingContext> {
   const players = new Map<number, MatchmakingPlayer>();
-  const rows = all<{
-    id: number;
-    name: string;
-    icon: string;
-    eloAttack: number;
-    eloDefense: number;
-    playsAttack: number;
-    playsDefense: number;
-    matches: number;
-  }>(
-    `SELECT p.id, p.name, p.icon, p.elo_attack AS eloAttack, p.elo_defense AS eloDefense,
-       p.plays_attack AS playsAttack, p.plays_defense AS playsDefense, COUNT(mp.match_id) AS matches
-     FROM players p LEFT JOIN match_players mp ON mp.player_id = p.id
-     GROUP BY p.id`
-  );
+  const [rows, lineups] = await Promise.all([
+    all<{
+      id: number;
+      name: string;
+      icon: string;
+      eloAttack: number;
+      eloDefense: number;
+      playsAttack: number;
+      playsDefense: number;
+      matches: number;
+    }>(
+      `SELECT p.id, p.name, p.icon, p.elo_attack AS eloAttack, p.elo_defense AS eloDefense,
+         p.plays_attack AS playsAttack, p.plays_defense AS playsDefense, COUNT(mp.match_id) AS matches
+       FROM players p LEFT JOIN match_players mp ON mp.player_id = p.id
+       GROUP BY p.id`
+    ),
+    all<{ matchId: number; playerId: number; team: Team }>(
+      `SELECT mp.match_id AS matchId, mp.player_id AS playerId, mp.team
+       FROM match_players mp JOIN matches m ON m.id = mp.match_id
+       ORDER BY m.played_at, m.id`
+    )
+  ]);
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     players.set(row.id, {
@@ -43,11 +50,6 @@ export function loadMatchmakingContext(): MatchmakingContext {
 
   const teammates = new Map<string, number>();
   const opponents = new Map<string, number>();
-  const lineups = all<{ matchId: number; playerId: number; team: Team }>(
-    `SELECT mp.match_id AS matchId, mp.player_id AS playerId, mp.team
-     FROM match_players mp JOIN matches m ON m.id = mp.match_id
-     ORDER BY m.played_at, m.id`
-  );
   for (let i = 0; i < lineups.length;) {
     // The rows of a match are contiguous: take them all, whatever their number
     let end = i + 1;
