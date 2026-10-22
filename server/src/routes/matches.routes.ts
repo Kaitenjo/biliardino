@@ -1,13 +1,13 @@
 import { Hono } from 'hono';
 import { requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
-import { all, batch, statement } from '../db/db.ts';
-import { recomputeRatings } from '../elo/ratings.ts';
+import { recordMatch } from '../elo/ratings.ts';
 import { clearRunningMatch, getRunningMatch, setRunningMatch } from '../matches/running-match.ts';
 import type { MatchView } from '../matches/running-match.ts';
 import { loadMatchmakingContext } from '../matchmaking/matchmaking.context.ts';
 import { findBestMatch } from '../matchmaking/matchmaking.ts';
-import type { Lineup, Team } from '../models.ts';
+import type { Lineup } from '../models.ts';
+import { listLeaderboard } from '../players/players.repository.ts';
 import { readBody } from './read-body.ts';
 
 /**
@@ -78,49 +78,17 @@ matchesRouter.post('/', requireAuth, async c => {
     return c.json({ error: `Si vince a ${WINNING_SCORE}: una squadra deve fare ${WINNING_SCORE} e l'altra meno (ad esempio 8-5)` }, 400);
   }
 
-  const ids = [red.attack, red.defense, blue.attack, blue.defense];
-  const found = await all<{ id: number }>(`SELECT id FROM players WHERE id IN (${ids.map(() => '?').join(', ')})`, ...ids);
-  if (found.length !== 4) {
+  const saved = await recordMatch(red, blue, redScore, blueScore, c.get('user').id);
+  if (saved === 'unknown-player') {
     return c.json({ error: 'Giocatore non trovato' }, 400);
   }
 
-  // The match, its lineup and the end of the match to play together. The ELO columns are filled by the recomputation,
-  // which replays every match in order
-  const statements = [
-    statement(
-      'INSERT INTO matches (red_score, blue_score, winner, created_by) VALUES (?, ?, ?, ?) RETURNING id',
-      redScore,
-      blueScore,
-      redScore > blueScore ? 'red' : 'blue',
-      c.get('user').id
-    )
-  ];
-  for (const team of ['red', 'blue'] as const) {
-    for (const role of ['attack', 'defense'] as const) {
-      // The batch is a transaction: the last match is the one just inserted
-      statements.push(statement(
-        'INSERT INTO match_players (match_id, player_id, team, role) VALUES ((SELECT MAX(id) FROM matches), ?, ?, ?)',
-        (team === 'red' ? red : blue)[role],
-        team,
-        role
-      ));
-    }
+  if (saved === 'conflict') {
+    return c.json({ error: "Nel frattempo è stata salvata un'altra partita: riprova" }, 409);
   }
 
-  statements.push(statement('DELETE FROM running_match'));
-  const [inserted] = await batch(statements);
-  const matchId = (inserted!.results[0] as { id: number }).id;
-  await recomputeRatings();
-
-  const deltas = await all<{ team: Team; delta: number }>(
-    'SELECT team, CAST(ROUND(MAX(elo_delta)) AS INTEGER) AS delta FROM match_players WHERE match_id = ? GROUP BY team',
-    matchId
-  );
-  return c.json({
-    id: matchId,
-    redDelta: deltas.find(row => row.team === 'red')?.delta ?? 0,
-    blueDelta: deltas.find(row => row.team === 'blue')?.delta ?? 0
-  }, 201);
+  // The players with their new ELOs, so that the page doesn't ask for them again
+  return c.json({ ...saved, players: await listLeaderboard() }, 201);
 });
 
 /**

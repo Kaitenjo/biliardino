@@ -1,5 +1,5 @@
 import { get, run } from '../db/db.ts';
-import { computeMatchElo, expectedScore } from '../elo/elo.ts';
+import { computeMatchElo, expectedScore, roundAwayFromZero } from '../elo/elo.ts';
 import type { EloPlayer } from '../elo/elo.ts';
 import type { Lineup, PlayerSummary, Role } from '../models.ts';
 
@@ -220,17 +220,6 @@ async function viewOf(row: RunningRow): Promise<MatchView | null> {
 }
 
 /**
- * Rounds to the nearest integer, a half going away from zero: what SQLite's `ROUND` does to the changes of ELO that are
- * shown after the result is saved, so that the forecast and the result agree (`Math.round` takes -43.5 to -43).
- *
- * @param value - The number.
- * @returns The rounded number.
- */
-function roundAwayFromZero(value: number): number {
-  return Math.sign(value) * Math.round(Math.abs(value));
-}
-
-/**
  * A player as the ELO system sees it in a role: its ELO there and the matches it played there, which set its K factor.
  *
  * @param player - The player.
@@ -251,7 +240,7 @@ function toEloPlayer(player: RatedPlayer, role: Role): EloPlayer {
 async function findRatedPlayer(id: number, role: Role): Promise<RatedPlayer | undefined> {
   const player = await get<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; roleMatches: number }>(
     `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense,
-       (SELECT COUNT(*) FROM match_players WHERE player_id = players.id AND role = ?) AS roleMatches
+       COALESCE((SELECT matches FROM player_stats WHERE player_id = players.id AND scope = ?), 0) AS roleMatches
      FROM players WHERE id = ?`,
     role,
     id

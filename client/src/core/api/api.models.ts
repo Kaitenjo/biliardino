@@ -400,6 +400,10 @@ export interface SavedMatch {
    * Change of ELO of each blue player.
    */
   blueDelta: number;
+  /**
+   * Every player with its new ELO, as `fetchLeaderboard` gives them.
+   */
+  players: LeaderboardEntry[];
 }
 
 /**

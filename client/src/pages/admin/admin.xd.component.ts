@@ -1,11 +1,11 @@
 import { CustomElement, WebComponent } from '@xaendar/core';
 import { computed, signal } from '@xaendar/core/signals';
-import { fetchAdminRoles, putAdminRoles } from '../../core/api/api';
+import { fetchAdminRoles, postRecompute, putAdminRoles } from '../../core/api/api';
 import type { AdminPlayer, Role } from '../../core/api/api.models';
 
 /**
- * The page of the super admin: the roles of every player, changed with no limit of once a day. A tap on a switch is
- * saved at once.
+ * The page of the super admin: the roles of every player, changed with no limit of once a day (a tap on a switch is
+ * saved at once), and the recomputation of the ELOs after a manual change to the database.
  */
 @WebComponent({
   selector: 'page-admin',
@@ -33,6 +33,14 @@ export class AdminPage extends CustomElement {
    * The players being saved, by id.
    */
   public readonly saving = signal<ReadonlySet<number>>(new Set());
+  /**
+   * Whether the ELOs are being recomputed.
+   */
+  public readonly recomputing = signal(false);
+  /**
+   * Whether the ELOs were recomputed, since the page opened.
+   */
+  public readonly recomputed = signal(false);
   /**
    * The players shown, filtered by the search.
    */
@@ -95,6 +103,23 @@ export class AdminPage extends CustomElement {
         remaining.delete(player.id);
         return remaining;
       });
+    }
+  }
+
+  /**
+   * Rebuilds every ELO and statistic from the matches.
+   */
+  public async recompute(): Promise<void> {
+    this.error.set('');
+    this.recomputed.set(false);
+    this.recomputing.set(true);
+    try {
+      await postRecompute();
+      this.recomputed.set(true);
+    } catch (error) {
+      this.error.set((error as Error).message);
+    } finally {
+      this.recomputing.set(false);
     }
   }
 

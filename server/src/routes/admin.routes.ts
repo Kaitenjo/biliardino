@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { requireAdmin, requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
 import { all, get, run } from '../db/db.ts';
+import { recomputeRatings } from '../elo/ratings.ts';
 import { readBody } from './read-body.ts';
 
 /**
@@ -36,4 +37,10 @@ adminRouter.put('/roles/:playerId', async c => {
 
   await run('UPDATE players SET plays_attack = ?, plays_defense = ? WHERE id = ?', attack ? 1 : 0, defense ? 1 : 0, playerId);
   return c.json({ id: playerId, attack, defense });
+});
+
+// After a manual change to the database (initial ELOs, matches): every ELO and statistic is rebuilt from the matches
+adminRouter.post('/recompute', async c => {
+  await recomputeRatings();
+  return c.body(null, 204);
 });

@@ -220,15 +220,16 @@ export class PlayPage extends CustomElement {
     }
 
     await this._run(async () => {
-      this.saved.set(await saveMatch(
+      const saved = await saveMatch(
         { attack: running.red.attack.id, defense: running.red.defense.id },
         { attack: running.blue.attack.id, defense: running.blue.defense.id },
         redScore,
         blueScore
-      ));
+      );
+      this.saved.set(saved);
       this.running.set(null);
       this.warning.set('');
-      this.players.set(this._byName(await fetchLeaderboard()));
+      this.players.set(this._byName(saved.players));
     });
   }
 

@@ -1,17 +1,16 @@
 import { all } from '../db/db.ts';
-import type { Team } from '../models.ts';
 import { pairKey } from './matchmaking.ts';
 import type { MatchmakingContext, MatchmakingPlayer } from './matchmaking.ts';
 
 /**
- * Loads from the database what the matchmaking needs: the players with their roles and ELOs, and how often each pair
- * played together or against each other.
+ * Loads from the database what the matchmaking needs: the players with their roles, ELOs and matches, and how often
+ * each pair played together or against each other (`player_pairs`).
  *
  * @returns The context.
  */
 export async function loadMatchmakingContext(): Promise<MatchmakingContext> {
   const players = new Map<number, MatchmakingPlayer>();
-  const [rows, lineups] = await Promise.all([
+  const [rows, pairs] = await Promise.all([
     all<{
       id: number;
       name: string;
@@ -23,14 +22,11 @@ export async function loadMatchmakingContext(): Promise<MatchmakingContext> {
       matches: number;
     }>(
       `SELECT p.id, p.name, p.icon, p.elo_attack AS eloAttack, p.elo_defense AS eloDefense,
-         p.plays_attack AS playsAttack, p.plays_defense AS playsDefense, COUNT(mp.match_id) AS matches
-       FROM players p LEFT JOIN match_players mp ON mp.player_id = p.id
-       GROUP BY p.id`
+         p.plays_attack AS playsAttack, p.plays_defense AS playsDefense, COALESCE(s.matches, 0) AS matches
+       FROM players p LEFT JOIN player_stats s ON s.player_id = p.id AND s.scope = 'all'`
     ),
-    all<{ matchId: number; playerId: number; team: Team }>(
-      `SELECT mp.match_id AS matchId, mp.player_id AS playerId, mp.team
-       FROM match_players mp JOIN matches m ON m.id = mp.match_id
-       ORDER BY m.played_at, m.id`
+    all<{ playerId: number; otherId: number; together: number; against: number }>(
+      'SELECT player_id AS playerId, other_id AS otherId, together, against FROM player_pairs'
     )
   ]);
   for (let i = 0; i < rows.length; i++) {
@@ -50,23 +46,15 @@ export async function loadMatchmakingContext(): Promise<MatchmakingContext> {
 
   const teammates = new Map<string, number>();
   const opponents = new Map<string, number>();
-  for (let i = 0; i < lineups.length;) {
-    // The rows of a match are contiguous: take them all, whatever their number
-    let end = i + 1;
-    while (end < lineups.length && lineups[end]!.matchId === lineups[i]!.matchId) {
-      end++;
+  for (let i = 0; i < pairs.length; i++) {
+    const { playerId, otherId, together, against } = pairs[i]!;
+    const key = pairKey(playerId, otherId);
+    if (together) {
+      teammates.set(key, together);
     }
 
-    const match = lineups.slice(i, end);
-    i = end;
-    for (let j = 0; j < match.length; j++) {
-      const player = match[j]!;
-      for (let k = j + 1; k < match.length; k++) {
-        const other = match[k]!;
-        const counts = player.team === other.team ? teammates : opponents;
-        const key = pairKey(player.playerId, other.playerId);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
+    if (against) {
+      opponents.set(key, against);
     }
   }
 

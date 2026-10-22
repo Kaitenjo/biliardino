@@ -1,24 +1,12 @@
 import { all } from '../db/db.ts';
 import type { Lineup, PlayerSummary, Role, Team } from '../models.ts';
+import { emptyRecords, loadRecords } from './player-stats.ts';
+import type { FormEntry } from './player-stats.ts';
 
 /**
  * A player as shown in matches.
  */
 export type PlayerRef = Pick<PlayerSummary, 'id' | 'name' | 'icon'>;
-
-/**
- * The result of a match for a player, as in the "form" column.
- */
-export interface FormEntry {
-  /**
-   * Whether the player won.
-   */
-  won: boolean;
-  /**
-   * Change of ELO, rounded.
-   */
-  delta: number;
-}
 
 /**
  * How the leaderboard is ranked: by the best of the two ELOs of each player, or by its ELO in one role.
@@ -320,32 +308,29 @@ interface MatchRow {
 }
 
 /**
- * Number of matches of the "form" column.
- */
-const FORM_LENGTH = 5;
-
-/**
  * The players by ELO, with their record, their form and their rank.
  *
  * @param by - How to rank them: by the best of their two ELOs (counting only the roles they played, when they played),
  * or by their ELO in one role, counting only the matches in that role.
  * @param onlyPlayed - Whether to leave out the players who never played (in the role): the leaderboard shows only the
  * ones who did, while the pages that pick a player (login, play, availability) need everybody.
- * @returns The players, by ELO.
+ * @returns The players, by ELO. Their records come from `player_stats`, not from the matches.
  */
 export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): Promise<LeaderboardEntry[]> {
-  const [players, weekdays, rows] = await Promise.all([
+  const [players, weekdays, records] = await Promise.all([
     all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number }>(
       `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense
        FROM players`
     ),
     loadWeekdays(),
-    loadMatchRows()
+    loadRecords()
   ]);
   const entries = new Map<number, LeaderboardEntry>();
   const exactElos = new Map<number, Lineup<number>>();
   for (let i = 0; i < players.length; i++) {
     const player = players[i]!;
+    const playerRecords = records.get(player.id) ?? emptyRecords();
+    const record = playerRecords[by === 'best' ? 'all' : by];
     exactElos.set(player.id, { attack: player.eloAttack, defense: player.eloDefense });
     entries.set(player.id, {
       id: player.id,
@@ -356,47 +341,17 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
       eloDefense: Math.round(player.eloDefense),
       playsAttack: Boolean(player.playsAttack),
       playsDefense: Boolean(player.playsDefense),
-      matchesAttack: 0,
-      matchesDefense: 0,
+      matchesAttack: playerRecords.attack.matches,
+      matchesDefense: playerRecords.defense.matches,
       rank: null,
-      matches: 0,
-      wins: 0,
-      losses: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      form: [],
+      matches: record.matches,
+      wins: record.wins,
+      losses: record.matches - record.wins,
+      goalsFor: record.goalsFor,
+      goalsAgainst: record.goalsAgainst,
+      form: record.form,
       weekdays: weekdays.get(player.id) ?? []
     });
-  }
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const entry = entries.get(row.playerId);
-    if (!entry) {
-      continue;
-    }
-
-    if (row.role === 'attack') {
-      entry.matchesAttack++;
-    } else {
-      entry.matchesDefense++;
-    }
-
-    if (by !== 'best' && row.role !== by) {
-      continue;
-    }
-
-    const won = row.team === row.winner;
-    const [goalsFor, goalsAgainst] = row.team === 'red' ? [row.redScore, row.blueScore] : [row.blueScore, row.redScore];
-    entry.matches++;
-    entry.wins += won ? 1 : 0;
-    entry.losses += won ? 0 : 1;
-    entry.goalsFor += goalsFor;
-    entry.goalsAgainst += goalsAgainst;
-    entry.form.push({ won, delta: Math.round(row.eloDelta) });
-    if (entry.form.length > FORM_LENGTH) {
-      entry.form.shift();
-    }
   }
 
   const exact = new Map<number, number>();
@@ -462,7 +417,7 @@ function rankingElo(elos: Lineup<number>, entry: LeaderboardEntry, by: RankingMo
  * @returns The player, its statistics, its ELO history and its matches; `undefined` when it doesn't exist.
  */
 export async function findPlayerDetail(id: number): Promise<PlayerDetail | undefined> {
-  const [leaderboard, rows] = await Promise.all([listLeaderboard(), loadMatchRows()]);
+  const [leaderboard, rows] = await Promise.all([listLeaderboard(), loadMatchRows(id)]);
   const player = leaderboard.find(entry => entry.id === id);
   if (!player) {
     return undefined;
@@ -670,17 +625,21 @@ function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<
 }
 
 /**
- * Loads every row of `match_players` with its match, in the order the matches were played.
+ * Loads the matches of a player: every row of `match_players` of those matches (its own and the other three), with
+ * its match, in the order the matches were played.
  *
+ * @param playerId - The id of the player.
  * @returns The rows.
  */
-function loadMatchRows(): Promise<MatchRow[]> {
+function loadMatchRows(playerId: number): Promise<MatchRow[]> {
   return all(
     `SELECT m.id AS matchId, m.played_at AS playedAt, m.red_score AS redScore, m.blue_score AS blueScore, m.winner,
        m.red_expected AS redExpected, mp.player_id AS playerId, mp.team, mp.role,
        mp.elo_before AS eloBefore, mp.role_elo AS roleElo, mp.elo_delta AS eloDelta
      FROM match_players mp JOIN matches m ON m.id = mp.match_id
-     ORDER BY m.played_at, m.id`
+     WHERE mp.match_id IN (SELECT match_id FROM match_players WHERE player_id = ?)
+     ORDER BY m.played_at, m.id`,
+    playerId
   );
 }
 

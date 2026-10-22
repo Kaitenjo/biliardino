@@ -154,7 +154,7 @@ export function deleteRunningMatch(): Promise<void> {
  * @param blue - The ids of the blue players.
  * @param redScore - Goals of the red team.
  * @param blueScore - Goals of the blue team.
- * @returns The saved match, with the changes of ELO.
+ * @returns The saved match, with the changes of ELO and every player with its new ELO.
  */
 export function saveMatch(red: Lineup<number>, blue: Lineup<number>, redScore: number, blueScore: number): Promise<SavedMatch> {
   return request('POST', '/matches', { red, blue, redScore, blueScore });
@@ -227,6 +227,15 @@ export function fetchAdminRoles(): Promise<AdminPlayer[]> {
  */
 export function putAdminRoles(playerId: number, roles: Lineup<boolean>): Promise<Lineup<boolean> & { id: number }> {
   return request('PUT', `/admin/roles/${playerId}`, roles);
+}
+
+/**
+ * Rebuilds every ELO and statistic from the matches, after a manual change to the database. Only the super admin can.
+ *
+ * @returns When done.
+ */
+export function postRecompute(): Promise<void> {
+  return request('POST', '/admin/recompute');
 }
 
 /**

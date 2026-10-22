@@ -121,6 +121,17 @@ export function computeMatchElo(red: Lineup<EloPlayer>, blue: Lineup<EloPlayer>,
 }
 
 /**
+ * Rounds to the nearest integer, a half going away from zero, as the changes of ELO are shown: the forecast of a match
+ * and its saved result agree (`Math.round` takes -43.5 to -43).
+ *
+ * @param value - The number.
+ * @returns The rounded number.
+ */
+export function roundAwayFromZero(value: number): number {
+  return Math.sign(value) * Math.round(Math.abs(value));
+}
+
+/**
  * K factor of a player in a role: from `START_K` at its first match down to `FINAL_K` after `MATCHES_K` matches.
  *
  * @param matches - Matches played by the player in the role.

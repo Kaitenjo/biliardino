@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { createSession, deleteSession, findUserByName, readToken, requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
@@ -23,6 +24,14 @@ export const authRouter = new Hono<AppEnv>();
 
 authRouter.post('/login', async c => {
   const { name, password } = await readBody(c);
+  // Checked before the password, which costs CPU (scrypt). Every attempt counts, also the right ones
+  const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
+  const account = typeof name === 'string' ? name.trim().toLowerCase() : '';
+  const [byIp, byAccount] = await Promise.all([env.LOGIN_IP_LIMIT.limit({ key: ip }), env.LOGIN_ACCOUNT_LIMIT.limit({ key: account })]);
+  if (!byIp.success || !byAccount.success) {
+    return c.json({ error: 'Troppi tentativi di accesso: riprova tra un minuto' }, 429);
+  }
+
   const found = typeof name === 'string' ? await findUserByName(name.trim()) : undefined;
   if (!found || typeof password !== 'string' || !verifyPassword(password, found.passwordHash)) {
     return c.json({ error: 'Nome o password errati' }, 401);
