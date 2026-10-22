@@ -1,28 +1,36 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "biliardino",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-10-15",
-  // node:crypto (scrypt of the passwords) and Buffer
-  "compatibility_flags": ["nodejs_compat"],
-  // The build of the client, served as static files: requests that match no file (the API) reach the worker
-  "assets": {
-    "directory": "../client/dist"
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "biliardino",
-      // The id printed by `npx wrangler d1 create biliardino`
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "migrations"
-    }
-  ],
-  // The port the Vite proxy of the client forwards /api to
-  "dev": {
-    "port": 3000
-  },
-  "observability": {
-    "enabled": true
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "biliardino",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-15",
+	// node:crypto (scrypt of the passwords) and Buffer
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// The build of the client, served as static files: requests that match no file (the API) reach the worker
+	"assets": {
+		"directory": "../client/dist"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "biliardino",
+			// The id printed by `npx wrangler d1 create biliardino`
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "biliardino",
+			"database_name": "biliardino",
+			"database_id": "d3d27d83-6e96-497e-91d5-9eb68ec7f9f5",
+			"remote": true
+		}
+	],
+	// The port the Vite proxy of the client forwards /api to
+	"dev": {
+		"port": 3000
+	},
+	"observability": {
+		"enabled": true
+	}
 }
