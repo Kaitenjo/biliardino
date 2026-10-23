@@ -10,14 +10,14 @@
     "xd": "xd"
   },
   "dependencies": {
-    "@xaendar/core": "^1.0.4",
-    "@xaendar/signals": "^1.0.4",
-    "@xaendar/types": "^1.0.4"
+    "@xaendar/core": "^1.0.5",
+    "@xaendar/signals": "^1.0.5",
+    "@xaendar/types": "^1.0.5"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^8.0.2",
     "@vitest/coverage-v8": "^5.0.5",
-    "@xaendar/cli": "^1.0.4",
+    "@xaendar/cli": "^1.0.5",
     "happy-dom": "^21.0.4",
     "sass": "^1.106.1",
     "typescript": "^6.0.3",
