@@ -1,6 +1,6 @@
 import { untracked } from '@xaendar/core/signals';
 import { sessionToken, setSession } from '../auth/session';
-import type { AdminPlayer, AuthUser, LeaderboardEntry, Lineup, PlayerDetail, RankingMode, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
+import type { AdminPlayer, AuthUser, LeaderboardEntry, Lineup, MatchPage, PlayerDetail, RankingMode, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
 
 /**
  * An error answered by the server, with its message.
@@ -105,6 +105,17 @@ export function fetchPlayer(id: number, abort?: AbortSignal): Promise<PlayerDeta
 }
 
 /**
+ * Loads a page of the played matches.
+ *
+ * @param page - The page, from 1.
+ * @param abort - Aborts the request.
+ * @returns The matches of the page, newest first, and how many there are in all.
+ */
+export function fetchMatches(page: number, abort?: AbortSignal): Promise<MatchPage> {
+  return request('GET', `/matches?page=${page}`, undefined, abort);
+}
+
+/**
  * Loads the match to play.
  *
  * @param abort - Aborts the request.
@@ -148,16 +159,19 @@ export function deleteRunningMatch(): Promise<void> {
 }
 
 /**
- * Saves a played match.
+ * Saves a played match: the result of the match to play.
  *
+ * @param runningId - The id of the match to play.
  * @param red - The ids of the red players.
  * @param blue - The ids of the blue players.
  * @param redScore - Goals of the red team.
  * @param blueScore - Goals of the blue team.
  * @returns The saved match, with the changes of ELO and every player with its new ELO.
+ * @throws {ApiError} With status 409 and the match to play now (or `null`) in `data.running`, when somebody else saved
+ * or deleted it first.
  */
-export function saveMatch(red: Lineup<number>, blue: Lineup<number>, redScore: number, blueScore: number): Promise<SavedMatch> {
-  return request('POST', '/matches', { red, blue, redScore, blueScore });
+export function saveMatch(runningId: number, red: Lineup<number>, blue: Lineup<number>, redScore: number, blueScore: number): Promise<SavedMatch> {
+  return request('POST', '/matches', { runningId, red, blue, redScore, blueScore });
 }
 
 /**

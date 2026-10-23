@@ -31,11 +31,6 @@ header {
   width: 2.6rem;
   height: 2.6rem;
   object-fit: contain;
-  transition: transform 0.2s;
-}
-
-.brand:hover .logo {
-  transform: rotate(-8deg) scale(1.06);
 }
 
 .brand-text {

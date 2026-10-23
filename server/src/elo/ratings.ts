@@ -1,4 +1,4 @@
-import { all, batch, statement } from '../db/db.ts';
+import { all, batch, get, statement } from '../db/db.ts';
 import type { Lineup, Role, Team } from '../models.ts';
 import { addMatch, addPairs, emptyRecords, pairsOf, parseRecords, selectRecords, storeRecords } from '../players/player-stats.ts';
 import type { PairCount, PlayerRecords, RecordRow } from '../players/player-stats.ts';
@@ -152,29 +152,37 @@ export async function recomputeRatings(): Promise<void> {
  * changes is written (the match, the ELOs and records of its four players, their pairs), with the end of the match to
  * play, in one transaction. The result is the one `recomputeRatings` would give.
  *
+ * @param runningId - The id of the match to play whose result this is: only one save can end it.
  * @param red - The ids of the red players.
  * @param blue - The ids of the blue players.
  * @param redScore - Goals of the red team.
  * @param blueScore - Goals of the blue team.
  * @param userId - The user who saves it.
- * @returns The match with the changes of ELO; `'unknown-player'` when a player doesn't exist, `'conflict'` when another
- * match was saved in the meantime (the ELOs it was computed from changed): nothing was saved.
+ * @returns The match with the changes of ELO; `'unknown-player'` when a player doesn't exist, `'not-running'` when the
+ * match to play is not that one anymore (somebody else saved or deleted it), `'conflict'` when another match was saved
+ * in the meantime (the ELOs it was computed from changed): nothing was saved.
  */
 export async function recordMatch(
+  runningId: number,
   red: Lineup<number>,
   blue: Lineup<number>,
   redScore: number,
   blueScore: number,
   userId: number
-): Promise<RecordedMatch | 'unknown-player' | 'conflict'> {
+): Promise<RecordedMatch | 'unknown-player' | 'not-running' | 'conflict'> {
   const ids = [red.attack, red.defense, blue.attack, blue.defense];
   const marks = ids.map(() => '?').join(', ');
-  // One read transaction: the last match and the state it left
-  const [lastRows, playerRows, recordRows] = await batch([
+  // One read transaction: the match to play, the last match and the state it left
+  const [runningRows, lastRows, playerRows, recordRows] = await batch([
+    statement('SELECT id FROM running_match WHERE id = ?', runningId),
     statement('SELECT COALESCE(MAX(id), 0) AS id FROM matches'),
     statement(`SELECT id, elo_attack AS eloAttack, elo_defense AS eloDefense FROM players WHERE id IN (${marks})`, ...ids),
     selectRecords(ids)
   ]);
+  if (!runningRows!.results.length) {
+    return 'not-running';
+  }
+
   const lastId = (lastRows!.results[0] as { id: number }).id;
   const players = new Map((playerRows!.results as Array<{ id: number; eloAttack: number; eloDefense: number }>).map(player => [player.id, player]));
   if (players.size !== 4) {
@@ -216,8 +224,13 @@ export async function recordMatch(
   let saved: D1Result[];
   try {
     saved = await batch([
-      // Fails the transaction if another match was saved after the read: json() refuses the text
-      statement("SELECT CASE WHEN COALESCE(MAX(id), 0) <> ? THEN json('conflict') END FROM matches", lastId),
+      // Fails the transaction if another match was saved after the read, or the match to play was ended: json() refuses
+      // the text. Two users saving the same match at the same time: only the first one passes
+      statement(
+        "SELECT CASE WHEN COALESCE(MAX(id), 0) <> ? OR NOT EXISTS (SELECT 1 FROM running_match WHERE id = ?) THEN json('conflict') END FROM matches",
+        lastId,
+        runningId
+      ),
       statement(
         'INSERT INTO matches (red_score, blue_score, winner, red_expected, created_by) VALUES (?, ?, ?, ?, ?) RETURNING id',
         redScore,
@@ -245,7 +258,7 @@ export async function recordMatch(
     ]);
   } catch (error) {
     if (error instanceof Error && error.message.includes('malformed JSON')) {
-      return 'conflict';
+      return (await get('SELECT 1 FROM running_match WHERE id = ?', runningId)) ? 'conflict' : 'not-running';
     }
 
     throw error;

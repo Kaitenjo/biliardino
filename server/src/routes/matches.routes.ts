@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
 import { recordMatch } from '../elo/ratings.ts';
+import { listMatches } from '../matches/matches.repository.ts';
 import { clearRunningMatch, getRunningMatch, setRunningMatch } from '../matches/running-match.ts';
 import type { MatchView } from '../matches/running-match.ts';
 import { loadMatchmakingContext } from '../matchmaking/matchmaking.context.ts';
@@ -16,9 +17,24 @@ import { readBody } from './read-body.ts';
 const WINNING_SCORE = 8;
 
 /**
+ * How many matches a page of the list holds.
+ */
+const PAGE_SIZE = 20;
+
+/**
  * The match to play (only one at a time) and the saving of the results.
  */
 export const matchesRouter = new Hono<AppEnv>();
+
+// The played matches, newest first, a page at a time (?page=1, from 1)
+matchesRouter.get('/', async c => {
+  const page = Number(c.req.query('page') ?? 1);
+  if (!Number.isInteger(page) || page < 1) {
+    return c.json({ error: 'Pagina non valida' }, 400);
+  }
+
+  return c.json(await listMatches(page, PAGE_SIZE));
+});
 
 matchesRouter.get('/running', async c => c.json(await getRunningMatch()));
 
@@ -69,7 +85,11 @@ matchesRouter.delete('/running', requireAuth, async c => {
 });
 
 matchesRouter.post('/', requireAuth, async c => {
-  const { red, blue, redScore, blueScore } = await readBody(c);
+  const { runningId, red, blue, redScore, blueScore } = await readBody(c);
+  if (!Number.isInteger(runningId)) {
+    return c.json({ error: 'Partita da salvare non indicata' }, 400);
+  }
+
   if (!isLineup(red) || !isLineup(blue) || new Set([red.attack, red.defense, blue.attack, blue.defense]).size !== 4) {
     return c.json({ error: 'Formazioni non valide' }, 400);
   }
@@ -78,9 +98,14 @@ matchesRouter.post('/', requireAuth, async c => {
     return c.json({ error: `Si vince a ${WINNING_SCORE}: una squadra deve fare ${WINNING_SCORE} e l'altra meno (ad esempio 8-5)` }, 400);
   }
 
-  const saved = await recordMatch(red, blue, redScore, blueScore, c.get('user').id);
+  const saved = await recordMatch(runningId as number, red, blue, redScore, blueScore, c.get('user').id);
   if (saved === 'unknown-player') {
     return c.json({ error: 'Giocatore non trovato' }, 400);
+  }
+
+  // Somebody else saved (or deleted) it first: the page drops it and shows the match to play now, if any
+  if (saved === 'not-running') {
+    return c.json({ error: 'La partita è già stata salvata (o eliminata) da qualcun altro', running: await getRunningMatch() }, 409);
   }
 
   if (saved === 'conflict') {

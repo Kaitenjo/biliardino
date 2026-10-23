@@ -3,7 +3,7 @@ import { computed, signal } from '@xaendar/core/signals';
 /**
  * The pages of the application.
  */
-export type RouteName = 'home' | 'player' | 'new-match' | 'availability' | 'roles' | 'login' | 'profile' | 'not-found';
+export type RouteName = 'home' | 'player' | 'matches' | 'new-match' | 'availability' | 'roles' | 'login' | 'profile' | 'not-found';
 
 /**
  * The route currently displayed.
@@ -25,7 +25,7 @@ export interface Route {
 const PROTECTED_ROUTES: ReadonlySet<RouteName> = new Set(['new-match', 'availability', 'roles', 'profile']);
 
 /**
- * Reads the route from a location hash: `#/`, `#/players/3`, `#/new-match`, `#/availability`, `#/login`, `#/profile`.
+ * Reads the route from a location hash: `#/`, `#/players/3`, `#/matches`, `#/new-match`, `#/availability`, `#/login`, `#/profile`.
  *
  * @param value - The hash.
  * @returns The route.
@@ -39,6 +39,7 @@ function parseRoute(value: string): Route {
       const playerId = Number(segments[1]);
       return Number.isInteger(playerId) && segments.length === 2 ? { name: 'player', playerId } : { name: 'not-found' };
     }
+    case 'matches':
     case 'new-match':
     case 'availability':
     case 'roles':

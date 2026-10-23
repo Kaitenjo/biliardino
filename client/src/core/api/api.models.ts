@@ -191,6 +191,70 @@ export interface PlayerMatch {
 }
 
 /**
+ * A played match, as a row of the list of matches.
+ */
+export interface MatchSummary {
+  /**
+   * Id of the match.
+   */
+  id: number;
+  /**
+   * When it was played (UTC, `YYYY-MM-DD HH:MM:SS`).
+   */
+  playedAt: string;
+  /**
+   * Goals of the red team.
+   */
+  redScore: number;
+  /**
+   * Goals of the blue team.
+   */
+  blueScore: number;
+  /**
+   * The winning team.
+   */
+  winner: Team;
+  /**
+   * The red team.
+   */
+  red: Lineup<PlayerRef>;
+  /**
+   * The blue team.
+   */
+  blue: Lineup<PlayerRef>;
+  /**
+   * Change of ELO of each red player.
+   */
+  redDelta: number;
+  /**
+   * Change of ELO of each blue player.
+   */
+  blueDelta: number;
+}
+
+/**
+ * A page of the list of matches.
+ */
+export interface MatchPage {
+  /**
+   * The matches of the page, newest first.
+   */
+  matches: MatchSummary[];
+  /**
+   * The page, from 1.
+   */
+  page: number;
+  /**
+   * How many matches a page holds.
+   */
+  pageSize: number;
+  /**
+   * How many matches were played.
+   */
+  total: number;
+}
+
+/**
  * Another player with a value, e.g. a teammate with the ELO won together.
  */
 export interface PlayerResult {

@@ -4,6 +4,7 @@
 @import { AvailabilityPage } from '../../pages/availability/availability.xd.component.ts'
 @import { HomePage } from '../../pages/home/home.xd.component.ts'
 @import { LoginPage } from '../../pages/login/login.xd.component.ts'
+@import { MatchesPage } from '../../pages/matches/matches.xd.component.ts'
 @import { PlayPage } from '../../pages/play/play.xd.component.ts'
 @import { NotFoundPage } from '../../pages/not-found/not-found.xd.component.ts'
 @import { PlayerDetailPage } from '../../pages/player-detail/player-detail.xd.component.ts'
@@ -18,6 +19,9 @@
     }
     @case ('player') {
       <page-player-detail />
+    }
+    @case ('matches') {
+      <page-matches />
     }
     @case ('new-match') {
       <page-play />

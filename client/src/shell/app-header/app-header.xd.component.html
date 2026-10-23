@@ -18,6 +18,12 @@
         <span class="label">Classifica</span>
       }
     </a>
+    <a href="#/matches" aria-label="Partite" [class.active]="{routeName() === 'matches'}">
+      <app-icon name="history" />
+      @if (showIcon()) {
+        <span class="label">Partite</span>
+      }
+    </a>
     <a href="#/new-match" aria-label="Gioca" [class.active]="{routeName() === 'new-match'}">
       <app-icon name="play" />
       @if (showIcon()) {

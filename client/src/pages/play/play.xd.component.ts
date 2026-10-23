@@ -220,12 +220,20 @@ export class PlayPage extends CustomElement {
     }
 
     await this._run(async () => {
-      const saved = await saveMatch(
-        { attack: running.red.attack.id, defense: running.red.defense.id },
-        { attack: running.blue.attack.id, defense: running.blue.defense.id },
-        redScore,
-        blueScore
-      );
+      let saved: SavedMatch;
+      try {
+        saved = await saveMatch(
+          running.id,
+          { attack: running.red.attack.id, defense: running.red.defense.id },
+          { attack: running.blue.attack.id, defense: running.blue.defense.id },
+          redScore,
+          blueScore
+        );
+      } catch (error) {
+        this._dropSaved(error);
+        throw error;
+      }
+
       this.saved.set(saved);
       this.running.set(null);
       this.warning.set('');
@@ -259,6 +267,20 @@ export class PlayPage extends CustomElement {
     this.running.set(running);
     this.warning.set((error as ApiError).message);
     return true;
+  }
+
+  /**
+   * Drops the match being played, if the server answered that somebody else saved or deleted it first: the page shows
+   * the match to play now, if any. The error is shown by the caller.
+   *
+   * @param error - What the save failed with.
+   */
+  private _dropSaved(error: unknown): void {
+    const data = error instanceof ApiError && error.status === 409 ? (error.data as { running?: RunningMatch | null } | undefined) : undefined;
+    if (data && 'running' in data) {
+      this.running.set(data.running ?? null);
+      this.warning.set('');
+    }
   }
 
   /**

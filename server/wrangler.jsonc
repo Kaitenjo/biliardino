@@ -16,7 +16,9 @@
 			"binding": "DB",
 			"database_name": "biliardino",
 			"database_id": "d3d27d83-6e96-497e-91d5-9eb68ec7f9f5",
-			"migrations_dir": "migrations"
+			"migrations_dir": "migrations",
+			// wrangler dev reads and writes the remote database, not the local copy
+			"remote": true
 		}
 	],
 	// Login attempts: on one account (guessing its password), and from one IP (trying many accounts; colleagues in the

@@ -114,7 +114,7 @@ h1 {
   .ball {
     fill: #ffffff;
     filter: drop-shadow(0 0 4px rgb(255 255 255 / 80%));
-    animation: roll 6s ease-in-out infinite;
+    animation: roll 3s ease-in-out infinite;
   }
 }
 
@@ -125,19 +125,19 @@ h1 {
   }
 
   20% {
-    transform: translate(-58px, -30px);
+    transform: translate(-78px, -50px);
   }
 
   40% {
-    transform: translate(40px, 34px);
+    transform: translate(50px, 40px);
   }
 
   60% {
-    transform: translate(-20px, 46px);
+    transform: translate(-30px, 60px);
   }
 
   80% {
-    transform: translate(70px, -40px);
+    transform: translate(80px, -40px);
   }
 }
 
@@ -167,14 +167,14 @@ h1 {
 .podium-card {
   @include mixins.card;
 
-  padding: 1.5rem 1.25rem 0;
+  padding: 1.5rem 1.25rem 1.25rem;
   overflow: hidden;
 }
 
+// The three blocks stand side by side on one base, as a real podium
 .podium {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
   align-items: end;
   max-width: 760px;
   width: 100%;
@@ -182,17 +182,13 @@ h1 {
 }
 
 .step {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 0.3rem;
   color: var(--text);
   text-align: center;
   text-decoration: none;
-  transition: transform 0.15s;
-
-  &:hover {
-    transform: translateY(-3px);
-  }
 
   strong {
     font-size: 0.95rem;
@@ -222,30 +218,81 @@ h1 {
 }
 
 .block {
+  --cap: var(--gold);
+
+  position: relative;
   display: grid;
   place-items: center;
   width: 100%;
-  margin-top: 0.35rem;
-  border-radius: 14px 14px 4px 4px;
-  color: rgb(0 0 0 / 35%);
-  font-size: 1.8rem;
-  font-weight: 900;
-  box-shadow: var(--shadow);
+  margin-top: 1.1rem;
+  background: linear-gradient(180deg, rgb(0 0 0 / 28%), transparent 22%), var(--block);
+  color: #ffffff;
+  font-family: monospace;
+  font-size: 3rem;
+  font-weight: 700;
+  text-shadow: 0 3px 6px rgb(0 0 0 / 45%);
+
+  // The top of the step, a little wider than the block, in the colour of the medal, with a light stripe across it
+  &::before {
+    content: '';
+    position: absolute;
+    top: -0.75rem;
+    left: -0.4rem;
+    right: -0.4rem;
+    height: 0.75rem;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(172deg, color-mix(in srgb, var(--cap) 70%, #ffffff) 50%, var(--cap) 50%);
+    box-shadow: 0 3px 4px rgb(0 0 0 / 35%);
+  }
 }
 
-.place-1 .block {
-  height: 7rem;
-  background: linear-gradient(180deg, #ffe58a, var(--gold));
+// The highest step stands in front: its sides cover the tops of the others
+.place-1 {
+  z-index: 1;
+
+  .block {
+    --block: linear-gradient(90deg, #6e3a2e, #7d4535);
+
+    height: 8rem;
+  }
 }
 
 .place-2 .block {
-  height: 5rem;
-  background: linear-gradient(180deg, #e9edf2, var(--silver));
+  --block: linear-gradient(90deg, #4e2a22, #5a3127);
+  --cap: var(--silver);
+
+  height: 5.75rem;
 }
 
 .place-3 .block {
-  height: 3.75rem;
-  background: linear-gradient(180deg, #f1cba9, var(--bronze));
+  --block: linear-gradient(90deg, #4a241d, #55291f);
+  --cap: var(--bronze);
+
+  height: 4.5rem;
+}
+
+// The base under the three steps, and its shadow on the floor
+.podium-base {
+  position: relative;
+  // A little wider than the steps, centred under them also when it overflows the podium
+  width: calc(min(100%, 760px) + 1.5rem);
+  height: 0.9rem;
+  margin-left: 50%;
+  translate: -50% 0;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #7a4334 0 35%, #5c2f25 35% 100%);
+  box-shadow: 0 1.1rem 1rem -0.6rem rgb(0 0 0 / 60%);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: -0.5rem;
+    right: -0.5rem;
+    bottom: -0.55rem;
+    height: 0.55rem;
+    border-radius: 0 0 2px 2px;
+    background: #3e1f19;
+  }
 }
 
 // Leaderboard: each player is a row of its own, separated from the others
@@ -636,7 +683,7 @@ tbody tr {
     white-space: normal;
   }
 
-  .podium {
-    gap: 0.5rem;
+  .block {
+    font-size: 2.2rem;
   }
 }

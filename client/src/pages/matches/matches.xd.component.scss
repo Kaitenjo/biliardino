@@ -1,0 +1,182 @@
+@use '../../styles/mixins';
+
+:host {
+  @include mixins.page;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  // The columns are narrow: a wider table would only spread them apart
+  max-width: 760px;
+}
+
+.card {
+  @include mixins.card;
+
+  padding: 1.25rem;
+}
+
+h2 {
+  @include mixins.section-title;
+
+  small {
+    margin-left: auto;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.error {
+  @include mixins.error;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  transition: opacity 0.15s;
+
+  &.loading {
+    opacity: 0.5;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+th {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+  text-transform: uppercase;
+
+  &.red {
+    color: var(--red);
+  }
+
+  &.blue {
+    color: var(--blue);
+  }
+
+  app-icon {
+    vertical-align: middle;
+  }
+}
+
+td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.player-cell {
+  &.red.won {
+    background: linear-gradient(180deg, var(--red-soft), transparent 140%);
+  }
+
+  &.blue.won {
+    background: linear-gradient(180deg, var(--blue-soft), transparent 140%);
+  }
+}
+
+// Defender, then attacker
+.lineup {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.player {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+}
+
+.score {
+  display: inline-flex;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-weight: 800;
+
+  .red,
+  .blue {
+    min-width: 1.6rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 7px;
+    text-align: center;
+  }
+
+  .red {
+    color: var(--red);
+  }
+
+  .blue {
+    color: var(--blue);
+  }
+
+  .red.won {
+    background: var(--red);
+    color: var(--on-primary);
+  }
+
+  .blue.won {
+    background: var(--blue);
+    color: var(--on-primary);
+  }
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.delta {
+  color: var(--loss);
+  font-weight: 800;
+
+  &.up {
+    color: var(--win);
+  }
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+
+  button {
+    @include mixins.button-ghost;
+
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .muted {
+    padding: 0 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
