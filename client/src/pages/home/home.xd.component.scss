@@ -25,9 +25,7 @@
   align-items: center;
   padding: 2rem;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 100% 0%, var(--primary-soft), transparent 60%),
-    var(--surface);
+  background: var(--card-bg);
 }
 
 .eyebrow {
@@ -480,6 +478,14 @@ tbody tr {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 
+  .attack {
+    color: var(--red);
+  }
+
+  .defense {
+    color: var(--blue);
+  }
+
   app-icon:not(:first-child) {
     margin-left: 0.35rem;
   }
@@ -541,20 +547,6 @@ tbody tr {
   }
 }
 
-.elo-bar {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-alt);
-
-  span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, var(--cta-strong), var(--primary-strong));
-  }
-}
-
 .record {
   display: inline-grid;
   justify-items: end;
@@ -596,24 +588,35 @@ tbody tr {
 }
 
 .dot {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 3px;
-  background: var(--loss);
-  opacity: 0.85;
+  display: inline-grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 5px;
+  background: var(--loss-soft);
+  color: var(--loss);
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: help;
 
   &.won {
-    background: var(--win);
+    background: var(--win-soft);
+    color: var(--win);
   }
 }
 
+.elo-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .form-total {
-  margin-left: 0.35rem;
-  padding: 0.1rem 0.4rem;
+  padding: 0.05rem 0.35rem;
   border-radius: 6px;
   background: var(--loss-soft);
   color: var(--loss);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
 
   &.up {
@@ -686,4 +689,120 @@ tbody tr {
   .block {
     font-size: 2.2rem;
   }
+}
+
+// Preview of a match of the form, fixed so that the scrolling table doesn't clip it
+.preview {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  gap: 0.5rem;
+  width: max-content;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.78rem;
+  pointer-events: none;
+
+  &.above {
+    transform: translate(-50%, calc(-100% - 0.5rem));
+  }
+
+  &.below {
+    transform: translate(-50%, 0.5rem);
+  }
+
+  .attack {
+    color: var(--red);
+  }
+
+  .defense {
+    color: var(--blue);
+  }
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.preview-elo {
+  color: var(--text-muted);
+
+  strong {
+    color: var(--text);
+  }
+}
+
+.preview-delta {
+  color: var(--loss);
+  font-size: 0.95rem;
+
+  &.up {
+    color: var(--win);
+  }
+}
+
+.preview-score {
+  display: flex;
+  justify-content: center;
+}
+
+.result {
+  padding: 0.1rem 0.45rem;
+  border-radius: 7px;
+  background: var(--loss);
+  color: #ffffff;
+  font-weight: 800;
+
+  &.won {
+    background: var(--win);
+  }
+}
+
+.teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.team {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+
+  &.red {
+    background: linear-gradient(180deg, var(--red-soft), transparent 125%);
+
+    .team-label {
+      color: var(--red);
+    }
+  }
+
+  &.blue {
+    background: linear-gradient(180deg, var(--blue-soft), transparent 125%);
+
+    .team-label {
+      color: var(--blue);
+    }
+  }
+}
+
+.team-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }

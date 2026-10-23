@@ -30,9 +30,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  background:
-    radial-gradient(circle at 100% 0%, var(--primary-soft), transparent 60%),
-    var(--surface);
+  background: var(--card-bg);
 
   h1 {
     display: flex;

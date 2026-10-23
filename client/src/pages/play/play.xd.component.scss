@@ -34,6 +34,34 @@ h2 {
   justify-content: space-between;
 }
 
+// Folding the list is for small screens only
+.fold {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chevron {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s;
+
+  &.up {
+    transform: translateY(2px) rotate(225deg);
+  }
+}
+
 .count {
   color: var(--text-muted);
   font-size: 0.85rem;
@@ -104,9 +132,9 @@ h2 {
   align-items: center;
   gap: 0.55rem;
   padding: 0.45rem 0.6rem;
-  border: 2px solid transparent;
+  border: 2px solid var(--border);
   border-radius: 12px;
-  background: var(--surface-alt);
+  background: transparent;
   color: var(--text);
   font: inherit;
   text-align: left;
@@ -367,6 +395,22 @@ h2 {
 
   .picker {
     position: static;
+  }
+
+  .picker-head {
+    gap: 0.75rem;
+
+    h2 {
+      flex: 1;
+    }
+  }
+
+  .fold {
+    display: inline-flex;
+  }
+
+  .picker-body.collapsed {
+    display: none;
   }
 
   .players {

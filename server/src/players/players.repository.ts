@@ -1,7 +1,6 @@
 import { all } from '../db/db.ts';
 import type { Lineup, PlayerSummary, Role, Team } from '../models.ts';
-import { emptyRecords, loadRecords } from './player-stats.ts';
-import type { FormEntry } from './player-stats.ts';
+import { emptyRecords, FORM_LENGTH, loadRecords } from './player-stats.ts';
 
 /**
  * A player as shown in matches.
@@ -12,6 +11,70 @@ export type PlayerRef = Pick<PlayerSummary, 'id' | 'name' | 'icon'>;
  * How the leaderboard is ranked: by the best of the two ELOs of each player, or by its ELO in one role.
  */
 export type RankingMode = 'best' | Role;
+
+/**
+ * A player of a match of the form, with what it did.
+ */
+export interface FormMatchPlayer {
+  /**
+   * Id of the player.
+   */
+  id: number;
+  /**
+   * Icon of the player.
+   */
+  icon: string;
+  /**
+   * Name of the player.
+   */
+  name: string;
+  /**
+   * Its team.
+   */
+  team: Team;
+  /**
+   * Its role.
+   */
+  role: Role;
+  /**
+   * Its change of ELO, rounded.
+   */
+  delta: number;
+}
+
+/**
+ * A match of the "form" column, from the point of view of the player of the row.
+ */
+export interface FormEntry {
+  /**
+   * Whether the player won.
+   */
+  won: boolean;
+  /**
+   * Change of ELO of the player, rounded.
+   */
+  delta: number;
+  /**
+   * The role the player had.
+   */
+  role: Role;
+  /**
+   * Goals of the red team.
+   */
+  redScore: number;
+  /**
+   * Goals of the blue team.
+   */
+  blueScore: number;
+  /**
+   * ELO of the player in its role after the match, rounded.
+   */
+  elo: number;
+  /**
+   * The four players of the match.
+   */
+  players: FormMatchPlayer[];
+}
 
 /**
  * A row of the leaderboard. `elo`, `rank`, the record, the goals and the form follow the ranking mode: in a role,
@@ -153,6 +216,26 @@ export interface PlayerResult {
  */
 export interface PlayerStats {
   /**
+   * ELO in the scope: the ranking one in the general scope, the one of the role otherwise.
+   */
+  elo: number;
+  /**
+   * Position in the leaderboard of the scope, `null` when it never played in it.
+   */
+  rank: number | null;
+  /**
+   * Matches played in the scope.
+   */
+  matches: number;
+  /**
+   * Matches won in the scope.
+   */
+  wins: number;
+  /**
+   * Matches lost in the scope.
+   */
+  losses: number;
+  /**
    * Highest ELO reached after a match (the current one when it never played).
    */
   bestElo: number;
@@ -239,9 +322,9 @@ export interface PlayerDetail {
    */
   player: LeaderboardEntry;
   /**
-   * Its statistics.
+   * Its statistics, by scope: all its matches, or only the ones in a role. One answer serves every filter of the page.
    */
-  stats: PlayerStats;
+  stats: Record<'best' | Role, PlayerStats>;
   /**
    * Its ELOs in attack and in defence before the first match and after each one (in either role), rounded, oldest
    * first: the two lists have the same length, and the ELO of the role not played in a match stays the same.
@@ -317,13 +400,14 @@ interface MatchRow {
  * @returns The players, by ELO. Their records come from `player_stats`, not from the matches.
  */
 export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): Promise<LeaderboardEntry[]> {
-  const [players, weekdays, records] = await Promise.all([
+  const [players, weekdays, records, forms] = await Promise.all([
     all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number }>(
       `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense
        FROM players`
     ),
     loadWeekdays(),
-    loadRecords()
+    loadRecords(),
+    loadForms(by)
   ]);
   const entries = new Map<number, LeaderboardEntry>();
   const exactElos = new Map<number, Lineup<number>>();
@@ -349,7 +433,7 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
       losses: record.matches - record.wins,
       goalsFor: record.goalsFor,
       goalsAgainst: record.goalsAgainst,
-      form: record.form,
+      form: forms.get(player.id) ?? [],
       weekdays: weekdays.get(player.id) ?? []
     });
   }
@@ -381,6 +465,71 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
   }
 
   return onlyPlayed ? sorted.filter(entry => entry.matches > 0) : sorted;
+}
+
+/**
+ * The last matches of each player, with the four players of each.
+ *
+ * @param by - Which matches count: all of them, or only the ones in a role.
+ * @returns The matches by player, oldest first.
+ */
+async function loadForms(by: RankingMode): Promise<Map<number, FormEntry[]>> {
+  const rows = await all<{
+    matchId: number;
+    owner: number;
+    playerId: number;
+    name: string;
+    icon: string;
+    eloAfter: number;
+    team: Team;
+    role: Role;
+    delta: number;
+    redScore: number;
+    blueScore: number;
+  }>(
+    `WITH last AS (
+       SELECT mp.match_id, mp.player_id,
+         ROW_NUMBER() OVER (PARTITION BY mp.player_id ORDER BY m.played_at DESC, m.id DESC) AS n
+       FROM match_players mp JOIN matches m ON m.id = mp.match_id
+       ${by === 'best' ? '' : 'WHERE mp.role = ?'}
+     )
+     SELECT l.match_id AS matchId, l.player_id AS owner, mp.player_id AS playerId, p.name, p.icon, mp.role_elo + mp.elo_delta AS eloAfter, mp.team, mp.role,
+       mp.elo_delta AS delta, m.red_score AS redScore, m.blue_score AS blueScore
+     FROM last l
+     JOIN match_players mp ON mp.match_id = l.match_id
+     JOIN players p ON p.id = mp.player_id
+     JOIN matches m ON m.id = l.match_id
+     WHERE l.n <= ${FORM_LENGTH}
+     ORDER BY l.player_id, l.n DESC`,
+    ...(by === 'best' ? [] : [by])
+  );
+  const forms = new Map<number, FormEntry[]>();
+  const current = new Map<string, FormEntry>();
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const key = `${row.owner}-${row.matchId}`;
+    let entry = current.get(key);
+    if (!entry) {
+      entry = { won: false, delta: 0, elo: 0, role: 'attack', redScore: row.redScore, blueScore: row.blueScore, players: [] };
+      current.set(key, entry);
+      const form = forms.get(row.owner);
+      if (form) {
+        form.push(entry);
+      } else {
+        forms.set(row.owner, [entry]);
+      }
+    }
+
+    entry.players.push({ id: row.playerId, icon: row.icon, name: row.name, team: row.team, role: row.role, delta: Math.round(row.delta) });
+    if (row.playerId === row.owner) {
+      entry.role = row.role;
+      entry.delta = Math.round(row.delta);
+      entry.elo = Math.round(row.eloAfter);
+      entry.won = (row.team === 'red') === row.redScore > row.blueScore;
+    }
+  }
+
+  return forms;
 }
 
 /**
@@ -463,20 +612,55 @@ export async function findPlayerDetail(id: number): Promise<PlayerDetail | undef
   eloHistory.attack[eloHistory.attack.length - 1] = player.eloAttack;
   eloHistory.defense[eloHistory.defense.length - 1] = player.eloDefense;
 
-  return { player, stats: computeStats(player, history, byMatch, refs), eloHistory, matches: history.toReversed() };
+  const stats = {
+    best: computeStats(player.id, player.elo, player.rank, history, byMatch, refs),
+    attack: computeStats(player.id, player.eloAttack, roleRank(leaderboard, player, 'attack'), history.filter(match => match.role === 'attack'), byMatch, refs),
+    defense: computeStats(player.id, player.eloDefense, roleRank(leaderboard, player, 'defense'), history.filter(match => match.role === 'defense'), byMatch, refs)
+  };
+  return { player, stats, eloHistory, matches: history.toReversed() };
+}
+
+/**
+ * The position of a player in the leaderboard of a role, from the general leaderboard: dense on the rounded ELO of the
+ * role, counting only who played in it, as `listLeaderboard` does.
+ *
+ * @param leaderboard - The general leaderboard.
+ * @param player - The player.
+ * @param role - The role.
+ * @returns The position, `null` when the player never played in the role.
+ */
+function roleRank(leaderboard: readonly LeaderboardEntry[], player: LeaderboardEntry, role: Role): number | null {
+  const matches = (entry: LeaderboardEntry): number => (role === 'attack' ? entry.matchesAttack : entry.matchesDefense);
+  if (!matches(player)) {
+    return null;
+  }
+
+  const elo = (entry: LeaderboardEntry): number => (role === 'attack' ? entry.eloAttack : entry.eloDefense);
+  const higher = new Set<number>();
+  for (let i = 0; i < leaderboard.length; i++) {
+    const entry = leaderboard[i]!;
+    if (matches(entry) && elo(entry) > elo(player)) {
+      higher.add(elo(entry));
+    }
+  }
+
+  return higher.size + 1;
 }
 
 /**
  * Computes the statistics of a player from its matches, as `getPlayerStats` of the previous project.
  *
- * @param player - The player.
+ * @param playerId - The id of the player.
+ * @param elo - Its ELO in the scope, for when it never played in it.
+ * @param rank - Its position in the leaderboard of the scope.
  * @param history - Its matches, oldest first.
  * @param byMatch - The rows of every match, for the exact changes of ELO.
  * @param refs - Every player, by id.
  * @returns The statistics.
  */
-function computeStats(player: LeaderboardEntry, history: readonly PlayerMatch[], byMatch: Map<number, MatchRow[]>, refs: Map<number, PlayerRef>): PlayerStats {
+function computeStats(playerId: number, elo: number, rank: number | null, history: readonly PlayerMatch[], byMatch: Map<number, MatchRow[]>, refs: Map<number, PlayerRef>): PlayerStats {
   const stats: PlayerStats = {
+    elo, rank, matches: history.length, wins: 0, losses: 0,
     bestElo: -Infinity, worstElo: Infinity,
     matchesAsAttack: 0, matchesAsDefence: 0, winsAsAttack: 0, winsAsDefence: 0,
     bestWinStreak: 0, worstLossStreak: 0, goalsFor: 0, goalsAgainst: 0,
@@ -493,9 +677,10 @@ function computeStats(player: LeaderboardEntry, history: readonly PlayerMatch[],
 
   for (let i = 0; i < history.length; i++) {
     const match = history[i]!;
-    const own = byMatch.get(match.id)!.find(row => row.playerId === player.id)!;
+    const own = byMatch.get(match.id)!.find(row => row.playerId === playerId)!;
     const delta = own.eloDelta;
     const won = match.team === match.winner;
+    stats.wins += won ? 1 : 0;
     stats.bestElo = Math.max(stats.bestElo, own.eloBefore + delta);
     stats.worstElo = Math.min(stats.worstElo, own.eloBefore + delta);
 
@@ -553,9 +738,10 @@ function computeStats(player: LeaderboardEntry, history: readonly PlayerMatch[],
     stats.goalsAgainst += goalsAgainst;
   }
 
+  stats.losses = stats.matches - stats.wins;
   if (!history.length) {
-    stats.bestElo = player.elo;
-    stats.worstElo = player.elo;
+    stats.bestElo = elo;
+    stats.worstElo = elo;
   }
 
   stats.bestElo = Math.round(stats.bestElo);

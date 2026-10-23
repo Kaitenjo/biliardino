@@ -4,7 +4,7 @@ import type { Lineup, Role, Team } from '../models.ts';
 /**
  * Number of matches of the "form" column.
  */
-const FORM_LENGTH = 5;
+export const FORM_LENGTH = 5;
 
 /**
  * The result of a match for a player, as in the "form" column.

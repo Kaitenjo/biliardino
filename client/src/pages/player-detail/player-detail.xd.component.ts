@@ -1,7 +1,7 @@
 import { CustomElement, WebComponent } from '@xaendar/core';
 import { computed, signal, untracked } from '@xaendar/core/signals';
 import { fetchPlayer } from '../../core/api/api';
-import type { LeaderboardEntry, Lineup, PlayerDetail, PlayerMatch, PlayerRef, PlayerResult, Role } from '../../core/api/api.models';
+import type { LeaderboardEntry, Lineup, PlayerDetail, PlayerMatch, PlayerRef, PlayerResult, PlayerStats, RankingMode, Role, Team } from '../../core/api/api.models';
 import { route } from '../../core/router/router';
 
 /**
@@ -33,24 +33,6 @@ interface StatLine {
    * The icon shown before the label, `''` for none.
    */
   icon: string;
-}
-
-/**
- * A card of statistics.
- */
-interface StatCard {
-  /**
-   * Icon of the card.
-   */
-  icon: string;
-  /**
-   * Title of the card.
-   */
-  title: string;
-  /**
-   * Its lines.
-   */
-  lines: StatLine[];
 }
 
 /**
@@ -100,6 +82,10 @@ interface MatchRow {
    */
   blueScore: number;
   /**
+   * The winning team.
+   */
+  winner: Team;
+  /**
    * Whether the player was in the red team.
    */
   isRed: boolean;
@@ -119,22 +105,6 @@ interface MatchRow {
    * Goals of the team of the player, then of the opponents.
    */
   score: string;
-  /**
-   * Probability of winning the team of the player had, 0 to 100.
-   */
-  expected: number;
-  /**
-   * Name of the role of the player.
-   */
-  role: string;
-  /**
-   * The icon of the role of the player.
-   */
-  roleIcon: string;
-  /**
-   * ELO of the player in its role.
-   */
-  roleElo: number;
   /**
    * The teammate.
    */
@@ -162,9 +132,13 @@ interface TrendPoint {
    */
   y: number;
   /**
-   * The ELO of the player in the role at this point: after the match.
+   * The ELO of the player in the role of the match at this point: after the match.
    */
   elo: number;
+  /**
+   * The role of the match, `null` for the starting point.
+   */
+  role: Role | null;
   /**
    * The match, `null` for the starting point, before the first match.
    */
@@ -194,9 +168,9 @@ interface TrendChart {
    */
   points: TrendPoint[];
   /**
-   * The `points` of the line, in a 0–100 box.
+   * The lines, one per role shown, in a 0–100 box.
    */
-  line: string;
+  lines: Array<{ role: Role; points: string }>;
   /**
    * The marks of the ELO axis.
    */
@@ -234,9 +208,9 @@ export class PlayerDetailPage extends CustomElement {
    */
   public readonly headline = computed(() => this._computeHeadline());
   /**
-   * The cards of statistics.
+   * The record, streaks and goals, under the headline.
    */
-  public readonly cards = computed(() => this._computeCards());
+  public readonly summary = computed(() => this._computeSummary());
   /**
    * The teammates and opponents worth a mention.
    */
@@ -250,9 +224,17 @@ export class PlayerDetailPage extends CustomElement {
    */
   public readonly history = computed(() => this._computeHistory());
   /**
-   * The role whose chart of the ELO is shown: the two roles have separate ELOs and separate charts, one at a time.
+   * What the page shows: every match, or only the ones in a role. One answer holds all of them: no request on change.
    */
-  public readonly trendRole = signal<Role>('attack');
+  public readonly filter = signal<RankingMode>('best');
+  /**
+   * The statistics of the filter, as a list of at most one item.
+   */
+  public readonly scoped = computed(() => this._computeScoped());
+  /**
+   * The matches of the filter, newest first.
+   */
+  public readonly scopedMatches = computed(() => this._computeMatches());
   /**
    * The index of the point of the chart under the pointer, `-1` for none.
    */
@@ -266,11 +248,12 @@ export class PlayerDetailPage extends CustomElement {
    */
   public readonly active = computed(() => this._computeActive());
   /**
-   * The roles of the buttons of the chart.
+   * The buttons of the filter.
    */
-  public readonly trendRoles: ReadonlyArray<{ value: Role; label: string }> = [
-    { value: 'attack', label: 'Attacco' },
-    { value: 'defense', label: 'Difesa' }
+  public readonly filters: ReadonlyArray<{ value: RankingMode; label: string; icon: string }> = [
+    { value: 'best', label: 'Generale', icon: 'trophy' },
+    { value: 'attack', label: 'Attacco', icon: 'attack' },
+    { value: 'defense', label: 'Difesa', icon: 'defense' }
   ];
 
   /**
@@ -297,12 +280,13 @@ export class PlayerDetailPage extends CustomElement {
   }
 
   /**
-   * Shows the chart of the ELO of another role.
+   * Filters the whole page by role, or by none.
    *
-   * @param role - The role.
+   * @param filter - The filter.
    */
-  public setTrendRole(role: Role): void {
-    this.trendRole.set(role);
+  public setFilter(filter: RankingMode): void {
+    this.filter.set(filter);
+    this.showAll.set(false);
     this.hovered.set(-1);
   }
 
@@ -348,27 +332,13 @@ export class PlayerDetailPage extends CustomElement {
   }
 
   /**
-   * The roles a player plays.
+   * The step of the podium of a position.
    *
-   * @param player - The player.
-   * @returns `Attacco e difesa`, `Solo attacco` or `Solo difesa`.
+   * @param rank - The position in the leaderboard.
+   * @returns `gold`, `silver` or `bronze` for the first three, `''` for the others.
    */
-  public rolesLabel(player: LeaderboardEntry): string {
-    if (player.playsAttack && player.playsDefense) {
-      return 'Attacco e difesa';
-    }
-
-    return player.playsAttack ? 'Solo attacco' : 'Solo difesa';
-  }
-
-  /**
-   * The share of matches a player won.
-   *
-   * @param player - The player.
-   * @returns The percentage.
-   */
-  public winRate(player: LeaderboardEntry): number {
-    return this._rate(player.wins, player.matches);
+  public podium(rank: number): string {
+    return ['', 'gold', 'silver', 'bronze'][rank] ?? '';
   }
 
   /**
@@ -389,8 +359,7 @@ export class PlayerDetailPage extends CustomElement {
       this.detail.set(detail);
       this.showAll.set(false);
       this.hovered.set(-1);
-      // Open on the role the player played most
-      this.trendRole.set(detail.player.matchesDefense > detail.player.matchesAttack ? 'defense' : 'attack');
+      this.filter.set('best');
       this.error.set('');
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -473,15 +442,12 @@ export class PlayerDetailPage extends CustomElement {
       blue: match.blue,
       redScore: match.redScore,
       blueScore: match.blueScore,
+      winner: match.winner,
       isRed: match.team === 'red',
       label,
-      date: new Date(`${match.playedAt.replace(' ', 'T')}Z`).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      date: new Date(`${match.playedAt.replace(' ', 'T')}Z`).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }),
       won: match.team === match.winner,
       score: `${ownScore}-${otherScore}`,
-      expected: Math.round(match.expected * 100),
-      role: this._roleLabels[match.role],
-      roleIcon: match.role,
-      roleElo: match.roleElo,
       partner: match.role === 'attack' ? own.defense : own.attack,
       opponents: [other.defense, other.attack],
       delta: match.eloDelta
@@ -509,68 +475,48 @@ export class PlayerDetailPage extends CustomElement {
       return [];
     }
 
+    const filter = this.filter();
+    const stats = detail.stats[filter];
+    if (filter !== 'best') {
+      return [
+        this._line('ELO', stats.elo),
+        this._line('Miglior ELO', stats.bestElo, '', 'good'),
+        this._line('Peggior ELO', stats.worstElo, '', 'bad'),
+        this._line('Partite', stats.matches)
+      ];
+    }
+
     return [
       this._line('ELO attacco', detail.player.eloAttack, `${detail.player.matchesAttack} p.`, '', 'attack'),
       this._line('ELO difesa', detail.player.eloDefense, `${detail.player.matchesDefense} p.`, '', 'defense'),
-      this._line('Miglior ELO', detail.stats.bestElo, '', 'good'),
-      this._line('Partite', detail.player.matches)
+      this._line('Miglior ELO', stats.bestElo, '', 'good'),
+      this._line('Partite', stats.matches)
     ];
   }
 
   /**
-   * Computes the value of `cards`.
+   * Computes the value of `summary`: record, streaks and goals, under the headline.
    *
-   * @returns The cards, none until the player is loaded.
+   * @returns The figures, none until the player is loaded.
    */
-  private _computeCards(): StatCard[] {
+  private _computeSummary(): StatLine[] {
     const detail = this.detail();
     if (!detail) {
       return [];
     }
 
-    const { player, stats } = detail;
-    const lossesAsAttack = stats.matchesAsAttack - stats.winsAsAttack;
-    const lossesAsDefence = stats.matchesAsDefence - stats.winsAsDefence;
+    const filter = this.filter();
+    const stats = detail.stats[filter];
+    const record = (wins: number, matches: number): string => `${wins}V - ${matches - wins}S`;
+    const lines = [this._line('V / S', record(stats.wins, stats.matches), `${this._rate(stats.wins, stats.matches)}%`)];
     const ratio = stats.goalsAgainst ? stats.goalsFor / stats.goalsAgainst : 0;
-    return [
-      {
-        icon: 'ball',
-        title: 'Partite',
-        lines: [
-          this._line('Partite totali', player.matches),
-          this._line('Come attaccante', stats.matchesAsAttack, `${this._rate(stats.matchesAsAttack, player.matches)}%`),
-          this._line('Come difensore', stats.matchesAsDefence, `${this._rate(stats.matchesAsDefence, player.matches)}%`)
-        ]
-      },
-      {
-        icon: 'trophy',
-        title: 'Vittorie e sconfitte',
-        lines: [
-          this._line('Generale', `${player.wins}V - ${player.losses}S`, `${this._rate(player.wins, player.matches)}%`),
-          this._line('Attacco', `${stats.winsAsAttack}V - ${lossesAsAttack}S`, `${this._rate(stats.winsAsAttack, stats.matchesAsAttack)}%`, '', 'attack'),
-          this._line('Difesa', `${stats.winsAsDefence}V - ${lossesAsDefence}S`, `${this._rate(stats.winsAsDefence, stats.matchesAsDefence)}%`, '', 'defense')
-        ]
-      },
-      {
-        icon: 'flame',
-        title: 'Streak',
-        lines: [
-          this._line('Migliore striscia di vittorie', stats.bestWinStreak, '', 'good'),
-          this._line('Peggiore striscia di sconfitte', stats.worstLossStreak, '', 'bad')
-        ]
-      },
-      {
-        icon: 'goal',
-        title: 'Goal',
-        lines: [
-          this._line('Goal fatti', stats.goalsFor, '', 'good'),
-          this._line('Goal subiti', stats.goalsAgainst, '', 'bad'),
-          this._line('Rapporto fatti/subiti', stats.goalsAgainst ? ratio.toFixed(2) : '—', '', ratio >= 1 ? 'good' : 'bad'),
-          this._line('Media goal fatti', this._average(stats.goalsFor, player.matches)),
-          this._line('Media goal subiti', this._average(stats.goalsAgainst, player.matches))
-        ]
-      }
-    ];
+    lines.push(
+      this._line('Serie vittorie', stats.bestWinStreak, '', 'good', 'flame'),
+      this._line('Serie sconfitte', stats.worstLossStreak, '', 'bad'),
+      this._line('Goal F / S', `${stats.goalsFor} / ${stats.goalsAgainst}`, stats.goalsAgainst ? ratio.toFixed(2) : '', ratio >= 1 ? 'good' : 'bad', 'goal'),
+      this._line('Media goal F / S', `${this._average(stats.goalsFor, stats.matches)} / ${this._average(stats.goalsAgainst, stats.matches)}`)
+    );
+    return lines;
   }
 
   /**
@@ -579,7 +525,7 @@ export class PlayerDetailPage extends CustomElement {
    * @returns The mentions, none until the player is loaded.
    */
   private _computeMentions(): Mention[] {
-    const stats = this.detail()?.stats;
+    const stats = this.scoped()[0];
     if (!stats) {
       return [];
     }
@@ -600,7 +546,7 @@ export class PlayerDetailPage extends CustomElement {
    * @returns The best and worst matches, none until the player is loaded.
    */
   private _computeHighlights(): MatchRow[] {
-    const stats = this.detail()?.stats;
+    const stats = this.scoped()[0];
     if (!stats) {
       return [];
     }
@@ -628,8 +574,8 @@ export class PlayerDetailPage extends CustomElement {
    * @returns The matches shown, newest first.
    */
   private _computeHistory(): MatchRow[] {
-    const matches = this.detail()?.matches;
-    if (!matches?.length) {
+    const matches = this.scopedMatches();
+    if (!matches.length) {
       return [];
     }
 
@@ -638,38 +584,74 @@ export class PlayerDetailPage extends CustomElement {
   }
 
   /**
+   * Computes the value of `scoped`.
+   *
+   * @returns The statistics of the filter, none until the player is loaded.
+   */
+  private _computeScoped(): PlayerStats[] {
+    const detail = this.detail();
+    return detail ? [detail.stats[this.filter()]] : [];
+  }
+
+  /**
+   * Computes the value of `scopedMatches`.
+   *
+   * @returns The matches of the filter, newest first.
+   */
+  private _computeMatches(): PlayerMatch[] {
+    const matches = this.detail()?.matches ?? [];
+    const filter = this.filter();
+    return filter === 'best' ? matches : matches.filter(match => match.role === filter);
+  }
+
+  /**
    * Computes the value of `trend`.
    *
-   * @returns The points, the line and the ELO axis of the role shown, empty when the player never played in it.
+   * @returns The points, the lines and the ELO axis of the filter: one line for a role, both for the general one.
+   * Empty when the player never played.
    */
   private _computeTrend(): TrendChart {
     const detail = this.detail();
-    const role = this.trendRole();
-    const matches = detail ? detail.matches.filter(match => match.role === role).reverse() : [];
+    const filter = this.filter();
+    const matches = this.scopedMatches().toReversed();
     if (!detail || !matches.length) {
-      return { points: [], line: '', ticks: [] };
+      return { points: [], lines: [], ticks: [] };
     }
 
-    // The ELO after each match; the last one is the current ELO of the role, whatever the rounding drifted to
-    const elos = [matches[0]!.eloBefore];
-    for (let i = 0; i < matches.length; i++) {
-      elos.push(matches[i]!.eloBefore + matches[i]!.eloDelta);
+    // The ELO of each role after each match, the starting point first; a role not played in a match keeps its ELO
+    const roles: Role[] = filter === 'best' ? ['attack', 'defense'] : [filter];
+    const series: Record<Role, number[]> = { attack: [], defense: [] };
+    if (filter === 'best') {
+      series.attack = detail.eloHistory.attack;
+      series.defense = detail.eloHistory.defense;
+    } else {
+      series[filter] = [matches[0]!.eloBefore, ...matches.map(match => match.eloBefore + match.eloDelta)];
+      // The last point is the current ELO of the role, whatever the rounding drifted to
+      series[filter][matches.length] = filter === 'attack' ? detail.player.eloAttack : detail.player.eloDefense;
     }
 
-    elos[elos.length - 1] = role === 'attack' ? detail.player.eloAttack : detail.player.eloDefense;
-
-    const min = Math.min(...elos);
-    const max = Math.max(...elos);
+    // In the general one a role never played is a flat line: left out
+    const shown = roles.filter(role => filter !== 'best' || (role === 'attack' ? detail.player.matchesAttack : detail.player.matchesDefense) > 0);
+    const all = shown.flatMap(role => series[role]);
+    const min = Math.min(...all);
+    const max = Math.max(...all);
     const padding = Math.max((max - min) * 0.12, 6);
     const low = min - padding;
     const span = max + padding - low;
     const toY = (elo: number): number => (1 - (elo - low) / span) * 100;
+    const toX = (index: number): number => (index / matches.length) * 100;
 
-    const points: TrendPoint[] = elos.map((elo, index) => ({
-      x: (index / (elos.length - 1)) * 100,
-      y: toY(elo),
-      elo,
-      match: index ? this._toRow(matches[index - 1]!) : null
+    const points: TrendPoint[] = [];
+    for (let index = 0; index <= matches.length; index++) {
+      const match = index ? matches[index - 1]! : null;
+      const role = match ? match.role : shown[0]!;
+      const elo = series[role][index]!;
+      points.push({ x: toX(index), y: toY(elo), elo, role: match ? role : null, match: match ? this._toRow(match) : null });
+    }
+
+    const lines = shown.map(role => ({
+      role,
+      points: series[role].map((elo, index) => `${toX(index).toFixed(2)},${toY(elo).toFixed(2)}`).join(' ')
     }));
     const ticks: TrendTick[] = [];
     for (let i = 0; i < 4; i++) {
@@ -677,7 +659,7 @@ export class PlayerDetailPage extends CustomElement {
       ticks.push({ value, y: toY(value) });
     }
 
-    return { points, line: points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' '), ticks };
+    return { points, lines, ticks };
   }
 
   /**

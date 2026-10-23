@@ -1,3 +1,4 @@
+@import { FormEntry } from '../../core/api/api.models.ts'
 @import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
 @import { MatchCardComponent } from '../../ui/match-card/match-card.xd.component.ts'
 @import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
@@ -112,7 +113,6 @@
             <th class="rank" title="Posizione in classifica">#</th>
             <th title="Giocatore e ruoli che gioca">Giocatore</th>
             <th title="ELO su cui si basa la classifica, rispetto al resto del gruppo">Elo</th>
-            <th class="num optional" title="Partite giocate">Partite</th>
             <th class="num" title="Vittorie / Sconfitte e percentuale di vittorie">V / S</th>
             <th class="num optional" title="Rapporto goal fatti/subiti">Goal F/S</th>
             <th class="optional" title="Ultime 5 partite e variazione ELO">Forma</th>
@@ -148,21 +148,24 @@
               </td>
               <td>
                 <span class="elo">
-                  <strong>{ player().elo }</strong>
-                  <span class="elo-bar">
-                    <span style="{`width: ${eloShare(player())}%`}" />
+                  <span class="elo-main">
+                    <strong>{ player().elo }</strong>
+                    @if (player().form.length) {
+                      <small class="form-total" title="ELO guadagnato o perso nelle ultime partite" [class.up]="{formTotal(player()).startsWith('+')}">
+                        { formTotal(player()) }
+                      </small>
+                    }
                   </span>
                   @if (mode() === 'best') {
                     <small class="elo-roles" title="ELO in attacco e in difesa">
-                      <app-icon name="attack" />
+                      <app-icon class="attack" name="attack" />
                       { player().eloAttack }
-                      <app-icon name="defense" />
+                      <app-icon class="defense" name="defense" />
                       { player().eloDefense }
                     </small>
                   }
                 </span>
               </td>
-              <td class="num optional">{ player().matches }</td>
               <td class="num">
                 <span class="record">
                   <span>
@@ -181,10 +184,12 @@
                       <span
                         class="dot"
                         [class.won]="{entry().won}"
-                        title="{`${entry().won ? 'Vittoria' : 'Sconfitta'} (${entry().delta > 0 ? '+' : ''}${entry().delta})`}"
-                      />
+                        (pointerenter)="showPreview($event, entry())"
+                        (pointerleave)="hidePreview()"
+                      >
+                        { entry().role === 'attack' ? 'A' : 'D' }
+                      </span>
                     }
-                    <span class="form-total" [class.up]="{formTotal(player()).startsWith('+')}">{ formTotal(player()) }</span>
                   </span>
                 }
               </td>
@@ -194,4 +199,32 @@
       </table>
     </div>
   </section>
+
+  @for (item of preview(); track item().x) {
+    <div class="{`preview ${item().below ? 'below' : 'above'}`}" style="{`left: ${item().x}px; top: ${item().y}px`}">
+      <div class="preview-head">
+        <span class="preview-elo">ELO <strong>{ item().entry.elo }</strong></span>
+        <strong class="preview-delta" [class.up]="{item().entry.delta >= 0}">{ formatDelta(item().entry.delta) }</strong>
+      </div>
+      <div class="teams">
+        @render team('Rossi', 'red', item().entry)
+        @render team('Blu', 'blue', item().entry)
+      </div>
+      <div class="preview-score">
+        <span class="result" [class.won]="{item().entry.won}">{ item().entry.redScore }-{ item().entry.blueScore }</span>
+      </div>
+    </div>
+  }
 }
+
+<template team(label: string, color: string, entry: FormEntry)>
+  <div class="{`team ${color()}`}">
+    <span class="team-label">{ label() }</span>
+    @for (member of teamOf(entry(), color() === 'red' ? 'red' : 'blue'); track member().id) {
+      <span>
+        <app-icon class="{member().role}" name="{member().role}" />
+        <player-avatar icon="{member().icon}" label="{member().name}" />
+      </span>
+    }
+  </div>
+</template>

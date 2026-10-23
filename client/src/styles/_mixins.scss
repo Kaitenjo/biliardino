@@ -1,11 +1,10 @@
 // Styles shared by the components: page styles don't enter shadow roots, so each component includes what it uses.
 
 @mixin card {
-  background: var(--surface);
+  background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 
 @mixin button {
@@ -117,4 +116,131 @@
   background: var(--red-soft);
   color: var(--loss);
   font-weight: 600;
+}
+
+// The table of matches: the red team, the score, the blue team, then the date and the changes of ELO. Shared by the
+// list of matches and the history of a player, so that the two look the same
+@mixin match-table {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+  }
+
+  th {
+    padding: 0.55rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-align: center;
+    text-transform: uppercase;
+
+    &.red {
+      color: var(--red);
+    }
+
+    &.blue {
+      color: var(--blue);
+    }
+
+    app-icon {
+      vertical-align: middle;
+    }
+  }
+
+  td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  // The winning team glows towards the score, in the middle of the row, and fades out on the outer side
+  .player-cell {
+    &.red.won {
+      border-radius: 0 4px 4px 0;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--red) 32%, transparent));
+    }
+
+    &.blue.won {
+      border-radius: 4px 0 0 4px;
+      background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--blue) 32%, transparent));
+    }
+  }
+
+  // Defender, then attacker
+  .lineup {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+
+  .player {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    // The player whose page it is
+    &.me player-avatar {
+      box-shadow: 0 0 0 2px var(--text);
+    }
+  }
+
+  .score {
+    display: inline-flex;
+    gap: 0.3rem;
+    color: var(--text-muted);
+    font-weight: 800;
+
+    .red,
+    .blue {
+      min-width: 1.6rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 7px;
+      text-align: center;
+    }
+
+    .red {
+      color: var(--red);
+    }
+
+    .blue {
+      color: var(--blue);
+    }
+
+    .red.won {
+      background: var(--red);
+      color: var(--on-primary);
+    }
+
+    .blue.won {
+      background: var(--blue);
+      color: var(--on-primary);
+    }
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .delta {
+    color: var(--loss);
+    font-weight: 800;
+
+    &.up {
+      color: var(--win);
+    }
+  }
 }

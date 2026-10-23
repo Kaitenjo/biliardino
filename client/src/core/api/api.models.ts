@@ -48,6 +48,26 @@ export interface FormEntry {
    * Change of ELO.
    */
   delta: number;
+  /**
+   * The role the player had.
+   */
+  role: Role;
+  /**
+   * Goals of the red team.
+   */
+  redScore: number;
+  /**
+   * Goals of the blue team.
+   */
+  blueScore: number;
+  /**
+   * ELO of the player in its role after the match.
+   */
+  elo: number;
+  /**
+   * The four players of the match.
+   */
+  players: Array<{ id: number; icon: string; name: string; team: Team; role: Role; delta: number }>;
 }
 
 /**
@@ -273,6 +293,26 @@ export interface PlayerResult {
  */
 export interface PlayerStats {
   /**
+   * ELO in the scope: the ranking one in the general scope, the one of the role otherwise.
+   */
+  elo: number;
+  /**
+   * Position in the leaderboard of the scope, `null` when it never played in it.
+   */
+  rank: number | null;
+  /**
+   * Matches played in the scope.
+   */
+  matches: number;
+  /**
+   * Matches won in the scope.
+   */
+  wins: number;
+  /**
+   * Matches lost in the scope.
+   */
+  losses: number;
+  /**
    * Highest ELO reached.
    */
   bestElo: number;
@@ -359,9 +399,9 @@ export interface PlayerDetail {
    */
   player: LeaderboardEntry;
   /**
-   * Its statistics.
+   * Its statistics, by scope: all its matches, or only the ones in a role.
    */
-  stats: PlayerStats;
+  stats: Record<RankingMode, PlayerStats>;
   /**
    * Its ELOs in attack and in defence before the first match and after each one (in either role), oldest first:
    * the two lists have the same length.

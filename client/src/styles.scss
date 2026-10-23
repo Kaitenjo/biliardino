@@ -7,6 +7,12 @@
     linear-gradient(180deg, #3d0910 0%, #1e050a 15%, #0a0204 55%, #050506 100%);
   --surface: rgb(21 21 24 / 86%);
   --surface-solid: #151518;
+  // The background of every card: opaque, so that it doesn't change with the fixed page background under it while scrolling
+  --card-base: #0e0e10;
+  --card-glow: color-mix(in srgb, var(--primary-soft) 55%, transparent);
+  --card-bg:
+    radial-gradient(circle at 0% 0%, var(--card-glow), transparent 150%),
+    var(--card-base);
   --surface-alt: #1f1f23;
   --border: rgb(255 255 255 / 8%);
   --text: #f4f4f5;

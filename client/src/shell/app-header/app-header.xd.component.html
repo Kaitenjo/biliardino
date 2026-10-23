@@ -4,7 +4,7 @@
 @import { UserMenuComponent } from '../user-menu/user-menu.xd.component.ts'
 
 <header>
-  <a class="brand" href="#/">
+  <a class="brand" href="#/" aria-label="Classifica">
     <img class="logo" src="/logo.svg" alt="" />
     <span class="brand-text">
       <strong>CAlcio Balilla</strong>
@@ -12,22 +12,16 @@
     </span>
   </a>
   <nav>
-    <a href="#/" aria-label="Classifica" [class.active]="{routeName() === 'home' || routeName() === 'player'}">
-      <app-icon name="trophy" />
+    <a href="#/new-match" aria-label="Gioca" [class.active]="{routeName() === 'new-match'}">
+      <app-icon name="play" />
       @if (showIcon()) {
-        <span class="label">Classifica</span>
+        <span class="label">Gioca</span>
       }
     </a>
     <a href="#/matches" aria-label="Partite" [class.active]="{routeName() === 'matches'}">
       <app-icon name="history" />
       @if (showIcon()) {
         <span class="label">Partite</span>
-      }
-    </a>
-    <a href="#/new-match" aria-label="Gioca" [class.active]="{routeName() === 'new-match'}">
-      <app-icon name="play" />
-      @if (showIcon()) {
-        <span class="label">Gioca</span>
       }
     </a>
     @if (user()?.isAdmin) {

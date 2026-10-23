@@ -4,6 +4,11 @@ import { ApiError, deleteRunningMatch, fetchLeaderboard, fetchRunningMatch, gene
 import type { LeaderboardEntry, RunningMatch, SavedMatch } from '../../core/api/api.models';
 
 /**
+ * How long a touch must last to be a long press, in milliseconds.
+ */
+const LONG_PRESS_MS = 450;
+
+/**
  * How a player is picked: not available, available, or available and required in the match.
  */
 type PickState = 'none' | 'queue' | 'priority';
@@ -57,6 +62,10 @@ export class PlayPage extends CustomElement {
    */
   public readonly priorityIds = computed(() => this._computePriorityIds());
   /**
+   * Whether the list of players is folded, on small screens: the match takes its place.
+   */
+  public readonly collapsed = signal(false);
+  /**
    * The match being played, as a list of at most one item, so that the template reads it without `null`.
    */
   public readonly live = computed(() => this._computeLive());
@@ -109,8 +118,79 @@ export class PlayPage extends CustomElement {
     this.picks.set(picks);
   }
 
+  /**
+   * Folds or unfolds the list of players.
+   */
+  public toggleFold(): void {
+    this.collapsed.update(collapsed => !collapsed);
+  }
+
+  /**
+   * Starts the long press of a touch on a player, which gives priority like the right click.
+   *
+   * @param event - The pointer going down on the player.
+   * @param id - The id of the player.
+   */
+  public pressStart(event: PointerEvent, id: number): void {
+    this._pressed = false;
+    this._clearPress();
+    if (event.pointerType !== 'mouse') {
+      this._pressTimer = setTimeout(() => {
+        this._pressTimer = null;
+        this._pressed = true;
+        this._togglePriority(id);
+      }, LONG_PRESS_MS);
+    }
+  }
+
+  /**
+   * Ends the press on a player: a short touch is still a tap.
+   */
+  public pressEnd(): void {
+    this._clearPress();
+  }
+
+  /**
+   * A tap or click on a player, ignored when it ended a long press.
+   *
+   * @param id - The id of the player.
+   */
+  public tap(id: number): void {
+    if (this._pressed) {
+      this._pressed = false;
+      return;
+    }
+
+    this.cycle(id);
+  }
+
+  /**
+   * Gives or takes the priority with the context menu, which a long press opens on some touch browsers: the long
+   * press already did it, so only the mouse acts here.
+   *
+   * @param event - The context menu event.
+   * @param id - The id of the player.
+   */
   public mustPlay(event: PointerEvent, id: number): void {
     event.preventDefault();
+    if (this._pressed || this._pressTimer !== null || event.pointerType === 'touch' || event.pointerType === 'pen') {
+      return;
+    }
+
+    this._togglePriority(id);
+  }
+
+  private _pressTimer: ReturnType<typeof setTimeout> | null = null;
+  private _pressed = false;
+
+  private _clearPress(): void {
+    if (this._pressTimer !== null) {
+      clearTimeout(this._pressTimer);
+      this._pressTimer = null;
+    }
+  }
+
+  private _togglePriority(id: number): void {
     const picks = new Map(this.picks());
     if (picks.get(id) !== 'priority') {
       if (this.priorityIds().length < this._maxPriority) {

@@ -15,7 +15,11 @@
         </span>
       }
     </span>
+    <button type="button" class="fold" aria-expanded="{String(!collapsed())}" aria-label="Mostra o nascondi i giocatori" (click)="toggleFold()">
+      <span class="chevron" [class.up]="{!collapsed()}" />
+    </button>
   </header>
+  <div class="picker-body" [class.collapsed]="{collapsed()}">
   <div class="controls">
     <button type="button" class="chip-button" (click)="pickToday()">
       <app-icon name="calendar" />
@@ -25,7 +29,7 @@
     <button type="button" class="chip-button" (click)="pickNone()">Nessuno</button>
   </div>
   <p class="hint">
-    Un tocco seleziona un giocatore o deseleziona il giocatore. Il tasto destro da la priorità
+    Un tocco seleziona un giocatore o deseleziona il giocatore. Il tasto destro (su mobile la pressione prolungata) da la priorità
     <app-icon class="hint-star" name="star" />
   </p>
   <div class="players">
@@ -36,8 +40,12 @@
         [class.queue]="{pickOf(player().id) === 'queue'}"
         [class.priority]="{pickOf(player().id) === 'priority'}"
         aria-pressed="{String(pickOf(player().id) !== 'none')}"
-        (click)="cycle(player().id)"
+        (click)="tap(player().id)"
         (contextmenu)="mustPlay($event, player().id)"
+        (pointerdown)="pressStart($event, player().id)"
+        (pointerup)="pressEnd()"
+        (pointerleave)="pressEnd()"
+        (pointercancel)="pressEnd()"
       >
         <player-avatar icon="{player().icon}" label="{player().name}" size="sm" />
         <span class="player-text">
@@ -72,6 +80,7 @@
     <app-icon name="zap" />
     Genera partita
   </button>
+  </div>
 </section>
 
 <div class="side">

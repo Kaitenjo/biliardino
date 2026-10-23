@@ -1,7 +1,7 @@
 import { CustomElement, WebComponent } from '@xaendar/core';
 import { computed, signal } from '@xaendar/core/signals';
 import { fetchRanking, fetchRunningMatch } from '../../core/api/api';
-import type { LeaderboardEntry, RankingMode, RunningMatch } from '../../core/api/api.models';
+import type { FormEntry, LeaderboardEntry, RankingMode, RunningMatch, Team } from '../../core/api/api.models';
 import { navigate } from '../../core/router/router';
 
 /**
@@ -63,6 +63,10 @@ export class HomePage extends CustomElement {
    */
   public readonly running = signal<RunningMatch | null>(null);
   /**
+   * The preview of the match under the pointer, as a list of at most one item.
+   */
+  public readonly preview = signal<Array<{ entry: FormEntry; x: number; y: number; below: boolean }>>([]);
+  /**
    * Whether the leaderboard is loading.
    */
   public readonly loading = signal(true);
@@ -86,10 +90,6 @@ export class HomePage extends CustomElement {
    * How many players played at least once.
    */
   public readonly activePlayers = computed(() => this._computeActivePlayers());
-  /**
-   * The lowest and highest ELO of the leaderboard, for the bars of the ELO column.
-   */
-  public readonly eloRange = computed(() => this._computeEloRange());
   /**
    * The buttons of the ranking modes.
    */
@@ -185,17 +185,6 @@ export class HomePage extends CustomElement {
   }
 
   /**
-   * Where the ELO of a player stands between the lowest and the highest of the leaderboard.
-   *
-   * @param player - The player.
-   * @returns The width of its bar, 6 to 100.
-   */
-  public eloShare(player: LeaderboardEntry): number {
-    const { min, max } = this.eloRange();
-    return max > min ? 6 + ((player.elo - min) / (max - min)) * 94 : 50;
-  }
-
-  /**
    * The share of matches a player won.
    *
    * @param player - The player.
@@ -239,6 +228,45 @@ export class HomePage extends CustomElement {
   public formTotal(player: LeaderboardEntry): string {
     const total = player.form.reduce((sum, entry) => sum + entry.delta, 0);
     return total > 0 ? `+${total}` : String(total);
+  }
+
+  /**
+   * Shows the preview of a match of the form above or below its square.
+   *
+   * @param event - The pointer entering the square.
+   * @param entry - The match.
+   */
+  public showPreview(event: Event, entry: FormEntry): void {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.preview.set([{ entry, x: rect.left + rect.width / 2, y: rect.top < 220 ? rect.bottom : rect.top, below: rect.top < 220 }]);
+  }
+
+  /**
+   * Hides the preview of a match.
+   */
+  public hidePreview(): void {
+    this.preview.set([]);
+  }
+
+  /**
+   * The players of a team of a match, the defender first as in the profile.
+   *
+   * @param entry - The match.
+   * @param team - The team.
+   * @returns The defender and the attacker.
+   */
+  public teamOf(entry: FormEntry, team: Team): FormEntry['players'] {
+    return entry.players.filter(player => player.team === team).toSorted((first, second) => (first.role === second.role ? 0 : first.role === 'defense' ? -1 : 1));
+  }
+
+  /**
+   * The change of ELO, with its sign.
+   *
+   * @param delta - The change.
+   * @returns The change, with `+` when positive.
+   */
+  public formatDelta(delta: number): string {
+    return delta > 0 ? `+${delta}` : String(delta);
   }
 
   /**
@@ -341,16 +369,6 @@ export class HomePage extends CustomElement {
    */
   private _computeActivePlayers(): number {
     return this.general().filter(player => player.matches > 0).length;
-  }
-
-  /**
-   * Computes the value of `eloRange`.
-   *
-   * @returns The lowest and highest ELO.
-   */
-  private _computeEloRange(): { min: number; max: number } {
-    const elos = this.players().map(player => player.elo);
-    return { min: Math.min(...elos), max: Math.max(...elos) };
   }
 
   /**
