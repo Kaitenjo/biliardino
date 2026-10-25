@@ -1,0 +1,323 @@
+import { all, get, run } from '../db/db.ts';
+import { romeClock } from '../dates.ts';
+import { clearRunningMatch, getRunningMatch, setRunningMatch } from '../matches/running-match.ts';
+import type { MatchView } from '../matches/running-match.ts';
+import { loadMatchmakingContext } from '../matchmaking/matchmaking.context.ts';
+import { findBestMatch } from '../matchmaking/matchmaking.ts';
+import type { Lineup } from '../models.ts';
+import { notify } from '../push/notifications.ts';
+import { isWorkingDay, nextOpening, SLOTS, slotAt, toMinutes } from './calendar.ts';
+
+/*
+  The lobbies. Monday to friday (holidays excluded) one opens at each slot of SLOTS; whoever wants to play enters it,
+  and can leave and come back while it is open. At the time of the match the matchmaking picks the best match among who
+  is in, which becomes the match to play, and the 4 players are told. Until the lobby closes, once a match is saved
+  another one can be generated with who is in.
+  The state lives in the database and `tick` brings it up to date with the clock: it runs every half hour (cron) and
+  before each read of the lobby, so a late or missed run only delays it. Each step is claimed by an UPDATE, so that two
+  runs at the same time don't open, notify or generate twice.
+*/
+
+/**
+ * A player in a lobby.
+ */
+export interface LobbyPlayer {
+  /**
+   * Id of the player.
+   */
+  id: number;
+  /**
+   * Its name.
+   */
+  name: string;
+  /**
+   * Its icon.
+   */
+  icon: string;
+  /**
+   * Whether it plays in attack.
+   */
+  playsAttack: boolean;
+  /**
+   * Whether it plays in defence.
+   */
+  playsDefense: boolean;
+}
+
+/**
+ * The open lobby, as the lobby page shows it.
+ */
+export interface LobbyView {
+  /**
+   * Id of the lobby.
+   */
+  id: number;
+  /**
+   * Its day, `YYYY-MM-DD`.
+   */
+  day: string;
+  /**
+   * When it opened, `HH:MM` (Italian time).
+   */
+  opensAt: string;
+  /**
+   * When the match is generated.
+   */
+  matchAt: string;
+  /**
+   * When it closes.
+   */
+  closesAt: string;
+  /**
+   * Whether the match of its time was already generated (or tried): from now on, a match is generated on request.
+   */
+  matched: boolean;
+  /**
+   * Who is in, in order of entry.
+   */
+  players: LobbyPlayer[];
+}
+
+/**
+ * The lobby page: the open lobby, or when the next one opens.
+ */
+export interface LobbyState {
+  /**
+   * The open lobby, `null` when there is none.
+   */
+  lobby: LobbyView | null;
+  /**
+   * When the next lobby opens, when none is open.
+   */
+  next: { day: string; opensAt: string } | null;
+}
+
+/**
+ * Why a match of a lobby was not generated: fewer than 4 players in, a match still to play, or roles that don't allow
+ * any match.
+ */
+export type LobbyMatchFailure = 'not-enough' | 'running' | 'impossible';
+
+/**
+ * A row of `lobbies`.
+ */
+interface LobbyRow {
+  id: number;
+  day: string;
+  slot: string;
+  matched: number;
+}
+
+/**
+ * Brings the lobbies up to date with the clock: generates the matches due, closes the lobbies past their time, opens the
+ * one of now (telling everybody).
+ *
+ * @param now - The moment, now by default.
+ */
+export async function tick(now = new Date()): Promise<void> {
+  const clock = romeClock(now);
+  const open = await all<LobbyRow>('SELECT id, day, slot, matched FROM lobbies WHERE closed = 0');
+  for (const lobby of open) {
+    const slot = slotAt(lobby.slot);
+    const ended = !slot || lobby.day < clock.day || (lobby.day === clock.day && clock.minutes >= toMinutes(slot.close));
+    if (ended) {
+      await run('UPDATE lobbies SET closed = 1 WHERE id = ?', lobby.id);
+    } else if (!lobby.matched && lobby.day === clock.day && clock.minutes >= toMinutes(slot.match)) {
+      await generateDueMatch(lobby.id, slot.match);
+    }
+  }
+
+  if (!isWorkingDay(clock.day)) {
+    return;
+  }
+
+  const slot = SLOTS.find(candidate => clock.minutes >= toMinutes(candidate.open) && clock.minutes < toMinutes(candidate.close));
+  if (!slot) {
+    return;
+  }
+
+  const created = await run('INSERT OR IGNORE INTO lobbies (day, slot) VALUES (?, ?)', clock.day, slot.open);
+  if (!created.changes) {
+    return;
+  }
+
+  await notify('everybody', {
+    title: `Lobby delle ${slot.open} aperta`,
+    body: `Entra in lobby entro le ${slot.match} per giocare la prossima partita.`,
+    url: '/#/lobby'
+  });
+  // Opened late (e.g. a missed run): the match may be due already
+  if (clock.minutes >= toMinutes(slot.match)) {
+    const lobby = await get<{ id: number }>('SELECT id FROM lobbies WHERE day = ? AND slot = ?', clock.day, slot.open);
+    await generateDueMatch(lobby!.id, slot.match);
+  }
+}
+
+/**
+ * The open lobby with who is in, or when the next one opens.
+ *
+ * @returns The state of the lobby page.
+ */
+export async function getLobbyState(): Promise<LobbyState> {
+  const row = await get<LobbyRow>('SELECT id, day, slot, matched FROM lobbies WHERE closed = 0 ORDER BY day DESC, slot DESC LIMIT 1');
+  const slot = row && slotAt(row.slot);
+  if (!row || !slot) {
+    const next = nextOpening(romeClock());
+    return { lobby: null, next: next && { day: next.day, opensAt: next.slot.open } };
+  }
+
+  return {
+    lobby: { id: row.id, day: row.day, opensAt: slot.open, matchAt: slot.match, closesAt: slot.close, matched: Boolean(row.matched), players: await lobbyPlayers(row.id) },
+    next: null
+  };
+}
+
+/**
+ * Enters a player in a lobby, or takes it out.
+ *
+ * @param lobbyId - The lobby, which must be open.
+ * @param playerId - The player.
+ * @param inside - Whether it enters.
+ * @returns Whether the lobby is open: a closed one doesn't change.
+ */
+export async function setInLobby(lobbyId: number, playerId: number, inside: boolean): Promise<boolean> {
+  if (!(await get('SELECT 1 FROM lobbies WHERE id = ? AND closed = 0', lobbyId))) {
+    return false;
+  }
+
+  await (inside
+    ? run('INSERT OR IGNORE INTO lobby_players (lobby_id, player_id) VALUES (?, ?)', lobbyId, playerId)
+    : run('DELETE FROM lobby_players WHERE lobby_id = ? AND player_id = ?', lobbyId, playerId));
+  return true;
+}
+
+/**
+ * Generates another match with who is in an open lobby, after the one of its time, on request of a user. Only the 4
+ * players are told; a failure is answered to the user only.
+ *
+ * @param lobbyId - The lobby.
+ * @param userId - The user who asked.
+ * @returns The match, `'closed'` when the lobby is not open, `'too-early'` before the match of its time, or why there is
+ * none.
+ */
+export async function generateNextMatch(lobbyId: number, userId: number): Promise<MatchView | LobbyMatchFailure | 'closed' | 'too-early'> {
+  const lobby = await get<{ matched: number }>('SELECT matched FROM lobbies WHERE id = ? AND closed = 0', lobbyId);
+  if (!lobby) {
+    return 'closed';
+  }
+
+  return lobby.matched ? generateLobbyMatch(lobbyId, userId) : 'too-early';
+}
+
+/**
+ * Deletes the match to play and, while a lobby is open after its match, generates another one at once with who is in
+ * it: not the same one, if any other can be formed.
+ *
+ * @param userId - The user who deleted it.
+ * @returns The new match to play, `null` when none was generated.
+ */
+export async function replaceRunningMatch(userId: number): Promise<MatchView | null> {
+  const deleted = await getRunningMatch();
+  await clearRunningMatch();
+  await tick();
+  const lobby = await get<{ id: number }>('SELECT id FROM lobbies WHERE closed = 0 AND matched = 1 ORDER BY id DESC LIMIT 1');
+  if (!lobby) {
+    return null;
+  }
+
+  const avoid = deleted
+    ? {
+        red: { attack: deleted.red.attack.id, defense: deleted.red.defense.id },
+        blue: { attack: deleted.blue.attack.id, defense: deleted.blue.defense.id }
+      }
+    : undefined;
+  const result = await generateLobbyMatch(lobby.id, userId, avoid);
+  return typeof result === 'string' ? null : result;
+}
+
+/**
+ * Generates the match of the time of a lobby, once: the lobby is claimed first. When there is no match, the players in
+ * the lobby are told why.
+ *
+ * @param lobbyId - The lobby.
+ * @param time - The time of the match, for the notifications.
+ */
+async function generateDueMatch(lobbyId: number, time: string): Promise<void> {
+  const claimed = await run('UPDATE lobbies SET matched = 1 WHERE id = ? AND matched = 0', lobbyId);
+  if (!claimed.changes) {
+    return;
+  }
+
+  const result = await generateLobbyMatch(lobbyId, null);
+  if (typeof result !== 'string') {
+    return;
+  }
+
+  const players = await lobbyPlayers(lobbyId);
+  const reasons: Record<LobbyMatchFailure, string> = {
+    'not-enough': `Servono almeno 4 giocatori in lobby: ${players.length === 1 ? 'c\'eri solo tu' : `eravate in ${players.length}`}.`,
+    running: "C'è ancora una partita in corso: salvatela o eliminatela, poi generatene un'altra dalla lobby.",
+    impossible: 'Con i ruoli di chi è in lobby non si può formare una partita.'
+  };
+  await notify(
+    players.map(player => player.id),
+    { title: `Partita delle ${time} annullata`, body: reasons[result], url: '/#/lobby' }
+  );
+}
+
+/**
+ * Generates a match with who is in a lobby, which becomes the match to play, and tells its 4 players.
+ *
+ * @param lobbyId - The lobby.
+ * @param userId - The user who asked, `null` for the automatic one.
+ * @param avoid - A match not to generate again (the one just deleted); none to leave out none.
+ * @returns The match, or why there is none.
+ */
+async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?: { red: Lineup<number>; blue: Lineup<number> }): Promise<MatchView | LobbyMatchFailure> {
+  const ids = (await lobbyPlayers(lobbyId)).map(player => player.id);
+  if (ids.length < 4) {
+    return 'not-enough';
+  }
+
+  if (await getRunningMatch()) {
+    return 'running';
+  }
+
+  const context = await loadMatchmakingContext();
+  const proposal = findBestMatch(context, ids.filter(id => context.players.has(id)), [], avoid);
+  if (!proposal) {
+    return 'impossible';
+  }
+
+  const match = await setRunningMatch(
+    { attack: proposal.red.attack.id, defense: proposal.red.defense.id },
+    { attack: proposal.blue.attack.id, defense: proposal.blue.defense.id },
+    userId
+  );
+  if (!match) {
+    return 'running';
+  }
+
+  await notify([match.red.attack.id, match.red.defense.id, match.blue.attack.id, match.blue.defense.id], {
+    title: 'Tocca a te: si gioca!',
+    body: `Rossi: ${match.red.attack.name} (attacco) e ${match.red.defense.name} (difesa). Blu: ${match.blue.attack.name} (attacco) e ${match.blue.defense.name} (difesa).`,
+    url: '/#/lobby'
+  });
+  return match;
+}
+
+/**
+ * Who is in a lobby, in order of entry.
+ *
+ * @param lobbyId - The lobby.
+ * @returns The players.
+ */
+async function lobbyPlayers(lobbyId: number): Promise<LobbyPlayer[]> {
+  const rows = await all<{ id: number; name: string; icon: string; playsAttack: number; playsDefense: number }>(
+    `SELECT p.id, p.name, p.icon, p.plays_attack AS playsAttack, p.plays_defense AS playsDefense
+     FROM lobby_players lp JOIN players p ON p.id = lp.player_id
+     WHERE lp.lobby_id = ? ORDER BY lp.joined_at, p.name`,
+    lobbyId
+  );
+  return rows.map(row => ({ id: row.id, name: row.name, icon: row.icon, playsAttack: Boolean(row.playsAttack), playsDefense: Boolean(row.playsDefense) }));
+}

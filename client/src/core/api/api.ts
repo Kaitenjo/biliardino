@@ -1,6 +1,6 @@
 import { untracked } from '@xaendar/core/signals';
 import { sessionToken, setSession } from '../auth/session';
-import type { AdminPlayer, AuthUser, LeaderboardEntry, Lineup, MatchPage, PlayerDetail, RankingMode, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
+import type { AuthUser, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, RankingMode, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
 
 /**
  * An error answered by the server, with its message.
@@ -108,11 +108,12 @@ export function fetchPlayer(id: number, abort?: AbortSignal): Promise<PlayerDeta
  * Loads a page of the played matches.
  *
  * @param page - The page, from 1.
+ * @param size - How many matches a page holds.
  * @param abort - Aborts the request.
  * @returns The matches of the page, newest first, and how many there are in all.
  */
-export function fetchMatches(page: number, abort?: AbortSignal): Promise<MatchPage> {
-  return request('GET', `/matches?page=${page}`, undefined, abort);
+export function fetchMatches(page: number, size: number, abort?: AbortSignal): Promise<MatchPage> {
+  return request('GET', `/matches?page=${page}&size=${size}`, undefined, abort);
 }
 
 /**
@@ -126,35 +127,72 @@ export function fetchRunningMatch(abort?: AbortSignal): Promise<RunningMatch | n
 }
 
 /**
- * Asks the server to pick the best match among the available players; it becomes the match to play.
+ * Loads the open lobby, or when the next one opens.
  *
- * @param playerIds - The ids of the available players, at least 4.
- * @param priorityIds - The ids of the players that must play.
- * @returns The match.
- * @throws {ApiError} With status 409 and the match already generated in `data.running`, when there already is one.
+ * @param abort - Aborts the request.
+ * @returns The state of the lobby page.
  */
-export function generateMatch(playerIds: readonly number[], priorityIds: readonly number[]): Promise<RunningMatch> {
-  return request('POST', '/matches/generate', { playerIds, priorityIds });
-}
-
-
-/**
- * Sets the days of the week a player is usually available.
- *
- * @param playerId - The id of the player.
- * @param weekdays - The days, 0 (sunday) to 6 (saturday).
- * @returns The days stored.
- */
-export function putAvailability(playerId: number, weekdays: readonly number[]): Promise<{ playerId: number; weekdays: number[] }> {
-  return request('PUT', `/availability/${playerId}`, { weekdays });
+export function fetchLobby(abort?: AbortSignal): Promise<LobbyState> {
+  return request('GET', '/lobby', undefined, abort);
 }
 
 /**
- * Drops the match to play.
+ * Enters the logged player in the open lobby, or takes it out.
  *
+ * @param lobbyId - The id of the lobby.
+ * @param inside - Whether it enters.
+ * @returns The state of the lobby page.
+ * @throws {ApiError} With status 409 when the lobby closed in the meantime.
+ */
+export function setInLobby(lobbyId: number, inside: boolean): Promise<LobbyState> {
+  return request('POST', `/lobby/${lobbyId}/${inside ? 'join' : 'leave'}`);
+}
+
+/**
+ * Generates another match with who is in the open lobby, after the one of its time; its players are notified.
+ *
+ * @param lobbyId - The id of the lobby.
+ * @returns The match to play.
+ */
+export function generateLobbyMatch(lobbyId: number): Promise<RunningMatch> {
+  return request('POST', `/lobby/${lobbyId}/generate`);
+}
+
+/**
+ * Loads the public key the browsers subscribe to the notifications with.
+ *
+ * @returns The VAPID key, base64url.
+ */
+export function fetchPushKey(): Promise<{ publicKey: string }> {
+  return request('GET', '/push/key');
+}
+
+/**
+ * Saves this browser as one where the logged user receives the notifications.
+ *
+ * @param subscription - The subscription of the browser, as `PushSubscription.toJSON()` gives it.
  * @returns When done.
  */
-export function deleteRunningMatch(): Promise<void> {
+export function postPushSubscription(subscription: PushSubscriptionJSON): Promise<void> {
+  return request('POST', '/push/subscriptions', subscription);
+}
+
+/**
+ * Stops the notifications to this browser.
+ *
+ * @param endpoint - The endpoint of its subscription.
+ * @returns When done.
+ */
+export function deletePushSubscription(endpoint: string): Promise<void> {
+  return request('DELETE', '/push/subscriptions', { endpoint });
+}
+
+/**
+ * Drops the match to play: while a lobby is open after its match, another one is generated at once with who is in it.
+ *
+ * @returns The new match to play, `null` when none was generated.
+ */
+export function deleteRunningMatch(): Promise<RunningMatch | null> {
   return request('DELETE', '/matches/running');
 }
 
@@ -181,7 +219,7 @@ export function saveMatch(runningId: number, red: Lineup<number>, blue: Lineup<n
  * @param password - The password.
  * @returns The session.
  */
-export function postLogin(name: string, password: string): Promise<Session> {
+export function login(name: string, password: string): Promise<Session> {
   return request('POST', '/auth/login', { name, password });
 }
 
@@ -190,7 +228,7 @@ export function postLogin(name: string, password: string): Promise<Session> {
  *
  * @returns When done.
  */
-export function postLogout(): Promise<void> {
+export function logout(): Promise<void> {
   return request('POST', '/auth/logout');
 }
 
@@ -224,15 +262,6 @@ export function putRoles(roles: Lineup<boolean>): Promise<UserRoles> {
 }
 
 /**
- * Loads every player with the roles it plays. Only the super admin can.
- *
- * @returns The players, by name.
- */
-export function fetchAdminRoles(): Promise<AdminPlayer[]> {
-  return request('GET', '/admin/roles');
-}
-
-/**
  * Sets the roles of any player, without the limit of once a day. Only the super admin can.
  *
  * @param playerId - The id of the player.
@@ -250,6 +279,26 @@ export function putAdminRoles(playerId: number, roles: Lineup<boolean>): Promise
  */
 export function postRecompute(): Promise<void> {
   return request('POST', '/admin/recompute');
+}
+
+/**
+ * Loads the saved variables of the ELO system. Only the super admin can.
+ *
+ * @returns The variables with the defaults.
+ */
+export function fetchEloSettings(): Promise<EloSettings> {
+  return request('GET', '/admin/elo-config');
+}
+
+/**
+ * Saves the variables of the ELO system and rebuilds every ELO and statistic with them. Only the super admin can.
+ *
+ * @param config - The variables.
+ * @param startElo - The initial ELO to give to every player, `null` to keep each player's own.
+ * @returns The variables saved.
+ */
+export function postEloRecompute(config: EloConfig, startElo: number | null): Promise<{ config: EloConfig }> {
+  return request('POST', '/admin/recompute', { ...config, startElo });
 }
 
 /**

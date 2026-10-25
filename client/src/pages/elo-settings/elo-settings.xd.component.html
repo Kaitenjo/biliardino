@@ -1,0 +1,67 @@
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+
+<section class="card intro">
+  <h1>
+    <app-icon name="zap" />
+    Calcolo dell’ELO
+  </h1>
+  <p class="muted">
+    Imposta le variabili del calcolo e premi il pulsante: vengono salvate e l’ELO di tutti i giocatori è ricalcolato rigiocando
+    ogni partita dalla prima. Le nuove partite useranno gli stessi valori.
+  </p>
+</section>
+
+@if (error()) {
+  <p class="error">{ error() }</p>
+}
+
+@if (loading()) {
+  <p class="muted">Caricamento…</p>
+} @else if (settings()) {
+  <form class="card" novalidate (submit)="submit($event)">
+    @for (field of fields; track field().key) {
+      <label>
+        { field().label }
+        <input type="text" inputmode="decimal" autocomplete="off" data-key="{field().key}" value="{initial(field().key)}" />
+        <small>{ field().hint }</small>
+      </label>
+    }
+    <label>
+      ELO iniziale di tutti (facoltativo)
+      <input type="text" inputmode="decimal" autocomplete="off" data-key="startElo" placeholder="Lascia vuoto per tenere quello di ciascuno" />
+      <small>Se compilato, sostituisce l’ELO di partenza di ogni giocatore (in attacco e in difesa).</small>
+    </label>
+
+    <div class="actions">
+      <button
+        @if (busy()) {
+          disabled
+        }
+        type="submit"
+        class="primary"
+      >
+        <app-icon name="history" />
+        Salva e ricalcola tutto
+      </button>
+      <button
+        @if (busy()) {
+          disabled
+        }
+        type="button"
+        class="ghost"
+        (click)="useDefaults()"
+      >
+        Ripristina i valori standard
+      </button>
+      @if (busy()) {
+        <p class="muted">Ricalcolo in corso…</p>
+      }
+      @if (done()) {
+        <p class="success">
+          <app-icon name="check-circle" />
+          Variabili salvate: ELO e statistiche ricalcolati.
+        </p>
+      }
+    </div>
+  </form>
+}

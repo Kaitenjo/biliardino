@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "types": "wrangler types",
     "add-player": "node scripts/add-player.ts",
-    "export-db": "node scripts/export-db.ts"
+    "export-db": "node scripts/export-db.ts",
+    "vapid-keys": "node scripts/vapid-keys.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

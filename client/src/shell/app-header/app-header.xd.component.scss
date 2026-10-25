@@ -1,13 +1,14 @@
 @use '../../styles/mixins';
 
+// Transparent, floating over the top of the page: the 3D scene shows through it
 :host {
-  position: sticky;
+  position: absolute;
   top: 0;
+  right: 0;
+  left: 0;
   z-index: 10;
   display: block;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
-  backdrop-filter: blur(14px) saturate(1.4);
+  background: transparent;
 }
 
 header {
@@ -19,67 +20,56 @@ header {
   padding: 0.5rem 1rem;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.logo {
-  width: 2.6rem;
-  height: 2.6rem;
-  object-fit: contain;
-}
-
-.brand-text {
-  display: grid;
-  line-height: 1.1;
-
-  strong {
-    color: var(--primary);
-    font-size: 1.05rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-  }
-
-  small {
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 600;
-  }
-}
-
 nav {
   display: flex;
   flex: 1;
-  gap: 0.25rem;
+  gap: 0.4rem;
   min-width: 0;
+  padding: 0.2rem 0;
   overflow-x: auto;
 
+  // Pills of smoked glass with a brass edge and gold writing, as the buttons in the scene: readable over light water
+  // and dark wood alike. The page shown is the gold one
   a {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    padding: 0.45rem 0.85rem;
-    border-radius: 10px;
-    color: var(--text-muted);
+    padding: 0.4rem 0.9rem;
+    border: 1px solid rgb(201 162 39 / 55%);
+    border-radius: 999px;
+    background: rgb(10 18 32 / 60%);
+    color: #f6dc7a;
     font-weight: 700;
     text-decoration: none;
     white-space: nowrap;
+    backdrop-filter: blur(6px);
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 
     &:hover {
-      background: var(--surface-alt);
-      color: var(--text);
+      border-color: #f5c542;
+      background: rgb(40 28 8 / 75%);
+      color: #ffe8a3;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #f5c542;
+      outline-offset: 2px;
     }
 
     &.active {
-      background: var(--primary-soft);
-      color: var(--primary);
+      border-color: #f5c542;
+      background: linear-gradient(180deg, #ffe08a, #f5c542 55%, #c9971f);
+      color: #2a1d04;
+      box-shadow: 0 3px 12px rgb(245 197 66 / 35%);
     }
   }
+}
+
+// The menu of the user, and on its right the button of the notifications
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .login {
@@ -89,10 +79,6 @@ nav {
 @media (max-width: 640px) {
   header {
     gap: 0.6rem;
-  }
-
-  .brand-text {
-    display: none;
   }
 
   nav a {

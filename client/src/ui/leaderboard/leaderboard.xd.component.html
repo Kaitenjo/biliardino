@@ -1,0 +1,140 @@
+@import { FormEntry } from '../../core/api/api.models.ts'
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
+
+<header class="board-head">
+  <div class="title">
+    <p class="eyebrow">CA Biliardino Championship</p>
+  </div>
+  <div class="modes" role="tablist" aria-label="Classifica per">
+    @for (button of modes; track button().value) {
+      <button
+        type="button"
+        role="tab"
+        class="mode"
+        [class.active]="{mode() === button().value}"
+        aria-selected="{String(mode() === button().value)}"
+        (click)="setMode(button().value)"
+      >
+        <app-icon name="{button().icon}" />
+        { button().label }
+      </button>
+    }
+  </div>
+</header>
+
+@if (loading() && !players().length) {
+  <p class="muted">Caricamento della classifica…</p>
+} @else {
+  <div class="board" role="table" aria-label="Classifica">
+    <div class="row head" role="row">
+      <span class="rank" role="columnheader" title="Posizione in classifica">#</span>
+      <span role="columnheader" title="Giocatore e ruoli che gioca">Giocatore</span>
+      <span class="num" role="columnheader" title="ELO su cui si basa la classifica">Elo</span>
+      <span class="num" role="columnheader" title="Vittorie / Sconfitte e percentuale di vittorie">V / S</span>
+      <span class="num ratio-col" role="columnheader" title="Rapporto goal fatti/subiti">Goal</span>
+      <span class="form-col" role="columnheader" title="Ultime 5 partite">Forma</span>
+    </div>
+    <div class="rows">
+      @for (player of players(); track player().id) {
+        <div
+          role="row"
+          tabindex="0"
+          class="{`row player-row ${rowClass(player())}`}"
+          (click)="open(player().id)"
+          (keydown)="openOnKey($event, player().id)"
+        >
+          <span class="rank" role="cell">
+            <span class="rank-badge">{ player().rank ?? '—' }</span>
+          </span>
+          <span class="player" role="cell">
+            <player-avatar icon="{player().icon}" label="{player().name}" />
+            <span class="player-text">
+              <strong>{ player().name }</strong>
+              <small class="roles">
+                @if (player().playsAttack) {
+                  <app-icon class="attack" name="attack" />
+                }
+                @if (player().playsDefense) {
+                  <app-icon class="defense" name="defense" />
+                }
+                <span class="roles-label">{ rolesLabel(player()) }</span>
+              </small>
+            </span>
+          </span>
+          <span class="num elo" role="cell">
+            <span class="elo-main">
+              @if (player().form.length) {
+                <small class="form-total" title="ELO guadagnato o perso nelle ultime partite" [class.up]="{formTotal(player()).startsWith('+')}">
+                  { formTotal(player()) }
+                </small>
+              }
+              <strong>{ player().elo }</strong>
+            </span>
+            @if (mode() === 'best') {
+              <small class="elo-roles" title="ELO in attacco e in difesa">
+                <app-icon class="attack" name="attack" />
+                { player().eloAttack }
+                <app-icon class="defense" name="defense" />
+                { player().eloDefense }
+              </small>
+            }
+          </span>
+          <span class="num record" role="cell">
+            <span>
+              <span class="wins">{ player().wins }</span>
+              { ' / ' }
+              <span class="losses">{ player().losses }</span>
+            </span>
+            <small>{ winRate(player()) }</small>
+          </span>
+          <span class="{`num ratio-col ratio ${ratioClass(player())}`}" role="cell">{ goalRatio(player()) }</span>
+          <span class="form-col" role="cell">
+            @if (player().form.length) {
+              <span class="form">
+                @for (entry of player().form; track $index()) {
+                  <span
+                    class="dot"
+                    [class.won]="{entry().won}"
+                    (pointerenter)="showPreview($event, entry())"
+                    (pointerleave)="hidePreview()"
+                  >
+                    { entry().role === 'attack' ? 'A' : 'D' }
+                  </span>
+                }
+              </span>
+            }
+          </span>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@for (item of preview(); track item().x) {
+  <div class="{`preview ${item().below ? 'below' : 'above'}`}" style="{`left: ${item().x}px; top: ${item().y}px`}">
+    <div class="preview-head">
+      <span class="preview-elo">ELO <strong>{ item().entry.elo }</strong></span>
+      <strong class="preview-delta" [class.up]="{item().entry.delta >= 0}">{ formatDelta(item().entry.delta) }</strong>
+    </div>
+    <div class="teams">
+      @render team('Rossi', 'red', item().entry)
+      @render team('Blu', 'blue', item().entry)
+    </div>
+    <div class="preview-score">
+      <span class="result" [class.won]="{item().entry.won}">{ item().entry.redScore }-{ item().entry.blueScore }</span>
+    </div>
+  </div>
+}
+
+<template team(label: string, color: string, entry: FormEntry)>
+  <div class="{`team ${color()}`}">
+    <span class="team-label">{ label() }</span>
+    @for (member of teamOf(entry(), color() === 'red' ? 'red' : 'blue'); track member().id) {
+      <span>
+        <app-icon class="{member().role}" name="{member().role}" />
+        <player-avatar icon="{member().icon}" label="{member().name}" />
+      </span>
+    }
+  </div>
+</template>

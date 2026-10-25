@@ -1,0 +1,164 @@
+// The flaps over the black face of the board: everything is sized on the box (the face as the camera sees it), so that
+// it grows and shrinks with the board
+:host {
+  --flap: 1.55cqw;
+  --flap-gap: 0.15cqw;
+  --step: calc(var(--flap) + var(--flap-gap));
+  --segment-gap: 1.1cqw;
+  // The icon of a player before its name, as tall as a flap
+  --face: 6.4cqh;
+  --name: calc(var(--face) + 0.4cqw + 7 * var(--step));
+  --ink: #f6ebc8;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: block;
+  container-type: size;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 2.4cqh 2.2cqw;
+  box-sizing: border-box;
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+}
+
+// The names of the columns, painted on the board: as wide as the flaps under them
+.head,
+.line {
+  display: grid;
+  grid-template-columns: calc(5 * var(--step)) var(--name) var(--name) calc(3 * var(--step)) var(--name) var(--name) calc(3 * var(--step));
+  gap: var(--segment-gap);
+  justify-content: center;
+}
+
+.head {
+  color: #c9a227;
+  font-family: Cinzel, Georgia, serif;
+  font-size: 3.4cqh;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  small {
+    color: rgb(201 162 39 / 60%);
+    font-size: 0.7em;
+    text-transform: none;
+  }
+
+  .score,
+  .delta {
+    text-align: right;
+  }
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  gap: var(--flap-gap);
+}
+
+// The names of a team stand under it, across two columns
+.head .team {
+  grid-column: span 2;
+}
+
+// The icon of the player, a round medallion before the flaps of its name
+.face {
+  display: grid;
+  place-items: center;
+  width: var(--face);
+  height: var(--face);
+  margin-right: 0.4cqw;
+  border-radius: 50%;
+  background: #0d0d10;
+  box-shadow: inset 0 0 0 0.25cqh rgb(201 162 39 / 45%);
+
+  player-avatar {
+    --avatar-size: calc(var(--face) - 0.6cqh);
+
+    animation: face-in 0.35s ease-out;
+  }
+}
+
+.lost .face {
+  opacity: 0.55;
+}
+
+@keyframes face-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+// A flap: two halves of black plate with the split across the middle, the letter cut by it
+.flap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--flap);
+  height: 6.4cqh;
+  border-radius: 0.5cqh;
+  background: linear-gradient(180deg, #232327 0%, #18181b 48%, #050505 48%, #050505 52%, #141417 52%, #0d0d10 100%);
+  box-shadow: inset 0 0.3cqh 0.4cqh rgb(255 255 255 / 6%), 0 0.3cqh 0.5cqh rgb(0 0 0 / 70%);
+  color: var(--ink);
+  font-size: 4.3cqh;
+  font-weight: 700;
+  line-height: 1;
+
+  // The hinge: a thin dark line through the letter
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 0.25cqh;
+    background: rgb(0 0 0 / 85%);
+    transform: translateY(-50%);
+  }
+}
+
+.date .flap {
+  color: #fbbf24;
+}
+
+.white .flap {
+  color: #f8fafc;
+}
+
+.brown .flap {
+  color: #d9b38c;
+}
+
+// The losers a little dimmer than the winners
+.lost .flap {
+  opacity: 0.55;
+}
+
+.score .flap {
+  color: #fde68a;
+}
+
+.delta .flap {
+  color: #4ade80;
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  color: rgb(201 162 39 / 75%);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 3.4cqh;
+  font-style: italic;
+}

@@ -12,10 +12,12 @@
   "dependencies": {
     "@xaendar/core": "^1.0.5",
     "@xaendar/signals": "^1.0.5",
-    "@xaendar/types": "^1.0.5"
+    "@xaendar/types": "^1.0.5",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^8.0.2",
+    "@types/three": "^0.186.0",
     "@vitest/coverage-v8": "^5.0.5",
     "@xaendar/cli": "^1.0.5",
     "happy-dom": "^21.0.4",

@@ -5,41 +5,49 @@
   display: inline-block;
 }
 
+// A pill of smoked glass with a brass edge and gold writing, as the links of the header
 .trigger {
-  background: transparent;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.25rem 0.6rem 0.25rem 0.25rem;
-  border: 1px solid var(--border);
+  padding: 0.25rem 0.7rem 0.25rem 0.25rem;
+  border: 1px solid rgb(201 162 39 / 55%);
   border-radius: 999px;
-  color: var(--text);
+  background: rgb(10 18 32 / 60%);
+  color: #f6dc7a;
   font: inherit;
   cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background-color 0.15s, border-color 0.15s;
 
   &:hover {
-    background: var(--surface-alt);
+    border-color: #f5c542;
+    background: rgb(40 28 8 / 75%);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid #f5c542;
     outline-offset: 2px;
   }
 }
 
 .name {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .caret {
-  color: var(--text-muted);
+  color: rgb(246 220 122 / 70%);
   font-size: 0.8rem;
 }
 
+// The menu: smoked glass with gold edges, as the panels over the scene
 .menu {
-  @include mixins.card;
-
   position: absolute;
+  border: 1px solid rgb(245 197 66 / 30%);
+  border-radius: 14px;
+  background: linear-gradient(165deg, rgb(10 25 47 / 92%), rgb(4 12 26 / 95%));
+  box-shadow: 0 16px 40px rgb(2 6 23 / 55%);
+  backdrop-filter: blur(14px);
   top: calc(100% + 0.4rem);
   right: 0;
   z-index: 20;
@@ -56,7 +64,7 @@
     border: none;
     border-radius: 8px;
     background: none;
-    color: var(--text);
+    color: #f1f5f9;
     font: inherit;
     text-align: left;
     text-decoration: none;
@@ -65,7 +73,8 @@
     &:hover,
     &:focus-visible {
       outline: none;
-      background: var(--surface-alt);
+      background: rgb(245 197 66 / 12%);
+      color: #ffe8a3;
     }
   }
 }

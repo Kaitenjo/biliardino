@@ -1,30 +1,33 @@
 import { Hono } from 'hono';
 import { requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
-import { batch, get, statement } from '../db/db.ts';
+import { get, run } from '../db/db.ts';
+import { today } from '../dates.ts';
 import { readBody } from './read-body.ts';
 
 /**
- * The days of the week each player is usually available. They are read with the leaderboard (`weekdays`).
+ * Whether each player is available today. It is read with the leaderboard (`availableToday`) and resets each day, and
+ * each player changes its own (the super admin, anybody's).
  */
 export const availabilityRouter = new Hono<AppEnv>();
 
 availabilityRouter.put('/:playerId', requireAuth, async c => {
   const playerId = Number(c.req.param('playerId'));
-  const { weekdays } = await readBody(c);
+  const { available } = await readBody(c);
   if (!Number.isInteger(playerId) || !(await get('SELECT 1 FROM players WHERE id = ?', playerId))) {
     return c.json({ error: 'Giocatore non trovato' }, 404);
   }
 
-  if (!Array.isArray(weekdays) || !weekdays.every(day => Number.isInteger(day) && day >= 0 && day <= 6)) {
-    return c.json({ error: 'I giorni vanno da 0 (domenica) a 6 (sabato)' }, 400);
+  // Everybody changes only their own availability; the super admin changes anybody's
+  const user = c.get('user');
+  if (playerId !== user.playerId && !user.isAdmin) {
+    return c.json({ error: 'Puoi modificare solo la tua disponibilità' }, 403);
   }
 
-  const days = [...new Set(weekdays as number[])].sort();
-  await batch([
-    statement('DELETE FROM player_availability WHERE player_id = ?', playerId),
-    ...days.map(day => statement('INSERT INTO player_availability (player_id, weekday) VALUES (?, ?)', playerId, day))
-  ]);
+  if (typeof available !== 'boolean') {
+    return c.json({ error: 'Dati mancanti' }, 400);
+  }
 
-  return c.json({ playerId, weekdays: days });
+  await run('UPDATE players SET available_on = ? WHERE id = ?', available ? today() : null, playerId);
+  return c.json({ playerId, available });
 });

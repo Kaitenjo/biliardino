@@ -1,4 +1,5 @@
 import { get, run } from '../db/db.ts';
+import { loadEloConfig } from '../elo/elo-config.ts';
 import { computeMatchElo, expectedScore, roundAwayFromZero } from '../elo/elo.ts';
 import type { EloPlayer } from '../elo/elo.ts';
 import type { Lineup, PlayerSummary, Role } from '../models.ts';
@@ -151,10 +152,10 @@ export async function getRunningMatch(): Promise<MatchView | null> {
  *
  * @param red - The ids of the red players.
  * @param blue - The ids of the blue players.
- * @param userId - The user who generated it.
+ * @param userId - The user who generated it, `null` for the automatic match of a lobby.
  * @returns The new match to play, `null` when somebody else stored one in the meantime (the table holds only one).
  */
-export async function setRunningMatch(red: Lineup<number>, blue: Lineup<number>, userId: number): Promise<MatchView | null> {
+export async function setRunningMatch(red: Lineup<number>, blue: Lineup<number>, userId: number | null): Promise<MatchView | null> {
   try {
     await run(
       'INSERT INTO running_match (red_attack, red_defense, blue_attack, blue_defense, created_by) VALUES (?, ?, ?, ?, ?)',
@@ -186,11 +187,12 @@ export async function clearRunningMatch(): Promise<void> {
  * @returns The view, `null` when one of its players doesn't exist anymore.
  */
 async function viewOf(row: RunningRow): Promise<MatchView | null> {
-  const [redAttack, redDefense, blueAttack, blueDefense] = await Promise.all([
+  const [redAttack, redDefense, blueAttack, blueDefense, config] = await Promise.all([
     findRatedPlayer(row.redAttack, 'attack'),
     findRatedPlayer(row.redDefense, 'defense'),
     findRatedPlayer(row.blueAttack, 'attack'),
-    findRatedPlayer(row.blueDefense, 'defense')
+    findRatedPlayer(row.blueDefense, 'defense'),
+    loadEloConfig()
   ]);
   if (!redAttack || !redDefense || !blueAttack || !blueDefense) {
     return null;
@@ -203,7 +205,7 @@ async function viewOf(row: RunningRow): Promise<MatchView | null> {
   const redPlayers = { attack: toEloPlayer(red.attack, 'attack'), defense: toEloPlayer(red.defense, 'defense') };
   const bluePlayers = { attack: toEloPlayer(blue.attack, 'attack'), defense: toEloPlayer(blue.defense, 'defense') };
   const outcomes = ([[8, 0], [8, 7], [0, 8], [7, 8]] as const).map(([redScore, blueScore]) => {
-    const result = computeMatchElo(redPlayers, bluePlayers, redScore, blueScore);
+    const result = computeMatchElo(redPlayers, bluePlayers, redScore, blueScore, config);
     return { redScore, blueScore, redDelta: roundAwayFromZero(result.redDelta), blueDelta: roundAwayFromZero(result.blueDelta) };
   });
   return {
@@ -212,7 +214,7 @@ async function viewOf(row: RunningRow): Promise<MatchView | null> {
     blue: { attack: toMatchPlayer(blue.attack, 'attack'), defense: toMatchPlayer(blue.defense, 'defense') },
     redElo: Math.round(redElo),
     blueElo: Math.round(blueElo),
-    redWinProbability: expectedScore(redElo, blueElo),
+    redWinProbability: expectedScore(redElo, blueElo, config),
     createdAt: row.createdAt,
     generatedBy: row.generatedBy,
     outcomes

@@ -133,9 +133,9 @@ export interface LeaderboardEntry extends PlayerSummary {
    */
   form: FormEntry[];
   /**
-   * Days of the week the player is usually available (0 = sunday … 6 = saturday).
+   * Whether the player said it is available today (it resets each day).
    */
-  weekdays: number[];
+  availableToday: boolean;
 }
 
 /**
@@ -511,6 +511,80 @@ export interface SavedMatch {
 }
 
 /**
+ * A player in a lobby.
+ */
+export interface LobbyPlayer {
+  /**
+   * Id of the player.
+   */
+  id: number;
+  /**
+   * Its name.
+   */
+  name: string;
+  /**
+   * Its icon.
+   */
+  icon: string;
+  /**
+   * Whether it plays in attack.
+   */
+  playsAttack: boolean;
+  /**
+   * Whether it plays in defence.
+   */
+  playsDefense: boolean;
+}
+
+/**
+ * The open lobby. The times are Italian, `HH:MM`.
+ */
+export interface Lobby {
+  /**
+   * Id of the lobby.
+   */
+  id: number;
+  /**
+   * Its day, `YYYY-MM-DD`.
+   */
+  day: string;
+  /**
+   * When it opened.
+   */
+  opensAt: string;
+  /**
+   * When the matchmaking generates the match with who is in.
+   */
+  matchAt: string;
+  /**
+   * When it closes.
+   */
+  closesAt: string;
+  /**
+   * Whether the match of its time was already generated (or tried): from now on, another one is generated on request.
+   */
+  matched: boolean;
+  /**
+   * Who is in, in order of entry.
+   */
+  players: LobbyPlayer[];
+}
+
+/**
+ * The lobby page: the open lobby, or when the next one opens.
+ */
+export interface LobbyState {
+  /**
+   * The open lobby, `null` when there is none.
+   */
+  lobby: Lobby | null;
+  /**
+   * When the next lobby opens (Italian day and time), when none is open.
+   */
+  next: { day: string; opensAt: string } | null;
+}
+
+/**
  * The roles the logged user plays.
  */
 export interface UserRoles extends Lineup<boolean> {
@@ -547,9 +621,68 @@ export interface AuthUser {
 }
 
 /**
- * A player with the roles it plays, as the super admin sees it.
+ * Every variable of the ELO system.
  */
-export interface AdminPlayer extends PlayerRef, Lineup<boolean> {}
+export interface EloConfig {
+  /**
+   * K factor at the first match of a player in a role.
+   */
+  startK: number;
+  /**
+   * K factor after `matchesK` matches in a role.
+   */
+  finalK: number;
+  /**
+   * Matches in a role after which the K factor reaches `finalK`.
+   */
+  matchesK: number;
+  /**
+   * Scale of the expected score.
+   */
+  scale: number;
+  /**
+   * Goals of difference that add `marginWeight` to the weight of a match.
+   */
+  marginGoals: number;
+  /**
+   * Weight added by `marginGoals` goals of difference.
+   */
+  marginWeight: number;
+  /**
+   * Strength of the surprise factor, 0 turns it off.
+   */
+  surpriseWeight: number;
+  /**
+   * Exponent of the distance from a 50% chance in the surprise factor.
+   */
+  surpriseExponent: number;
+  /**
+   * Lowest probability of winning given to a team.
+   */
+  minWinProbability: number;
+  /**
+   * Least ELO that the winning team earns.
+   */
+  minWinDelta: number;
+}
+
+/**
+ * The ELO variables saved, with the defaults.
+ */
+export interface EloSettings {
+  /**
+   * The saved variables.
+   */
+  config: EloConfig;
+  /**
+   * The values of the system when nothing was configured.
+   */
+  defaults: EloConfig;
+  /**
+   * Allowed range of the initial ELO set for every player.
+   */
+  startEloLimits: { min: number; max: number };
+}
 
 /**
  * The session opened by a login.

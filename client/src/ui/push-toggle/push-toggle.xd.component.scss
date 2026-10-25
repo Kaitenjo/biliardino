@@ -1,0 +1,66 @@
+@use '../../styles/mixins';
+
+:host {
+  position: relative;
+  display: inline-flex;
+}
+
+// Smoked glass with a brass edge, as the links of the header, when the notifications are off; green when they are on
+.toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid rgb(201 162 39 / 55%);
+  border-radius: 50%;
+  background: rgb(10 18 32 / 60%);
+  color: #f6dc7a;
+  backdrop-filter: blur(6px);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: #f5c542;
+    background: rgb(40 28 8 / 75%);
+    color: #ffe8a3;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #f5c542;
+    outline-offset: 2px;
+  }
+
+  &.on {
+    border-color: var(--win);
+    background: var(--win);
+    color: #ffffff;
+    box-shadow: 0 0 10px var(--win-soft);
+
+    &:hover {
+      background: color-mix(in srgb, var(--win) 85%, #000000);
+    }
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+// Why they couldn't be turned on, under the button for a few seconds
+.error {
+  @include mixins.card;
+
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 16rem;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  color: var(--loss);
+  font-size: 0.78rem;
+}

@@ -1,0 +1,35 @@
+@import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
+
+<div class="board" role="img" aria-label="{`Tabellone delle partite, pagina ${page()} di ${pageCount()}`}">
+  <div class="head" aria-hidden="true">
+    <span class="date">Data</span>
+    <span class="team">Bianchi <small>dif · att</small></span>
+    <span class="score">Ris.</span>
+    <span class="team">Marroni <small>dif · att</small></span>
+    <span class="delta">Elo</span>
+  </div>
+
+  @for (line of shown(); track $index()) {
+    <div class="line">
+      @for (segment of line(); track $index()) {
+        <span class="{`segment ${segment().tone}`}">
+          @if (segment().tone.startsWith('name')) {
+            <span class="face">
+              @if (segment().player) {
+                <player-avatar icon="{segment().player?.icon ?? ''}" label="{segment().player?.name ?? ''}" />
+              }
+            </span>
+          }
+          @for (letter of letters(segment().text); track $index()) {
+            <span class="flap">{ letter() }</span>
+          }
+        </span>
+      }
+    </div>
+  }
+
+  <div class="foot">
+    <span>Pagina { page() } di { pageCount() }</span>
+    <span>{ total() } partite giocate</span>
+  </div>
+</div>

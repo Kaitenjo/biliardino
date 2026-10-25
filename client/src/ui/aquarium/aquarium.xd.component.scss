@@ -1,0 +1,302 @@
+// The colours of the two teams at the table: white, and light brown
+:host {
+  --team-white: #f8fafc;
+  --team-brown: #c8a27a;
+
+  display: block;
+  height: 100%;
+}
+
+.water {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(180deg, #38bdf8 0%, #0c6ea3 45%, #0b3550 100%);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+// The names of the players, moved over their creatures by the scene
+.labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+
+  .name {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: 7rem;
+    padding: 0 0.35rem;
+    overflow: hidden;
+    border-radius: 6px;
+    background: rgb(0 0 0 / 40%);
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    will-change: transform;
+  }
+}
+
+// The players of the match by the table, moved by the scene; they appear once the camera is there
+.seat {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  color: #ffffff;
+  text-decoration: none;
+  visibility: hidden;
+  opacity: 0;
+  will-change: transform, opacity;
+
+  player-avatar {
+    --avatar-size: 4.8rem;
+
+    margin-bottom: 0.35rem;
+    border-radius: 50%;
+  }
+
+  &.white player-avatar {
+    box-shadow: 0 0 0 3px var(--team-white), 0 4px 12px rgb(0 0 0 / 50%);
+  }
+
+  &.brown player-avatar {
+    box-shadow: 0 0 0 3px var(--team-brown), 0 4px 12px rgb(0 0 0 / 50%);
+  }
+
+  .name {
+    max-width: 12rem;
+    padding: 0.05rem 0.55rem;
+    overflow: hidden;
+    border-radius: 7px;
+    background: rgb(0 0 0 / 55%);
+    font-size: 1.25rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .role {
+    padding: 0.05rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  &.white .role {
+    background: var(--team-white);
+    color: #334155;
+  }
+
+  &.brown .role {
+    background: var(--team-brown);
+    color: #3b2416;
+  }
+}
+
+// The first three of the leaderboard on the podium of the hall of fame, moved by the scene; they appear once the camera is
+// there
+.champion {
+  --medal: #f5c542;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  color: #ffffff;
+  text-decoration: none;
+  visibility: hidden;
+  opacity: 0;
+  will-change: transform, opacity;
+
+  &.place-2 {
+    --medal: #d6dbe2;
+  }
+
+  &.place-3 {
+    --medal: #d08a4a;
+  }
+
+  player-avatar {
+    --avatar-size: 4.8rem;
+
+    margin-bottom: 0.35rem;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--medal), 0 0 22px color-mix(in srgb, var(--medal) 70%, transparent), 0 4px 12px rgb(0 0 0 / 50%);
+    transition: transform 0.15s;
+  }
+
+  &:hover player-avatar {
+    transform: scale(1.06);
+  }
+
+  .name {
+    max-width: 12rem;
+    padding: 0.05rem 0.55rem;
+    overflow: hidden;
+    border-radius: 7px;
+    background: rgb(0 0 0 / 55%);
+    font-size: 1.25rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .elo {
+    padding: 0.05rem 0.5rem;
+    border-radius: 6px;
+    background: var(--medal);
+    color: #1f1405;
+    font-size: 0.95rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// The match of the chart of the player under the pointer, over its point: smoked glass with gold edges, as the panels
+.chart-preview {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  gap: 0.5rem;
+  width: max-content;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgb(245 197 66 / 35%);
+  border-radius: 12px;
+  background: linear-gradient(165deg, rgb(10 25 47 / 92%), rgb(4 12 26 / 95%));
+  color: #f1f5f9;
+  font-size: 0.8rem;
+  box-shadow: 0 12px 30px rgb(2 6 23 / 60%);
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 0.9rem));
+
+  .attack {
+    color: #fb7185;
+  }
+
+  .defense {
+    color: #60a5fa;
+  }
+}
+
+.preview-head,
+.preview-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.preview-elo {
+  color: rgb(203 213 225 / 75%);
+
+  strong {
+    color: #f1f5f9;
+    font-size: 0.95rem;
+  }
+}
+
+.preview-delta {
+  color: #f87171;
+  font-size: 1rem;
+
+  &.up {
+    color: #4ade80;
+  }
+}
+
+.preview-teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.preview-team {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 8px;
+  opacity: 0.75;
+
+  &.mine {
+    border-color: rgb(245 197 66 / 55%);
+    background: rgb(245 197 66 / 8%);
+    opacity: 1;
+  }
+
+  .team-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &.white .team-label {
+    color: var(--team-white);
+  }
+
+  &.brown .team-label {
+    color: var(--team-brown);
+  }
+
+  .member {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+}
+
+.preview-foot {
+  small {
+    color: rgb(203 213 225 / 70%);
+  }
+}
+
+.result {
+  padding: 0.1rem 0.5rem;
+  border-radius: 7px;
+  background: #b91c1c;
+  font-weight: 800;
+
+  &.won {
+    background: #15803d;
+  }
+}
+
+// Without WebGL: just the names
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 1rem;
+  list-style: none;
+
+  li {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 35%);
+    color: #ffffff;
+    font-weight: 700;
+  }
+}

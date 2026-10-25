@@ -1,47 +1,61 @@
 @import { user } from '../../core/auth/session.ts'
 @import { routeName } from '../../core/router/router.ts'
 @import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { PushToggleComponent } from '../../ui/push-toggle/push-toggle.xd.component.ts'
 @import { UserMenuComponent } from '../user-menu/user-menu.xd.component.ts'
 
 <header>
-  <a class="brand" href="#/" aria-label="Classifica">
-    <img class="logo" src="/logo.svg" alt="" />
-    <span class="brand-text">
-      <strong>CAlcio Balilla</strong>
-      <small>CA Biliardino Championship</small>
-    </span>
-  </a>
   <nav>
-    <a href="#/new-match" aria-label="Gioca" [class.active]="{routeName() === 'new-match'}">
+    <a href="#/" aria-label="Classifica" [class.active]="{routeName() === 'home'}">
+      <app-icon name="trophy" />
+      @if (showLabels()) {
+        <span class="label">Classifica</span>
+      }
+    </a>
+    <a href="#/lobby" aria-label="Lobby" [class.active]="{routeName() === 'lobby'}">
       <app-icon name="play" />
-      @if (showIcon()) {
-        <span class="label">Gioca</span>
+      @if (showLabels()) {
+        <span class="label">Lobby</span>
+      }
+    </a>
+    <a href="#/match" aria-label="Partita in corso" [class.active]="{routeName() === 'match'}">
+      <app-icon name="ball" />
+      @if (showLabels()) {
+        <span class="label">Partita in corso</span>
+      }
+    </a>
+    <a href="{`#/players/${user()?.playerId}`}" aria-label="Statistiche"
+      [class.active]="{routeName().includes('player')}">
+      <app-icon name="trend" />
+      @if (showLabels()) {
+        Statistiche
       }
     </a>
     <a href="#/matches" aria-label="Partite" [class.active]="{routeName() === 'matches'}">
       <app-icon name="history" />
-      @if (showIcon()) {
+      @if (showLabels()) {
         <span class="label">Partite</span>
       }
     </a>
+    <a href="#/rules" aria-label="Regolamento" [class.active]="{routeName() === 'rules'}">
+      <app-icon name="book" />
+      @if (showLabels()) {
+        <span class="label">Regolamento</span>
+      }
+    </a>
     @if (user()?.isAdmin) {
-      <a href="#/roles" aria-label="Ruoli" [class.active]="{routeName() === 'roles'}">
-        <app-icon name="shield-check" />
-        @if (showIcon()) {
-          <span class="label">Ruoli</span>
+      <a href="#/elo" aria-label="ELO" [class.active]="{routeName() === 'elo'}">
+        <app-icon name="zap" />
+        @if (showLabels()) {
+          <span class="label">ELO</span>
         }
       </a>
     }
-    <a href="#/availability" aria-label="Disponibilità" [class.active]="{routeName() === 'availability'}">
-      <app-icon name="calendar" />
-      @if (showIcon()) {
-        <span class="label">Disponibilità</span>
-      }
-    </a>
   </nav>
   <div class="account">
     @if (user()) {
       <user-menu />
+      <push-toggle />
     } @else {
       <a class="login" href="#/login" [class.active]="{routeName() === 'login'}">Login</a>
     }

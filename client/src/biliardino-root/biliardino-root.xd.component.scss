@@ -1,9 +1,12 @@
 :host {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
+// Room for the header floating over the top: the 3D world takes it back, to fill the window under it
 main {
   flex: 1;
+  padding-top: 3.7rem;
 }

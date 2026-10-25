@@ -17,8 +17,8 @@
 			"database_name": "biliardino",
 			"database_id": "d3d27d83-6e96-497e-91d5-9eb68ec7f9f5",
 			"migrations_dir": "migrations",
-			// wrangler dev reads and writes the remote database, not the local copy
-			"remote": true
+			// wrangler dev reads and writes the local copy (.wrangler/state), not the remote database
+			"remote": false
 		}
 	],
 	// Login attempts: on one account (guessing its password), and from one IP (trying many accounts; colleagues in the
@@ -41,6 +41,19 @@
 			}
 		}
 	],
+	// The lobbies (src/lobby/scheduler.ts): every half hour from 07:00 to 19:30 UTC, which covers 10:30-20:00 in Italy both
+	// in winter and in summer time. The handler reads the Italian time, the weekday and the holidays itself
+	"triggers": {
+		"crons": [
+			"0,30 7-19 * * *"
+		]
+	},
+	// Push notifications: the public VAPID key (scripts/vapid-keys.ts) and who sends them. The private key is the secret
+	// VAPID_PRIVATE_JWK (npx wrangler secret put VAPID_PRIVATE_JWK; for wrangler dev, in server/.dev.vars)
+	"vars": {
+		"VAPID_PUBLIC_KEY": "BLkhvBpNicYTmW1kM5xzgksTWlQoRR-cdZsqi1XFDmsJjL4wIyLk3fQdErzoV6FC0-Ut4HD-G56ts8f8WUfNHbo",
+		"VAPID_SUBJECT": "mailto:biliardino@example.com"
+	},
 	// The port the Vite proxy of the client forwards /api to
 	"dev": {
 		"port": 3000

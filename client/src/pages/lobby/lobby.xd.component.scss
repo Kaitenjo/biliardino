@@ -1,0 +1,665 @@
+@use '../../styles/mixins';
+
+// The whole page under the top bar is the 3D scene; the rest floats over it. The panels and the buttons over the scene
+// share the look of the leaderboard and of the board of the matches: dark smoked glass, gold edges, brass and gold
+// buttons. Their colours are their own, not the theme's: they always float over the scene.
+:host {
+  --team-white: #f8fafc;
+  --team-brown: #c8a27a;
+  --gold: #f5c542;
+  --brass: rgb(201 162 39 / 55%);
+  --ink: #f1f5f9;
+  --ink-muted: rgb(203 213 225 / 72%);
+  --line: rgb(255 255 255 / 9%);
+  --up: #4ade80;
+  --down: #f87171;
+
+  // The header floats over the scene, transparent: the scene fills the whole window, under it too
+  --header: 3.7rem;
+
+  position: relative;
+  display: block;
+  height: 100dvh;
+  margin-top: calc(-1 * var(--header));
+  overflow: hidden;
+}
+
+lobby-aquarium {
+  position: absolute;
+  inset: 0;
+}
+
+// A panel of smoked glass over the scene
+.panel {
+  position: absolute;
+  z-index: 2;
+  padding: 1rem 1.2rem;
+  border: 1px solid rgb(245 197 66 / 28%);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 70% at 0% 0%, rgb(245 197 66 / 10%), transparent 60%),
+    linear-gradient(165deg, rgb(10 25 47 / 84%), rgb(4 12 26 / 90%));
+  color: var(--ink);
+  box-shadow: 0 20px 50px rgb(2 6 23 / 50%);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.muted {
+  margin: 0.6rem 0 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  @include mixins.error;
+
+  position: absolute;
+  top: calc(var(--header) + 1rem);
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+}
+
+// The buttons: gold for what moves things on, brass outline for the rest, red outline for what deletes
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s;
+
+  &:hover:not([disabled]) {
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  &[disabled] {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  &.gold {
+    background: linear-gradient(180deg, #ffe08a, var(--gold) 55%, #c9971f);
+    color: #2a1d04;
+    box-shadow: 0 3px 14px rgb(245 197 66 / 30%);
+
+    &:hover:not([disabled]) {
+      box-shadow: 0 5px 20px rgb(245 197 66 / 45%);
+    }
+  }
+
+  &.ghost {
+    border-color: var(--brass);
+    background: rgb(15 10 5 / 45%);
+    color: #f6dc7a;
+
+    &:hover:not([disabled]) {
+      border-color: var(--gold);
+      background: rgb(40 28 8 / 70%);
+    }
+  }
+
+  &.danger {
+    border-color: rgb(248 113 113 / 45%);
+    background: rgb(127 29 29 / 25%);
+    color: var(--down);
+
+    &:hover:not([disabled]) {
+      border-color: var(--down);
+      background: rgb(127 29 29 / 45%);
+    }
+  }
+
+  &.icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+  }
+
+  &.small {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+  }
+}
+
+// The lobby, at the top left
+
+.lobby {
+  top: calc(var(--header) + 1rem);
+  left: 1rem;
+  display: grid;
+  gap: 0.9rem;
+  width: min(30rem, calc(100% - 2rem));
+}
+
+.lobby-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  .dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--ink-muted);
+  }
+
+  // Before the match: whoever enters now plays it
+  &.live {
+    color: var(--up);
+
+    .dot {
+      background: var(--up);
+      box-shadow: 0 0 0 0 var(--up);
+      animation: pulse 1.6s infinite;
+    }
+  }
+}
+
+@keyframes pulse {
+  70% {
+    box-shadow: 0 0 0 0.45rem transparent;
+  }
+}
+
+.next {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0;
+  color: var(--ink-muted);
+
+  strong {
+    color: var(--ink);
+  }
+}
+
+// The roles of the logged user: two switches, and the confirmation of the change of the day
+
+.roles {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.roles-label {
+  color: var(--gold);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+
+.switch {
+  --tone: var(--ink-muted);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+
+  &.attack {
+    --tone: #fb7185;
+  }
+
+  &.defense {
+    --tone: #60a5fa;
+  }
+
+  app-icon {
+    color: var(--tone);
+  }
+
+  .track {
+    position: relative;
+    width: 2.6rem;
+    height: 1.45rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 10%);
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+
+  .knob {
+    position: absolute;
+    top: 50%;
+    left: 0.15rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background: #e2e8f0;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 50%);
+    transform: translateY(-50%);
+    transition: transform 0.2s;
+  }
+
+  &.on {
+    color: var(--ink);
+
+    .track {
+      border-color: var(--tone);
+      background: color-mix(in srgb, var(--tone) 55%, transparent);
+    }
+
+    .knob {
+      background: #ffffff;
+      transform: translate(1.15rem, -50%);
+    }
+  }
+
+  &:focus-visible {
+    border-radius: 6px;
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  &[disabled] {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}
+
+.confirm {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgb(251 191 36 / 45%);
+  border-radius: 14px;
+  background: rgb(120 53 15 / 30%);
+
+  p {
+    margin: 0;
+    color: #fde68a;
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+}
+
+.warning {
+  color: #fbbf24;
+  font-size: 1.2rem;
+}
+
+.confirm-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.locked {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+// The arrows between the places of the scene
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  background: rgb(10 18 32 / 60%);
+  color: #f6dc7a;
+  font-size: 1.5rem;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transform: translateY(-50%);
+  transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    background: rgb(40 28 8 / 75%);
+    transform: translateY(-50%) scale(1.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  &.right {
+    right: 1.25rem;
+  }
+
+  &.left {
+    left: 1.25rem;
+  }
+
+  // Straight on to the rules, at the top; back from them, at the bottom
+  &.up,
+  &.down {
+    left: 50%;
+    transform: translateX(-50%);
+
+    &:hover {
+      transform: translateX(-50%) scale(1.08);
+    }
+  }
+
+  &.up {
+    top: calc(var(--header) + 1.25rem);
+  }
+
+  &.down {
+    top: auto;
+    bottom: 1.5rem;
+  }
+}
+
+// The two teams, named by the colour of their little men
+
+.team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink);
+  font-weight: 800;
+
+  &::before {
+    content: '';
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 3px;
+  }
+
+  &.white::before {
+    background: var(--team-white);
+    box-shadow: inset 0 0 0 1px #94a3b8;
+  }
+
+  &.brown::before {
+    background: var(--team-brown);
+    box-shadow: inset 0 0 0 1px #7c5a3a;
+  }
+}
+
+// The match, at the bottom when the camera is at the table
+
+.match {
+  bottom: 1.25rem;
+  left: 50%;
+  display: grid;
+  gap: 0.9rem;
+  width: min(38rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+}
+
+.odds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  .team {
+    font-size: 0.95rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
+
+// The result: two goals as big flaps, the buttons beside them
+.score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.goal {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+
+  span {
+    color: var(--ink-muted);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  input {
+    width: 4.2rem;
+    height: 3.6rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: linear-gradient(180deg, #232327 0%, #18181b 48%, #050505 48%, #050505 52%, #141417 52%, #0d0d10 100%);
+    color: #fde68a;
+    font-family: 'Roboto Mono', 'Courier New', monospace;
+    font-size: 2rem;
+    font-weight: 800;
+    text-align: center;
+    box-shadow: 0 3px 8px rgb(0 0 0 / 50%);
+    appearance: textfield;
+
+    &::placeholder {
+      color: rgb(253 230 138 / 30%);
+    }
+
+    &:focus {
+      border-color: var(--gold);
+      outline: none;
+      box-shadow: 0 0 0 3px rgb(245 197 66 / 25%);
+    }
+
+    // No up/down arrows: the score is typed
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      margin: 0;
+      appearance: none;
+    }
+  }
+
+  &.white span {
+    color: var(--team-white);
+  }
+
+  &.brown span {
+    color: var(--team-brown);
+  }
+}
+
+.dash {
+  padding-bottom: 0.9rem;
+  color: var(--ink-muted);
+  font-size: 1.5rem;
+}
+
+.score-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+  padding-bottom: 0.4rem;
+}
+
+.saved {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+
+  p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.8rem;
+    margin: 0.2rem 0 0;
+    color: var(--ink-muted);
+  }
+}
+
+.saved-icon {
+  flex: none;
+  color: var(--gold);
+  font-size: 2.2rem;
+}
+
+.saved-body {
+  display: grid;
+  gap: 0.2rem;
+
+  strong {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.2rem;
+  }
+}
+
+.next-match {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.waiting {
+  margin: 0;
+  text-align: center;
+}
+
+// The leaderboard, at the side of the hall of fame: on the left of a wide screen, at the bottom of a narrow one
+
+league-leaderboard {
+  position: absolute;
+  top: calc(var(--header) + 1rem);
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 2;
+  width: min(42rem, 48%);
+}
+
+// When the leaderboard is on the left, its arrow to the matches stands beside it
+league-leaderboard ~ .arrow.left {
+  left: calc(min(42rem, 48%) + 2rem);
+}
+
+// The pages of the board of the matches, and the scopes of the board of the player: in the top right corner, off
+// the boards
+
+.pager {
+  position: absolute;
+  top: calc(var(--header) + 1rem);
+  right: 1.25rem;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+
+  .btn {
+    backdrop-filter: blur(6px);
+  }
+}
+
+// The pages of the matches stay under their board, over the arrow going back down
+.pager.below {
+  top: auto;
+  right: auto;
+  bottom: 5.6rem;
+  left: 50%;
+  transform: translate(-50%, -16rem);
+}
+
+@media (max-width: 900px) {
+  league-leaderboard {
+    top: 46%;
+    right: 1rem;
+    width: auto;
+  }
+
+  // Over the podium, not over the leaderboard
+  league-leaderboard ~ .arrow {
+    top: 23%;
+  }
+
+  league-leaderboard ~ .arrow.left {
+    left: 1.25rem;
+  }
+
+  // Above the match, under the lobby that takes the whole width
+  .arrow.up {
+    top: auto;
+    bottom: 13rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .score-actions {
+    justify-content: center;
+    width: 100%;
+    margin-left: 0;
+  }
+}
+

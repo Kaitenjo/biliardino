@@ -2,8 +2,9 @@ import { all, batch, get, statement } from '../db/db.ts';
 import type { Lineup, Role, Team } from '../models.ts';
 import { addMatch, addPairs, emptyRecords, pairsOf, parseRecords, selectRecords, storeRecords } from '../players/player-stats.ts';
 import type { PairCount, PlayerRecords, RecordRow } from '../players/player-stats.ts';
+import { loadEloConfig, saveEloConfig } from './elo-config.ts';
 import { computeMatchElo, roundAwayFromZero } from './elo.ts';
-import type { EloPlayer } from './elo.ts';
+import type { EloConfig, EloPlayer } from './elo.ts';
 
 /**
  * A match saved by `recordMatch`.
@@ -33,8 +34,15 @@ export interface RecordedMatch {
  * It reads every match, so it runs only on request (the admin page), after a manual change to the database (initial
  * ELO, matches added, fixed or removed): a saved match updates only what it changes, in `recordMatch`. Only the rows
  * whose values change are written.
+ *
+ * @param change - New variables of the system (and, optionally, an initial ELO for every player), saved in the same
+ * transaction as the results, so that new matches are computed like the replayed ones. Without it, the saved variables
+ * are used.
+ * @param change.config - The variables of the system.
+ * @param change.startElo - The initial ELO to give to every player, `undefined` to keep each player's own.
  */
-export async function recomputeRatings(): Promise<void> {
+export async function recomputeRatings(change?: { config: EloConfig; startElo?: number | undefined }): Promise<void> {
+  const config = change?.config ?? (await loadEloConfig());
   const players = new Map<number, Record<Role, EloPlayer>>();
   const records = new Map<number, PlayerRecords>();
   const [playerRows, matches, lineupRows] = await Promise.all([
@@ -43,7 +51,8 @@ export async function recomputeRatings(): Promise<void> {
     all<{ matchId: number; playerId: number; team: Team; role: Role }>('SELECT match_id AS matchId, player_id AS playerId, team, role FROM match_players')
   ]);
   for (let i = 0; i < playerRows.length; i++) {
-    const { id, startElo } = playerRows[i]!;
+    const id = playerRows[i]!.id;
+    const startElo = change?.startElo ?? playerRows[i]!.startElo;
     players.set(id, { attack: { elo: startElo, matches: 0 }, defense: { elo: startElo, matches: 0 } });
     records.set(id, emptyRecords());
   }
@@ -75,7 +84,7 @@ export async function recomputeRatings(): Promise<void> {
       continue;
     }
 
-    const result = computeMatchElo(red, blue, match.redScore, match.blueScore);
+    const result = computeMatchElo(red, blue, match.redScore, match.blueScore, config);
     matchUpdates.push([match.id, result.redExpected]);
     for (const team of ['red', 'blue'] as const) {
       const delta = team === 'red' ? result.redDelta : result.blueDelta;
@@ -118,6 +127,8 @@ export async function recomputeRatings(): Promise<void> {
   }
 
   await batch([
+    ...(change ? [saveEloConfig(change.config)] : []),
+    ...(change?.startElo === undefined ? [] : [statement('UPDATE players SET start_elo = ?', change.startElo)]),
     statement(
       `UPDATE matches SET red_expected = json_extract(u.value, '$[1]')
        FROM json_each(?) u
@@ -172,6 +183,7 @@ export async function recordMatch(
 ): Promise<RecordedMatch | 'unknown-player' | 'not-running' | 'conflict'> {
   const ids = [red.attack, red.defense, blue.attack, blue.defense];
   const marks = ids.map(() => '?').join(', ');
+  const config = await loadEloConfig();
   // One read transaction: the match to play, the last match and the state it left
   const [runningRows, lastRows, playerRows, recordRows] = await batch([
     statement('SELECT id FROM running_match WHERE id = ?', runningId),
@@ -203,7 +215,7 @@ export async function recordMatch(
   };
   const redPlayers = { attack: inRole(red.attack, 'attack'), defense: inRole(red.defense, 'defense') };
   const bluePlayers = { attack: inRole(blue.attack, 'attack'), defense: inRole(blue.defense, 'defense') };
-  const result = computeMatchElo(redPlayers, bluePlayers, redScore, blueScore);
+  const result = computeMatchElo(redPlayers, bluePlayers, redScore, blueScore, config);
 
   // [player id, team, role, ELO before, ELO in the role, change]
   const matchPlayers: Array<[number, Team, Role, number, number, number]> = [];

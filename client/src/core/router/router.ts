@@ -3,7 +3,7 @@ import { computed, signal } from '@xaendar/core/signals';
 /**
  * The pages of the application.
  */
-export type RouteName = 'home' | 'player' | 'matches' | 'new-match' | 'availability' | 'roles' | 'login' | 'profile' | 'not-found';
+export type RouteName = 'home' | 'player' | 'matches' | 'lobby' | 'match' | 'rules' | 'elo' | 'login' | 'not-found';
 
 /**
  * The route currently displayed.
@@ -22,10 +22,10 @@ export interface Route {
 /**
  * Pages that need a login.
  */
-const PROTECTED_ROUTES: ReadonlySet<RouteName> = new Set(['new-match', 'availability', 'roles', 'profile']);
+const PROTECTED_ROUTES: ReadonlySet<RouteName> = new Set(['lobby', 'elo']);
 
 /**
- * Reads the route from a location hash: `#/`, `#/players/3`, `#/matches`, `#/new-match`, `#/availability`, `#/login`, `#/profile`.
+ * Reads the route from a location hash: `#/`, `#/players/3`, `#/matches`, `#/lobby`, `#/login`.
  *
  * @param value - The hash.
  * @returns The route.
@@ -40,11 +40,11 @@ function parseRoute(value: string): Route {
       return Number.isInteger(playerId) && segments.length === 2 ? { name: 'player', playerId } : { name: 'not-found' };
     }
     case 'matches':
-    case 'new-match':
-    case 'availability':
-    case 'roles':
+    case 'lobby':
+    case 'rules':
+    case 'match':
+    case 'elo':
     case 'login':
-    case 'profile':
       return segments.length === 1 ? { name: segments[0] } : { name: 'not-found' };
     default:
       return { name: 'not-found' };
@@ -75,6 +75,14 @@ export const routeName = computed(() => route().name);
  * Whether the page currently displayed needs a login.
  */
 export const isProtectedRoute = computed(() => PROTECTED_ROUTES.has(routeName()));
+
+/**
+ * Whether the page currently displayed is the 3D world: the hall of fame with the leaderboard (`home`), the lobby
+ * (`lobby`), the foosball table with the match being played (`match`), the board of the rules in the lounge (`rules`)
+ * the board of the played matches (`matches`) and the board of the statistics of a player (`player`) are places of
+ * the same scene, so moving between them keeps it.
+ */
+export const isWorldRoute = computed(() => ['home', 'lobby', 'match', 'rules', 'matches', 'player'].includes(routeName()));
 
 /**
  * Displays a page.

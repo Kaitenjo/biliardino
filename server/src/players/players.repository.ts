@@ -1,4 +1,5 @@
 import { all } from '../db/db.ts';
+import { today } from '../dates.ts';
 import type { Lineup, PlayerSummary, Role, Team } from '../models.ts';
 import { emptyRecords, FORM_LENGTH, loadRecords } from './player-stats.ts';
 
@@ -134,9 +135,9 @@ export interface LeaderboardEntry extends PlayerSummary {
    */
   form: FormEntry[];
   /**
-   * Days of the week the player is usually available (0 = sunday … 6 = saturday).
+   * Whether the player said it is available today (it resets each day).
    */
-  weekdays: number[];
+  availableToday: boolean;
 }
 
 /**
@@ -400,12 +401,13 @@ interface MatchRow {
  * @returns The players, by ELO. Their records come from `player_stats`, not from the matches.
  */
 export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): Promise<LeaderboardEntry[]> {
-  const [players, weekdays, records, forms] = await Promise.all([
-    all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number }>(
-      `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense
-       FROM players`
+  const [players, records, forms] = await Promise.all([
+    all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number; availableToday: number }>(
+      `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense,
+         COALESCE(available_on = ?, 0) AS availableToday
+       FROM players`,
+      today()
     ),
-    loadWeekdays(),
     loadRecords(),
     loadForms(by)
   ]);
@@ -434,7 +436,7 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
       goalsFor: record.goalsFor,
       goalsAgainst: record.goalsAgainst,
       form: forms.get(player.id) ?? [],
-      weekdays: weekdays.get(player.id) ?? []
+      availableToday: Boolean(player.availableToday)
     });
   }
 
@@ -827,25 +829,4 @@ function loadMatchRows(playerId: number): Promise<MatchRow[]> {
      ORDER BY m.played_at, m.id`,
     playerId
   );
-}
-
-/**
- * Loads the days of the week each player is available.
- *
- * @returns The days, by player.
- */
-async function loadWeekdays(): Promise<Map<number, number[]>> {
-  const weekdays = new Map<number, number[]>();
-  const rows = await all<{ playerId: number; weekday: number }>('SELECT player_id AS playerId, weekday FROM player_availability ORDER BY weekday');
-  for (let i = 0; i < rows.length; i++) {
-    const { playerId, weekday } = rows[i]!;
-    const days = weekdays.get(playerId);
-    if (days) {
-      days.push(weekday);
-    } else {
-      weekdays.set(playerId, [weekday]);
-    }
-  }
-
-  return weekdays;
 }

@@ -112,10 +112,17 @@ export function pairKey(first: number, second: number): string {
  * @param context - The players and their past matches.
  * @param availableIds - The ids of the available players, at least 4.
  * @param priorityIds - The ids of the players that must play (among the available ones).
+ * @param avoid - A match to leave out, with its players in the same roles and teams (in either colour); none to leave
+ * out none.
  * @returns The match, `null` when no match satisfies the roles and the priorities.
  * @throws When an id is unknown.
  */
-export function findBestMatch(context: MatchmakingContext, availableIds: readonly number[], priorityIds: readonly number[]): MatchProposal | null {
+export function findBestMatch(
+  context: MatchmakingContext,
+  availableIds: readonly number[],
+  priorityIds: readonly number[],
+  avoid?: { red: Lineup<number>; blue: Lineup<number> }
+): MatchProposal | null {
   if (availableIds.length < 4) {
     return null;
   }
@@ -148,7 +155,7 @@ export function findBestMatch(context: MatchmakingContext, availableIds: readonl
 
         for (let l = j + 1; l < attackers.length; l++) {
           const attB = attackers[l]!;
-          if (attB === defA || attB === defB || !includesPriority(priority, defA, attA, defB, attB)) {
+          if (attB === defA || attB === defB || !includesPriority(priority, defA, attA, defB, attB) || isSame(avoid, defA, attA, defB, attB)) {
             continue;
           }
 
@@ -163,6 +170,25 @@ export function findBestMatch(context: MatchmakingContext, availableIds: readonl
   }
 
   return best;
+}
+
+/**
+ * Whether a match is a given one: the same two teams, in either colour.
+ *
+ * @param match - The match to compare with, none for no match.
+ * @param defA - The defender of a team.
+ * @param attA - Its attacker.
+ * @param defB - The defender of the other team.
+ * @param attB - Its attacker.
+ * @returns Whether it is the same.
+ */
+function isSame(match: { red: Lineup<number>; blue: Lineup<number> } | undefined, defA: MatchmakingPlayer, attA: MatchmakingPlayer, defB: MatchmakingPlayer, attB: MatchmakingPlayer): boolean {
+  if (!match) {
+    return false;
+  }
+
+  const team = (lineup: Lineup<number>, defense: MatchmakingPlayer, attack: MatchmakingPlayer): boolean => lineup.defense === defense.id && lineup.attack === attack.id;
+  return (team(match.red, defA, attA) && team(match.blue, defB, attB)) || (team(match.red, defB, attB) && team(match.blue, defA, attA));
 }
 
 /**

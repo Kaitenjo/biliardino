@@ -1,0 +1,21 @@
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+
+@if (pushSupported) {
+  <button
+    @if (busy()) {
+      disabled
+    }
+    type="button"
+    class="toggle"
+    [class.on]="{pushEnabled()}"
+    aria-pressed="{String(pushEnabled())}"
+    aria-label="{pushEnabled() ? 'Notifiche attive: tocca per disattivarle' : 'Attiva le notifiche'}"
+    title="{pushEnabled() ? 'Notifiche attive' : 'Attiva le notifiche'}"
+    (click)="toggle()"
+  >
+    <app-icon name="bell" />
+  </button>
+  @if (error()) {
+    <p class="error" role="alert">{ error() }</p>
+  }
+}

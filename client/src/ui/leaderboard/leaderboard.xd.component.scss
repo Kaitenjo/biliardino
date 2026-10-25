@@ -1,0 +1,531 @@
+// The leaderboard of the hall of fame: a panel of dark smoked glass with gold edges, like the temple and the cup behind
+// it. The colours are its own, not the theme's: it always floats over the deep water.
+:host {
+  --gold: #f5c542;
+  --silver: #d6dbe2;
+  --bronze: #d08a4a;
+  --ink: #f1f5f9;
+  --ink-muted: rgb(203 213 225 / 70%);
+  --row: rgb(255 255 255 / 5%);
+  --row-hover: rgb(255 255 255 / 10%);
+  --line: rgb(255 255 255 / 8%);
+  --up: #4ade80;
+  --down: #f87171;
+
+  position: relative;
+  isolation: isolate;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1.1rem 1.1rem 0.8rem;
+  border-radius: 22px;
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgb(2 6 23 / 55%);
+
+  // The glass is drawn behind, by a layer of its own: a blur on the element itself would make it the box of the
+  // preview, which is placed on the whole window
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border: 1px solid rgb(245 197 66 / 28%);
+    border-radius: inherit;
+    background:
+      radial-gradient(120% 60% at 0% 0%, rgb(245 197 66 / 12%), transparent 60%),
+      linear-gradient(165deg, rgb(10 25 47 / 84%), rgb(4 12 26 / 90%));
+    backdrop-filter: blur(14px) saturate(1.4);
+  }
+}
+
+// Head: the title and the ranking modes
+
+.board-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--gold);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+h2 {
+  margin: 0.1rem 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.modes {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid rgb(245 197 66 / 25%);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 25%);
+}
+
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+
+  &:hover {
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  &.active {
+    background: linear-gradient(180deg, #ffe08a, var(--gold) 55%, #c9971f);
+    color: #2a1d04;
+    box-shadow: 0 2px 10px rgb(245 197 66 / 35%);
+  }
+}
+
+// The rows: a grid as wide as the panel, never wider; the columns that do not fit go away, the goals first, then the
+// form
+
+.board {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) 6.2rem 4.6rem 3.4rem 7.4rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.85rem;
+}
+
+.head {
+  padding-bottom: 0.45rem;
+  color: var(--ink-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rows {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 0.4rem;
+  min-height: 0;
+  margin-right: -0.4rem;
+  padding: 0.1rem 0.4rem 0.4rem 0;
+  overflow: hidden auto;
+  scrollbar-color: rgb(245 197 66 / 35%) transparent;
+  scrollbar-width: thin;
+}
+
+.player-row {
+  --accent: transparent;
+
+  min-height: 3.6rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 14px;
+  background: var(--row);
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.15s;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--row-hover);
+    transform: translateX(3px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  &.gold,
+  &.silver,
+  &.bronze {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, transparent), var(--row) 55%);
+  }
+
+  &.gold {
+    --accent: var(--gold);
+  }
+
+  &.silver {
+    --accent: var(--silver);
+  }
+
+  &.bronze {
+    --accent: var(--bronze);
+  }
+
+  &.inactive {
+    opacity: 0.45;
+  }
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank {
+  text-align: center;
+}
+
+.rank-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 7%);
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+
+  .gold &,
+  .silver &,
+  .bronze & {
+    background: radial-gradient(circle at 35% 30%, #ffffff 0, var(--accent) 45%, color-mix(in srgb, var(--accent) 60%, #000000));
+    color: #1f1405;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.player-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+
+  strong {
+    overflow: hidden;
+    font-size: 0.95rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.roles {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.roles-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attack {
+  color: #fb7185;
+}
+
+.defense {
+  color: #60a5fa;
+}
+
+.elo {
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+}
+
+.elo-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  strong {
+    font-size: 1.1rem;
+    font-weight: 900;
+  }
+}
+
+.form-total {
+  padding: 0.02rem 0.32rem;
+  border-radius: 6px;
+  background: rgb(248 113 113 / 15%);
+  color: var(--down);
+  font-size: 0.66rem;
+  font-weight: 800;
+
+  &.up {
+    background: rgb(74 222 128 / 15%);
+    color: var(--up);
+  }
+}
+
+.elo-roles {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+
+  app-icon:not(:first-child) {
+    margin-left: 0.3rem;
+  }
+}
+
+.record {
+  display: grid;
+  justify-items: end;
+  line-height: 1.2;
+  white-space: nowrap;
+
+  small {
+    color: var(--ink-muted);
+    font-size: 0.7rem;
+  }
+}
+
+.wins {
+  color: var(--up);
+  font-weight: 800;
+}
+
+.losses {
+  color: var(--down);
+  font-weight: 800;
+}
+
+.ratio {
+  font-weight: 700;
+
+  &.good {
+    color: var(--up);
+  }
+
+  &.bad {
+    color: var(--down);
+  }
+}
+
+.form-col {
+  text-align: right;
+}
+
+.form {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.2rem;
+}
+
+.dot {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: rgb(248 113 113 / 16%);
+  color: var(--down);
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: help;
+
+  &.won {
+    background: rgb(74 222 128 / 16%);
+    color: var(--up);
+  }
+}
+
+.muted {
+  color: var(--ink-muted);
+}
+
+@container (max-width: 680px) {
+  .row {
+    grid-template-columns: 2.2rem minmax(0, 1fr) 6rem 4.4rem 7.2rem;
+  }
+
+  .ratio-col {
+    display: none;
+  }
+}
+
+@container (max-width: 540px) {
+  .row {
+    grid-template-columns: 2rem minmax(0, 1fr) auto 4rem;
+    gap: 0.55rem;
+    padding: 0 0.6rem;
+  }
+
+  .form-col {
+    display: none;
+  }
+
+  .player {
+    gap: 0.5rem;
+  }
+
+  .player-text strong {
+    font-size: 0.88rem;
+  }
+}
+
+@container (max-width: 380px) {
+  .elo-roles,
+  .roles-label {
+    display: none;
+  }
+}
+
+// Preview of a match of the form, fixed so that the scrolling table doesn't clip it
+.preview {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  gap: 0.5rem;
+  width: max-content;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.78rem;
+  pointer-events: none;
+
+  &.above {
+    transform: translate(-50%, calc(-100% - 0.5rem));
+  }
+
+  &.below {
+    transform: translate(-50%, 0.5rem);
+  }
+
+  .attack {
+    color: var(--red);
+  }
+
+  .defense {
+    color: var(--blue);
+  }
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.preview-elo {
+  color: var(--text-muted);
+
+  strong {
+    color: var(--text);
+  }
+}
+
+.preview-delta {
+  color: var(--loss);
+  font-size: 0.95rem;
+
+  &.up {
+    color: var(--win);
+  }
+}
+
+.preview-score {
+  display: flex;
+  justify-content: center;
+}
+
+.result {
+  padding: 0.1rem 0.45rem;
+  border-radius: 7px;
+  background: var(--loss);
+  color: #ffffff;
+  font-weight: 800;
+
+  &.won {
+    background: var(--win);
+  }
+}
+
+.teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.team {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+
+  &.red {
+    background: linear-gradient(180deg, var(--red-soft), transparent 125%);
+
+    .team-label {
+      color: var(--red);
+    }
+  }
+
+  &.blue {
+    background: linear-gradient(180deg, var(--blue-soft), transparent 125%);
+
+    .team-label {
+      color: var(--blue);
+    }
+  }
+}
+
+.team-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

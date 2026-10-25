@@ -1,5 +1,5 @@
 import { untracked } from '@xaendar/core/signals';
-import { fetchMe, postLogin, postLogout, putPassword } from '../api/api';
+import { fetchMe, login as postLogin, logout as postLogout, putPassword } from '../api/api';
 import { sessionToken, setSession } from './session';
 
 /**

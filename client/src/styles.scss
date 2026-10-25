@@ -56,10 +56,6 @@ body {
 }
 
 body {
-  background:
-    // The rods of a foosball table, barely visible
-    repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 1px), var(--line) calc(12.5% - 1px) 12.5%),
-    var(--bg-gradient);
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font);

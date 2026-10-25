@@ -4,6 +4,7 @@ import { createSession, deleteSession, findUserByName, readToken, requireAuth } 
 import type { AppEnv } from '../auth/auth.ts';
 import { hashPassword, verifyPassword } from '../auth/password.ts';
 import { get, run } from '../db/db.ts';
+import { today } from '../dates.ts';
 import type { AuthUser } from '../models.ts';
 import { readBody } from './read-body.ts';
 
@@ -11,11 +12,6 @@ import { readBody } from './read-body.ts';
  * Minimum length of a new password.
  */
 const MIN_PASSWORD_LENGTH = 4;
-
-/**
- * The time zone of the day in which the roles can be changed once.
- */
-const TIME_ZONE = 'Europe/Rome';
 
 /**
  * Login, logout, current user, password change and the roles the user plays.
@@ -71,15 +67,6 @@ authRouter.put('/password', requireAuth, async c => {
   await run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(newPassword), user.id);
   return c.body(null, 204);
 });
-
-/**
- * Today in Italy: D1 knows only UTC.
- *
- * @returns The date, `YYYY-MM-DD`.
- */
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date());
-}
 
 /**
  * The roles of a player and whether they can be changed today: they can, once a day.

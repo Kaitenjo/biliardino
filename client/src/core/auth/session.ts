@@ -14,7 +14,7 @@ const SESSION_STORAGE_KEY = 'biliardino-session';
 function readStoredSession(): Session | null {
   try {
     const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-    return stored ? JSON.parse(stored) as Session : null;
+    return stored ? JSON.parse(stored) : null;
   } catch {
     // Storage unavailable or corrupted: the user logs in again
     return null;

@@ -11,10 +11,11 @@
   <div class="odds-red" style="{`flex-basis: ${redChance()}%`}">{ redChance() }%</div>
   <div class="odds-blue">{ 100 - redChance() }%</div>
 </div>
-<div class="outcomes" aria-label="Variazione di ELO per ogni giocatore, a seconda del risultato">
+<div class="outcomes" aria-label="Punti ELO guadagnati da ogni giocatore della squadra che vince, a seconda del risultato: gli avversari perdono lo stesso valore">
   @render outcomes('Se vincono i Rossi', 'red', redWins())
   @render outcomes('Se vincono i Blu', 'blue', blueWins())
 </div>
+<p class="outcomes-note">Punti ELO a testa: chi perde ne cede altrettanti.</p>
 <slot />
 
 <template outcomes(title: string, color: string, results: MatchOutcome[])>
@@ -23,14 +24,7 @@
     @for (result of results(); track result().redScore) {
       <div class="outcome">
         <strong class="outcome-score">{ result().redScore }-{ result().blueScore }</strong>
-        <span class="outcome-delta">
-          <span class="red-label">Rossi</span>
-          <b [class.up]="{result().redDelta >= 0}">{ formatDelta(result().redDelta) }</b>
-        </span>
-        <span class="outcome-delta">
-          <span class="blue-label">Blu</span>
-          <b [class.up]="{result().blueDelta >= 0}">{ formatDelta(result().blueDelta) }</b>
-        </span>
+        <b class="outcome-gain">{ formatDelta(gain(result())) }</b>
       </div>
     }
   </div>

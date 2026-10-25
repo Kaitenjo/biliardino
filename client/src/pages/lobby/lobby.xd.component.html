@@ -1,0 +1,287 @@
+@import { Role } from '../../core/api/api.models.ts'
+@import { user } from '../../core/auth/session.ts'
+@import { AquariumComponent } from '../../ui/aquarium/aquarium.xd.component.ts'
+@import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
+@import { LeaderboardComponent } from '../../ui/leaderboard/leaderboard.xd.component.ts'
+@import { MatchBoardComponent } from '../../ui/match-board/match-board.xd.component.ts'
+
+<lobby-aquarium
+  players="{lobby()?.players ?? []}"
+  match="{running()}"
+  podium="{podium()}"
+  profile="{profile()}"
+  profileScope="{profileScope()}"
+  view="{view()}"
+>
+  <match-board slot="matches" games="{matchPage()?.matches ?? []}" page="{matchPageNumber()}"
+    pageCount="{matchPageCount()}" total="{matchPage()?.total ?? 0}" />
+</lobby-aquarium>
+
+@if (view() === 'ranking') {
+  <league-leaderboard players="{ranked()}" mode="{rankingMode()}" loading="{rankingLoading()}"
+    (modeChange)="setRankingMode($event.detail)" />
+} @else if ((view() === 'aquarium' || view() === 'table') && user()) {
+  <section class="panel lobby" aria-live="polite">
+    <div class="lobby-head">
+      @if (lobby()) {
+        <div class="lobby-text">
+          <span class="status" [class.live]="{!lobby()?.matched}">
+            <span class="dot" aria-hidden="true" />
+            { lobby()?.matched ? `Aperta fino alle ${lobby()?.closesAt}` : `Partita alle ${lobby()?.matchAt}` }
+          </span>
+          <h1>Lobby delle { lobby()?.opensAt }</h1>
+        </div>
+        <button
+          @if (busy() || cooldown()) {
+            disabled
+          }
+          type="button"
+          class="{joined() ? 'btn ghost' : 'btn gold'}"
+          (click)="toggleJoin()"
+        >
+          <app-icon name="{joined() ? 'logout' : 'play'}" />
+          { joined() ? 'Esci dalla lobby' : 'Entra in lobby' }{ cooldown() ? ` (${cooldown()}s)` : '' }
+        </button>
+      } @else if (state()) {
+        <div class="lobby-text">
+          <h1>Nessuna lobby aperta</h1>
+          @if (state()?.next) {
+            <p class="next">
+              <app-icon name="calendar" />
+              La prossima apre <strong>{ formatDay(state()?.next?.day ?? '') } alle { state()?.next?.opensAt }</strong>
+            </p>
+          }
+        </div>
+      } @else {
+        <p class="muted">Caricamento…</p>
+      }
+    </div>
+
+    @if (roles()) {
+      <div class="roles">
+        <span class="roles-label">I tuoi ruoli</span>
+        <div class="switches">
+          @render roleSwitch('attack', 'Attacco')
+          @render roleSwitch('defense', 'Difesa')
+        </div>
+        @if (pendingRoles()) {
+          <div class="confirm" role="alert">
+            <app-icon class="warning" name="alert" />
+            <p>Salvando usi il cambio di oggi: potrai cambiare di nuovo ruolo solo domani.</p>
+            <div class="confirm-actions">
+              <button type="button" class="btn ghost small" (click)="cancelRoles()">Annulla</button>
+              <button
+                @if (savingRoles()) {
+                  disabled
+                }
+                type="button"
+                class="btn gold small"
+                (click)="confirmRoles()"
+              >
+                <app-icon name="check" />
+                Conferma
+              </button>
+            </div>
+          </div>
+        } @else if (rolesLocked()) {
+          <p class="locked">
+            <app-icon name="calendar" />
+            Già cambiati oggi: potrai farlo di nuovo domani.
+          </p>
+        }
+      </div>
+    }
+  </section>
+}
+
+@if (error()) {
+  <p class="error">{ error() }</p>
+}
+
+@switch (view()) {
+  @case ('ranking') {
+    <button type="button" class="arrow right" aria-label="Vai alla lobby" title="Vai alla lobby" (click)="showLobby()">
+      <app-icon name="arrow-right" />
+    </button>
+  }
+  @case ('aquarium') {
+    <button type="button" class="arrow left" aria-label="Vai alla classifica" title="Classifica"
+      (click)="showRanking()">
+      <app-icon name="arrow-left" />
+    </button>
+    <button type="button" class="arrow down" aria-label="Vai al biliardino" title="Vai al biliardino"
+      (click)="showTable()">
+      <app-icon name="arrow-down" />
+    </button>
+  }
+  @case ('rules') {
+    <button type="button" class="arrow right" aria-label="Torna al giocatore" title="Giocatore"
+      (click)="backToPlayer()">
+      <app-icon name="arrow-right" />
+    </button>
+    <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
+      <app-icon name="arrow-down" />
+    </button>
+  }
+  @case ('stats') {
+    <button type="button" class="arrow left" aria-label="Vai al regolamento" title="Regolamento" (click)="showRules()">
+      <app-icon name="arrow-left" />
+    </button>
+    <button type="button" class="arrow right" aria-label="Vai alle partite" title="Partite" (click)="showMatches()">
+      <app-icon name="arrow-right" />
+    </button>
+    <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
+      <app-icon name="arrow-down" />
+    </button>
+    <nav class="pager" role="tablist" aria-label="Statistiche per">
+      @for (scope of scopes; track scope().value) {
+        <button type="button" role="tab" class="{profileScope() === scope().value ? 'btn gold' : 'btn ghost'}"
+          aria-selected="{String(profileScope() === scope().value)}" (click)="setProfileScope(scope().value)">
+          <app-icon name="{scope().icon}" />
+          { scope().label }
+        </button>
+      }
+    </nav>
+  }
+  @case ('matches') {
+    <button type="button" class="arrow left" aria-label="Torna al giocatore" title="Giocatore" (click)="backToPlayer()">
+      <app-icon name="arrow-left" />
+    </button>
+    <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
+      <app-icon name="arrow-down" />
+    </button>
+    <nav class="pager below" aria-label="Pagine delle partite">
+      <button
+        @if (matchPageNumber() <= 1) {
+          disabled
+        }
+        type="button"
+        class="btn ghost"
+        (click)="goToMatches(matchPageNumber() - 1)"
+      >
+        <app-icon name="arrow-left" />
+        Più recenti
+      </button>
+      <button
+        @if (matchPageNumber() >= matchPageCount()) {
+          disabled
+        }
+        type="button"
+        class="btn ghost"
+        (click)="goToMatches(matchPageNumber() + 1)"
+      >
+        Più vecchie
+        <app-icon name="arrow-right" />
+      </button>
+    </nav>
+  }
+  @default {
+    <button type="button" class="arrow left" aria-label="Torna all'acquario" title="Torna all'acquario"
+      (click)="showAquarium()">
+      <app-icon name="arrow-left" />
+    </button>
+    <button type="button" class="arrow up" aria-label="Vai al tuo profilo" title="Profilo" (click)="showProfile()">
+      <app-icon name="arrow-up" />
+    </button>
+
+    <section class="panel match" aria-live="polite">
+      @if (running()) {
+        <p class="odds">
+          Probabilità di vittoria
+          <span class="team white">Bianchi { whiteChance() }%</span>
+          <span class="team brown">Marroni { 100 - whiteChance() }%</span>
+        </p>
+        @if (user()) {
+          <form class="score" novalidate (submit)="save($event, whiteScore.valueAsNumber, brownScore.valueAsNumber)">
+            <label class="goal white">
+              <span>Bianchi</span>
+              <input #whiteScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+            </label>
+            <span class="dash">–</span>
+            <label class="goal brown">
+              <span>Marroni</span>
+              <input #brownScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+            </label>
+            <div class="score-actions">
+              <button
+                @if (busy()) {
+                  disabled
+                }
+                type="button"
+                class="btn danger icon"
+                aria-label="Elimina la partita"
+                title="Elimina la partita"
+                (click)="drop()"
+              >
+                <app-icon name="close" />
+              </button>
+              <button
+                @if (busy()) {
+                  disabled
+                }
+                type="submit"
+                class="btn gold"
+              >
+                <app-icon name="save" />
+                Salva
+              </button>
+            </div>
+          </form>
+        }
+      } @else if (saved()) {
+        <div class="saved">
+          <app-icon class="saved-icon" name="trophy" />
+          <div class="saved-body">
+            <strong>Partita salvata!</strong>
+            <p>
+              <span class="team white">Bianchi { formatDelta(saved()?.redDelta ?? 0) }</span>
+              <span class="team brown">Marroni { formatDelta(saved()?.blueDelta ?? 0) }</span>
+              punti ELO a testa.
+            </p>
+            @if (offerNext()) {
+              <div class="next-match">
+                <p>Generare un'altra partita con chi è in lobby? I 4 giocatori riceveranno una notifica.</p>
+                <div class="next-actions">
+                  <button
+                    @if (busy()) {
+                      disabled
+                    }
+                    type="button"
+                    class="btn gold"
+                    (click)="generateNext()"
+                  >
+                    <app-icon name="zap" />
+                    Genera partita
+                  </button>
+                  <button type="button" class="btn ghost" (click)="declineNext()">No, grazie</button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <p class="muted waiting">Nessuna partita in corso: i giocatori compariranno al tavolo quando la lobby genererà la partita.</p>
+      }
+    </section>
+  }
+}
+
+<template roleSwitch(role: Role, label: string)>
+  <button
+    @if (savingRoles() || rolesLocked()) {
+      disabled
+    }
+    type="button"
+    role="switch"
+    class="{`switch ${role()}`}"
+    [class.on]="{shownRole(role())}"
+    aria-checked="{String(shownRole(role()))}"
+    (click)="toggleRole(role())"
+  >
+    <app-icon name="{role()}" />
+    { label() }
+    <span class="track" aria-hidden="true">
+      <span class="knob" />
+    </span>
+  </button>
+</template>

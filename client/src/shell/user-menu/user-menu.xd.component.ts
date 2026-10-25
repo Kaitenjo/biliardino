@@ -1,10 +1,14 @@
-import { CustomElement, WebComponent } from '@xaendar/core';
+import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { signal } from '@xaendar/core/signals';
+import type { QuerySignal } from '@xaendar/core/signals';
 import { logout } from '../../core/auth/auth';
+import { disablePush } from '../../core/notifications/push';
 import { isProtectedRoute, navigate } from '../../core/router/router';
+import { PasswordDialogComponent } from '../../ui/password-dialog/password-dialog.xd.component';
 
 /**
- * The dropdown of the logged user: its icon, opening the links to the profile and the logout.
+ * The dropdown of the logged user: its icon, opening the links to its statistics, the change of the password (a modal)
+ * and the logout.
  */
 @WebComponent({
   selector: 'user-menu',
@@ -16,6 +20,11 @@ export class UserMenuComponent extends CustomElement {
    * Whether the dropdown is open.
    */
   public readonly expanded = signal(false);
+  /**
+   * The modal to change the password.
+   */
+  @Query.required(PasswordDialogComponent)
+  public accessor passwordDialog!: QuerySignal<PasswordDialogComponent>;
 
   /**
    * Closes the dropdown on a click outside of it.
@@ -54,10 +63,11 @@ export class UserMenuComponent extends CustomElement {
   }
 
   /**
-   * Closes the dropdown.
+   * Closes the dropdown and opens the modal to change the password.
    */
-  public close(): void {
+  public openPasswordDialog(): void {
     this.expanded.set(false);
+    this.passwordDialog().open();
   }
 
   /**
@@ -65,6 +75,8 @@ export class UserMenuComponent extends CustomElement {
    */
   public async logOut(): Promise<void> {
     this.expanded.set(false);
+    // While still logged: the server forgets this browser, so the next user doesn't receive these notifications
+    await disablePush();
     await logout();
     if (isProtectedRoute()) {
       navigate('/');

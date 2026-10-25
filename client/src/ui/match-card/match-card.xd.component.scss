@@ -189,31 +189,16 @@
   font-size: 0.95rem;
 }
 
-.outcome-delta {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.3rem;
-
-  b {
-    color: var(--loss);
-    font-weight: 800;
-
-    &.up {
-      color: var(--win);
-    }
-  }
+.outcome-gain {
+  color: var(--win);
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
-.red-label {
-  color: var(--red);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.blue-label {
-  color: var(--blue);
-  font-size: 0.7rem;
-  font-weight: 700;
+.outcomes-note {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 
 @media (max-width: 640px) {

@@ -43,6 +43,16 @@ export class MatchCardComponent extends CustomElement {
   }
 
   /**
+   * The points the winners earn in a result; the losers give up the same.
+   *
+   * @param outcome - The result.
+   * @returns The change of the winning team, positive.
+   */
+  public gain(outcome: MatchOutcome): number {
+    return Math.max(outcome.redDelta, outcome.blueDelta);
+  }
+
+  /**
    * Computes the value of `redWins` and `blueWins`.
    *
    * @param redWon - Whether the red team is the winner.

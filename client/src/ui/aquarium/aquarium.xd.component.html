@@ -1,0 +1,66 @@
+@import { Lineup, PlayerRef } from '../../core/api/api.models.ts'
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
+
+<div class="water" role="img" aria-label="{description()}">
+  <canvas />
+  <div class="labels" aria-hidden="true" />
+  <slot name="matches" (slotchange)="placeWalls()" />
+
+  @for (seat of seats(); track seat().key) {
+    <a class="{`seat ${seat().side}`}" data-key="{seat().key}" href="{`#/players/${seat().player.id}`}">
+      <player-avatar icon="{seat().player.icon}" label="{seat().player.name}" size="lg" />
+      <span class="name">{ seat().player.name }</span>
+      <span class="role">{ seat().role }</span>
+    </a>
+  }
+
+  @for (spot of podium(); track spot().player.id) {
+    <a class="{`champion place-${spot().place}`}" data-slot="{String(spot().slot)}" href="{`#/players/${spot().player.id}`}">
+      <player-avatar icon="{spot().player.icon}" label="{spot().player.name}" size="lg" />
+      <span class="name">{ spot().player.name }</span>
+      <span class="elo">{ spot().player.elo }</span>
+    </a>
+  }
+
+  @for (hover of chartHover(); track hover().match.id) {
+    <div class="chart-preview" style="{`left: ${hover().x}px; top: ${hover().y}px`}">
+      <div class="preview-head">
+        <span class="preview-elo">ELO <strong>{ hover().elo }</strong></span>
+        <strong class="preview-delta" [class.up]="{hover().match.eloDelta >= 0}">{ formatDelta(hover().match.eloDelta) }</strong>
+      </div>
+      <div class="preview-teams">
+        @render team('Bianchi', 'white', hover().match.red, hover().match.team === 'red')
+        @render team('Marroni', 'brown', hover().match.blue, hover().match.team === 'blue')
+      </div>
+      <div class="preview-foot">
+        <span class="result" [class.won]="{hover().match.team === hover().match.winner}">{ hover().match.redScore } - { hover().match.blueScore }</span>
+        <small>{ formatDate(hover().match.playedAt) }</small>
+      </div>
+    </div>
+  }
+
+  @if (failed()) {
+    <ul class="fallback">
+      @for (player of players(); track player().id) {
+        <li>{ player().name }</li>
+      }
+    </ul>
+  }
+</div>
+
+<template team(label: string, side: string, lineup: Lineup<PlayerRef>, mine: boolean)>
+  <div class="preview-team" [class.white]="{side() === 'white'}" [class.brown]="{side() === 'brown'}" [class.mine]="{mine()}">
+    <span class="team-label">{ label() }</span>
+    <span class="member">
+      <app-icon class="defense" name="defense" />
+      <player-avatar icon="{lineup().defense.icon}" label="{lineup().defense.name}" />
+      { lineup().defense.name }
+    </span>
+    <span class="member">
+      <app-icon class="attack" name="attack" />
+      <player-avatar icon="{lineup().attack.icon}" label="{lineup().attack.name}" />
+      { lineup().attack.name }
+    </span>
+  </div>
+</template>
