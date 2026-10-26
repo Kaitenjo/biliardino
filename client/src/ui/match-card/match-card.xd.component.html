@@ -3,17 +3,17 @@
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
 <div class="teams">
-  @render team('Rossi', 'red', match().red, match().redElo)
+  @render team('Bianchi', 'white', match().red, match().redElo)
   <div class="vs" aria-hidden="true">VS</div>
-  @render team('Blu', 'blue', match().blue, match().blueElo)
+  @render team('Marroni', 'brown', match().blue, match().blueElo)
 </div>
 <div class="odds" title="Probabilità di vittoria secondo l'ELO">
   <div class="odds-red" style="{`flex-basis: ${redChance()}%`}">{ redChance() }%</div>
   <div class="odds-blue">{ 100 - redChance() }%</div>
 </div>
 <div class="outcomes" aria-label="Punti ELO guadagnati da ogni giocatore della squadra che vince, a seconda del risultato: gli avversari perdono lo stesso valore">
-  @render outcomes('Se vincono i Rossi', 'red', redWins())
-  @render outcomes('Se vincono i Blu', 'blue', blueWins())
+  @render outcomes('Se vincono i Bianchi', 'white', redWins())
+  @render outcomes('Se vincono i Marroni', 'brown', blueWins())
 </div>
 <p class="outcomes-note">Punti ELO a testa: chi perde ne cede altrettanti.</p>
 <slot />

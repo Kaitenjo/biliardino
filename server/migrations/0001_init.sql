@@ -53,7 +53,7 @@ CREATE TABLE sessions (
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- Partite concluse. red_expected (probabilità di vittoria dei rossi) è calcolata con l'ELO.
+-- Partite concluse. red_expected (probabilità di vittoria dei bianchi) è calcolata con l'ELO.
 CREATE TABLE matches (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   red_score    INTEGER NOT NULL CHECK (red_score >= 0),

@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { batchStatic } from './batching';
+import { detail, isHigh, paintedColorSpace } from './detail';
+import { phong } from './materials';
+import type { Look } from './materials';
 
 /*
   The foosball table in the lounge, low poly, after the classic Italian table: a light oak cabinet whose long sides are
   trapezoids (the ends lean out), white inner walls and a dark green field, black splayed legs joined by an arch at each
   end, chrome rods through black bushings with black handles, a slot with the balls and a bead score counter for each
-  team. Seen from the camera, behind the goal of the white team (the red one of the match), the white team stands on the
-  left side and the brown one (the blue team) on the right.
+  team. Seen from the camera, behind the goal of the brown team (the red one of the match), the brown team stands on the
+  right side and the white one (the blue team) on the left.
 */
 
 /**
@@ -48,14 +52,14 @@ const DECK = 0.36;
  * The 8 rods from the left goal: the team that moves them and how many little men they carry.
  */
 const RODS: ReadonlyArray<['white' | 'brown', number]> = [
-  ['white', 1],
-  ['white', 2],
-  ['brown', 3],
-  ['white', 5],
-  ['brown', 5],
-  ['white', 3],
+  ['brown', 1],
   ['brown', 2],
-  ['brown', 1]
+  ['white', 3],
+  ['brown', 5],
+  ['white', 5],
+  ['brown', 3],
+  ['white', 2],
+  ['white', 1]
 ];
 
 /**
@@ -65,8 +69,8 @@ const RODS: ReadonlyArray<['white' | 'brown', number]> = [
  * @param options - Other settings.
  * @returns The material.
  */
-function material(color: number, options: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1, flatShading: true, ...options });
+function material(color: number, options: Look = {}): THREE.MeshPhongMaterial {
+  return phong({ color, roughness: 0.6, metalness: 0.1, flatShading: true, ...options });
 }
 
 /**
@@ -92,7 +96,7 @@ function box(width: number, height: number, depth: number, color: THREE.Material
  *
  * @returns The material.
  */
-function oak(): THREE.MeshStandardMaterial {
+function oak(): THREE.MeshPhongMaterial {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;
@@ -110,8 +114,8 @@ function oak(): THREE.MeshStandardMaterial {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.55, metalness: 0.05 });
+  texture.colorSpace = paintedColorSpace();
+  return phong({ map: texture, roughness: 0.55, metalness: 0.05 });
 }
 
 /**
@@ -153,14 +157,14 @@ function softShadow(): THREE.CanvasTexture {
  */
 function manShapes(plastic: THREE.Material): Array<{ geometry: THREE.BufferGeometry; material: THREE.Material }> {
   const lathe = (points: Array<[number, number]>, scaleZ: number): THREE.BufferGeometry => {
-    const geometry = new THREE.LatheGeometry(points.map(([radius, y]) => new THREE.Vector2(radius, y)), 14);
+    const geometry = new THREE.LatheGeometry(points.map(([radius, y]) => new THREE.Vector2(radius, y)), detail(8, 14));
     geometry.scale(1, 1, scaleZ);
     return geometry;
   };
-  const head = new THREE.SphereGeometry(0.05, 14, 10);
+  const head = new THREE.SphereGeometry(0.05, detail(8, 14), detail(6, 10));
   head.scale(0.95, 1.18, 0.95);
   head.translate(0, 0.118, 0);
-  const neck = new THREE.CylinderGeometry(0.02, 0.024, 0.045, 10);
+  const neck = new THREE.CylinderGeometry(0.02, 0.024, 0.045, detail(6, 10));
   neck.translate(0, 0.062, 0);
   // From the waist up to the shoulders: round across, flatter front to back
   const torso = lathe([[0.001, -0.1], [0.036, -0.1], [0.042, -0.06], [0.047, -0.01], [0.05, 0.025], [0.042, 0.045], [0.02, 0.052], [0.001, 0.052]], 1.3);
@@ -168,11 +172,11 @@ function manShapes(plastic: THREE.Material): Array<{ geometry: THREE.BufferGeome
   // The legs, joined, down to the ankles
   const legs = lathe([[0.001, -0.095], [0.04, -0.095], [0.038, -0.15], [0.031, -0.21], [0.026, -0.245], [0.001, -0.245]], 1.15);
   legs.scale(0.85, 1, 1);
-  const feet = new RoundedBoxGeometry(0.085, 0.034, 0.072, 2, 0.012);
+  const feet = new RoundedBoxGeometry(0.085, 0.034, 0.072, detail(1, 2), 0.012);
   feet.translate(0.02, -0.258, 0);
   const shapes: THREE.BufferGeometry[] = [head, neck, torso, legs, feet];
   for (const side of [1, -1]) {
-    const arm = new THREE.CapsuleGeometry(0.014, 0.1, 3, 8);
+    const arm = new THREE.CapsuleGeometry(0.014, 0.1, detail(2, 3), detail(5, 8));
     arm.rotateX(side * 0.12);
     arm.translate(0, -0.025, side * 0.07);
     shapes.push(arm);
@@ -202,16 +206,16 @@ function handleShapes(black: THREE.Material): Array<[THREE.BufferGeometry, THREE
   }
 
   const stripes = new THREE.CanvasTexture(canvas);
-  stripes.colorSpace = THREE.SRGBColorSpace;
+  stripes.colorSpace = paintedColorSpace();
   const grip = new THREE.CylinderGeometry(0.052, 0.052, 0.24, 8);
   grip.rotateX(Math.PI / 2);
-  const collar = new THREE.CylinderGeometry(0.062, 0.05, 0.06, 16);
+  const collar = new THREE.CylinderGeometry(0.062, 0.05, 0.06, detail(8, 16));
   collar.rotateX(Math.PI / 2);
-  const cap = new THREE.SphereGeometry(0.056, 16, 10);
+  const cap = new THREE.SphereGeometry(0.056, detail(8, 16), detail(6, 10));
   cap.scale(1, 1, 0.75);
   return [
     [collar, black, 0.03],
-    [grip, new THREE.MeshStandardMaterial({ map: stripes, roughness: 0.35, metalness: 0.2 }), 0.18],
+    [grip, phong({ map: stripes, roughness: 0.35, metalness: 0.2 }), 0.18],
     [cap, black, 0.3]
   ];
 }
@@ -289,7 +293,7 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
     group.add(box(0.03, 0.01, 0.9, line, x, FIELD_Y + 0.01, 0));
   }
 
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), material(0xffffff, { roughness: 0.3 }));
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05, detail(8, 10), detail(6, 8)), material(0xffffff, { roughness: 0.3 }));
   ball.position.set(0.15, FIELD_Y + 0.05, 0.1);
   group.add(ball);
 
@@ -303,7 +307,7 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
       const leg = box(0.16, legLength, 0.1, black, sign * (legTopX + legFootX) / 2, CABINET_BOTTOM / 2, z + Math.sign(z) * 0.07);
       leg.rotation.z = sign * legAngle;
       group.add(leg);
-      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 10), black);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.04, detail(8, 10)), black);
       foot.position.set(sign * legFootX, 0.02, z + Math.sign(z) * 0.07);
       group.add(foot);
     }
@@ -318,9 +322,9 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
   // The holes to put the ball in, through both long sides at the height of the rods, between the two midfield rods: a
   // black plate with its hole outside, a black disc with its hole on the white wall inside
   const dark = new THREE.MeshBasicMaterial({ color: 0x050505 });
-  const entryPlate = new THREE.CylinderGeometry(0.12, 0.12, 0.02, 20);
-  const entryDisc = new THREE.CylinderGeometry(0.11, 0.11, 0.02, 20);
-  const entryHole = new THREE.CircleGeometry(0.055, 16);
+  const entryPlate = new THREE.CylinderGeometry(0.12, 0.12, 0.02, detail(12, 20));
+  const entryDisc = new THREE.CylinderGeometry(0.11, 0.11, 0.02, detail(12, 20));
+  const entryHole = new THREE.CircleGeometry(0.055, detail(10, 16));
   for (const sign of [1, -1]) {
     const plate = new THREE.Mesh(entryPlate, black);
     plate.rotation.x = Math.PI / 2;
@@ -350,14 +354,15 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
 
   // A score counter for each team, on the deck of its end, in the middle over the goal: a flat black bar with ten
   // rounded cubes packed together (some room left at one end, to slide them), and a bigger stop at each end
-  const cube = new RoundedBoxGeometry(0.075, 0.075, 0.075, 3, 0.018);
-  const stop = new RoundedBoxGeometry(0.09, 0.095, 0.09, 3, 0.025);
+  const cube = new RoundedBoxGeometry(0.075, 0.075, 0.075, detail(1, 3), 0.018);
+  const stop = new RoundedBoxGeometry(0.09, 0.095, 0.09, detail(1, 3), 0.025);
   const counterX = END_TOP + PANEL - DECK / 2;
-  const contactShadow = new THREE.MeshBasicMaterial({ map: softShadow(), transparent: true, depthWrite: false });
-  for (const [x, color] of [[-counterX, 0xece4c8], [counterX, 0xb8693a]] as const) {
+  const contactShadow = isHigh() ? new THREE.MeshBasicMaterial({ map: softShadow(), transparent: true, depthWrite: false }) : null;
+  for (const [x, color] of [[-counterX, 0xb8693a], [counterX, 0xece4c8]] as const) {
     const bead = material(color, { roughness: 0, metalness: 0, flatShading: false });
     const y = CABINET_TOP + 0.045;
-    // Too small for the shadows of the lights, which would blur them onto the end: a soft shadow drawn on the deck instead
+    // Too small for the shadows of the lights, which would blur them onto the end: at high quality a soft shadow drawn
+    // on the deck instead
     const counter = new THREE.Group();
     counter.userData['noShadow'] = true;
     counter.add(box(0.03, 0.012, 0.98, black, x, y - 0.03, 0));
@@ -373,10 +378,13 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
       counter.add(piece);
     }
 
-    const shade = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 1.12), contactShadow);
-    shade.rotation.x = -Math.PI / 2;
-    shade.position.set(x, CABINET_TOP + 0.002, 0);
-    counter.add(shade);
+    if (contactShadow) {
+      const shade = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 1.12), contactShadow);
+      shade.rotation.x = -Math.PI / 2;
+      shade.position.set(x, CABINET_TOP + 0.002, 0);
+      counter.add(shade);
+    }
+
     group.add(counter);
   }
 
@@ -385,14 +393,14 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
   const brownMan = manShapes(material(0xb07a4a, { roughness: 0.45, flatShading: false }));
   const handleParts = handleShapes(black);
   const rodX = (i: number): number => -LENGTH / 2 + (LENGTH * (i + 0.5)) / RODS.length;
-  const bushing = new THREE.TorusGeometry(0.065, 0.025, 6, 12);
-  const innerDisc = new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16);
-  const innerHole = new THREE.CircleGeometry(0.04, 12);
+  const bushing = new THREE.TorusGeometry(0.065, 0.025, detail(4, 6), detail(8, 12));
+  const innerDisc = new THREE.CylinderGeometry(0.1, 0.1, 0.02, detail(10, 16));
+  const innerHole = new THREE.CircleGeometry(0.04, detail(8, 12));
   const holeColor = new THREE.MeshBasicMaterial({ color: 0x050505 });
   RODS.forEach(([team, count], i) => {
     const x = rodX(i);
-    // The white team stands on the left side seen from the camera (-z), the brown one on the right (+z)
-    const near = team === 'white' ? -1 : 1;
+    // The brown team stands on the right side seen from the camera (+z), the white one on the left (-z)
+    const near = team === 'brown' ? 1 : -1;
     // From inside the far wall to the handle: it doesn't come out on the other side
     const start = -near * (WIDTH / 2 + 0.05);
     const end = near * (WIDTH / 2 + 0.55);
@@ -430,7 +438,7 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
 
     group.add(handle);
 
-    // The little men face the goal of the other team: the white ones attack to the right
+    // The little men face the goal of the other team: the brown ones attack to the right
     const shapes = team === 'white' ? whiteMan : brownMan;
     for (let k = 0; k < count; k++) {
       const z = -WIDTH / 2 + (WIDTH * (k + 1)) / (count + 1);
@@ -440,22 +448,23 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
       }
 
       man.position.set(x, ROD_Y, z);
-      man.rotation.y = team === 'white' ? 0 : Math.PI;
+      man.rotation.y = team === 'brown' ? 0 : Math.PI;
       group.add(man);
     }
   });
 
   // Each player stands beyond the handles of its two rods, a bit above them
   const seat = (first: number, second: number, side: number): THREE.Vector3 => new THREE.Vector3((rodX(first) + rodX(second)) / 2, ROD_Y + 0.35, side * (WIDTH / 2 + 1.25));
+  batchStatic(group);
   return {
     object: group,
     seats: {
       // The two teams face each other across the table, at the same distance from the camera: the defenders closer to the
       // table, by the near goal, the attackers further along
-      'white-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, -(WIDTH / 2 + 0.95)),
-      'white-attack': seat(3, 5, -1),
+      'brown-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, WIDTH / 2 + 0.95),
       'brown-attack': seat(3, 5, 1),
-      'brown-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, WIDTH / 2 + 0.95)
+      'white-attack': seat(3, 5, -1),
+      'white-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, -(WIDTH / 2 + 0.95))
     }
   };
 }

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { DISPLAY, FIGURES, NAME, TEXT } from './fonts';
 import type { PlayerDetail, PlayerMatch, PlayerResult, PlayerStats, RankingMode, Role } from '../../core/api/api.models';
+import { detail, paintedColorSpace } from './detail';
+import { phong } from './materials';
 
 /*
   The board of a player, on the wall in front of the foosball table, between the rules and the matches: its name and
@@ -212,7 +214,7 @@ export class PlayerBoard {
   private readonly _medalCanvas = document.createElement('canvas');
   private readonly _medalTexture: THREE.CanvasTexture;
   private readonly _medal: THREE.Mesh;
-  private readonly _medalMetal: THREE.MeshStandardMaterial;
+  private readonly _medalMetal: THREE.MeshPhongMaterial;
   /**
    * The tubes of the chart, rebuilt with the player and the scope.
    */
@@ -240,16 +242,16 @@ export class PlayerBoard {
     this._canvas.width = this._layout.width;
     this._canvas.height = this._layout.height;
     this._texture = new THREE.CanvasTexture(this._canvas);
-    this._texture.colorSpace = THREE.SRGBColorSpace;
+    this._texture.colorSpace = paintedColorSpace();
     this._texture.anisotropy = 8;
-    this.slate = new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshStandardMaterial({ map: this._texture, roughness: 0.85 }));
+    this.slate = new THREE.Mesh(new THREE.PlaneGeometry(width, height), phong({ map: this._texture, roughness: 0.85 }));
     this.slate.position.z = 0.02;
     this.object.add(this.slate);
 
     const light = new THREE.MeshBasicMaterial({ color: 0xf6dc7a, transparent: true, opacity: 0.55 });
     this._guide = new THREE.Mesh(new THREE.BoxGeometry(0.01, ((chart.bottom - chart.top) / this._layout.height) * height, 0.01), light);
     this._guide.position.set(0, this._y((chart.top + chart.bottom) / 2), 0.05);
-    this._marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    this._marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, detail(8, 16), detail(6, 12)), new THREE.MeshBasicMaterial({ color: 0xffffff }));
     this._guide.visible = false;
     this._marker.visible = false;
     this.object.add(this._guide, this._marker);
@@ -258,12 +260,12 @@ export class PlayerBoard {
     this._medalCanvas.width = 256;
     this._medalCanvas.height = 256;
     this._medalTexture = new THREE.CanvasTexture(this._medalCanvas);
-    this._medalTexture.colorSpace = THREE.SRGBColorSpace;
-    this._medalMetal = new THREE.MeshStandardMaterial({ color: 0xf5c542, metalness: 0.75, roughness: 0.3 });
+    this._medalTexture.colorSpace = paintedColorSpace();
+    this._medalMetal = phong({ color: 0xf5c542, metalness: 0.75, roughness: 0.3 });
     const radius = (medal.radius / this._layout.width) * width;
-    this._medal = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.07, 48), [
+    this._medal = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.07, detail(24, 48)), [
       this._medalMetal,
-      new THREE.MeshStandardMaterial({ map: this._medalTexture, metalness: 0.5, roughness: 0.35 }),
+      phong({ map: this._medalTexture, metalness: 0.5, roughness: 0.35 }),
       this._medalMetal
     ]);
     // Laid flat facing the room, then turned about the vertical
@@ -523,10 +525,10 @@ export class PlayerBoard {
   private _paintMentions(ctx: CanvasRenderingContext2D, stats: PlayerStats): void {
     const mentions: Array<[string, PlayerResult | null, boolean]> = [
       ['Sempre in mezzo alle palle', stats.frequentTeammate, false],
-      ['True Bro', stats.bestTeammate, true],
+      ['Il tuo squalo', stats.bestTeammate, true],
       ['Il filippo di turno', stats.worstTeammate, true],
-      ['Best Enemy', stats.strongestOpponent, true],
-      ['Free Elo', stats.weakestOpponent, true]
+      ['Il gargaro di turno', stats.strongestOpponent, true],
+      ['Sogliola Free Elo', stats.weakestOpponent, true]
     ];
     const layout = this._layout.mentions;
     ctx.textAlign = 'left';
@@ -631,9 +633,9 @@ export class PlayerBoard {
         path.add(new THREE.LineCurve3(points[i - 1]!, points[i]!));
       }
 
-      const glow = new THREE.MeshStandardMaterial({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4 });
-      this._chart.add(new THREE.Mesh(new THREE.TubeGeometry(path, Math.min(800, (points.length - 1) * 2), 0.014, 6, false), glow));
-      const bead = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), glow.clone());
+      const glow = phong({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4 });
+      this._chart.add(new THREE.Mesh(new THREE.TubeGeometry(path, Math.min(detail(400, 800), (points.length - 1) * 2), 0.014, detail(4, 6), false), glow));
+      const bead = new THREE.Mesh(new THREE.SphereGeometry(0.045, detail(8, 16), detail(6, 12)), glow.clone());
       bead.position.copy(points.at(-1)!);
       this._chart.add(bead);
     }

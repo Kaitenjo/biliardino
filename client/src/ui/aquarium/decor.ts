@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { batchMoving } from './batching';
+import { detail } from './detail';
+import { phong } from './materials';
+import type { Look } from './materials';
 
 /*
   The furniture of the sea floor and the life in the background of the 3D aquarium, low poly like the creatures:
@@ -22,8 +26,8 @@ export interface Swaying {
  * @param options - Other settings.
  * @returns The material.
  */
-function material(color: number, options: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, flatShading: true, ...options });
+function material(color: number, options: Look = {}): THREE.MeshPhongMaterial {
+  return phong({ color, roughness: 0.75, metalness: 0.05, flatShading: true, ...options });
 }
 
 /**
@@ -67,7 +71,7 @@ export function buildBranchCoral(color: number): THREE.Group {
  * @returns The coral.
  */
 export function buildBrainCoral(color: number): THREE.Mesh {
-  const geometry = new THREE.IcosahedronGeometry(0.5, 3);
+  const geometry = new THREE.IcosahedronGeometry(0.5, detail(2, 3));
   const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
   const point = new THREE.Vector3();
   for (let i = 0; i < positions.count; i++) {
@@ -150,10 +154,10 @@ export function buildAnchor(): THREE.Group {
  */
 export function buildBarrel(): THREE.Group {
   const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.9, 12), material(0x6b4423, { roughness: 0.95 }));
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.9, detail(8, 12)), material(0x6b4423, { roughness: 0.95 }));
   group.add(body);
   for (const y of [-0.3, 0.3]) {
-    const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.03, 4, 14), material(0x3f3f46, { metalness: 0.4 }));
+    const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.03, 4, detail(10, 14)), material(0x3f3f46, { metalness: 0.4 }));
     hoop.rotation.x = Math.PI / 2;
     hoop.position.y = y;
     group.add(hoop);
@@ -205,7 +209,7 @@ export function buildRockArch(): THREE.Group {
 export function buildJellyfish(color: number): Swaying {
   const group = new THREE.Group();
   const jelly = material(color, { transparent: true, opacity: 0.55, emissive: color, emissiveIntensity: 0.45, side: THREE.DoubleSide, roughness: 0.2 });
-  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), jelly);
+  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.35, detail(10, 14), detail(5, 8), 0, Math.PI * 2, 0, Math.PI / 2), jelly);
   group.add(bell);
   const strands: THREE.Object3D[] = [];
   for (let i = 0; i < 8; i++) {
@@ -217,6 +221,8 @@ export function buildJellyfish(color: number): Swaying {
     strands.push(strand);
   }
 
+  // The bell and its strands in one batch
+  const redraw = batchMoving(group);
   const phase = Math.random() * 10;
   return {
     object: group,
@@ -227,6 +233,7 @@ export function buildJellyfish(color: number): Swaying {
         strand.rotation.x = Math.sin(time * 1.4 + phase + i) * 0.15;
         strand.rotation.z = Math.cos(time * 1.2 + phase + i) * 0.15;
       });
+      redraw();
     }
   };
 }

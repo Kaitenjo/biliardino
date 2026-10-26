@@ -96,7 +96,7 @@ Schema in [server/migrations/](server/migrations):
 | `lobby_players` | chi è in ogni lobby |
 | `push_subscriptions` | i browser in cui un utente ha attivato le notifiche push |
 | `elo_settings` | le variabili del calcolo dell'ELO (una riga), modificabili dalla pagina ELO |
-| `matches` | punteggio rossi/blu (0–8), vincitore, probabilità attesa dei rossi (derivata), chi l'ha registrata, data |
+| `matches` | punteggio bianchi/marroni (0–8), vincitore, probabilità attesa dei bianchi (derivata), chi l'ha registrata, data |
 | `match_players` | i 4 giocatori di ogni partita: squadra, ruolo (`attack`/`defense`); derivati: ELO prima, ELO nel ruolo, variazione |
 | `player_stats` | derivata: partite, vittorie, goal e forma (ultime 5) di ogni giocatore, in tutto (`all`) e per ruolo |
 | `player_pairs` | derivata: quante volte due giocatori hanno giocato insieme e contro, per il matchmaking |

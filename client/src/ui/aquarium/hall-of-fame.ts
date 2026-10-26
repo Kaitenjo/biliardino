@@ -1,9 +1,14 @@
+import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 import * as THREE from 'three';
 import { DISPLAY } from './fonts';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { buildChest, buildRock, buildSeaweed } from './creatures';
+import { buildChest, buildRock, buildSeaweedBed } from './creatures';
+import type { SeaweedBed } from './creatures';
 import { buildBranchCoral, buildBrainCoral, buildSeaFan } from './decor';
 import type { Swaying } from './decor';
+import { batchStatic } from './batching';
+import { detail, isHigh, paintedColorSpace } from './detail';
+import { phong } from './materials';
 
 /*
   The hall of fame, on the sea floor to the left of the aquarium: the ruins of a sunken temple with the name of the
@@ -116,7 +121,7 @@ function marbleTexture(): THREE.CanvasTexture {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = paintedColorSpace();
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   return texture;
@@ -174,7 +179,7 @@ function plaqueTexture(place: number, color: string): THREE.CanvasTexture {
   ctx.fillText(String(place), centerX, centerY + 8);
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = paintedColorSpace();
   texture.anisotropy = 4;
   return texture;
 }
@@ -201,7 +206,7 @@ function friezeTexture(): THREE.CanvasTexture {
   ctx.fillStyle = '#5a4a3a';
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = paintedColorSpace();
   texture.anisotropy = 4;
   return texture;
 }
@@ -256,24 +261,29 @@ function beamTexture(): THREE.CanvasTexture {
  */
 function buildCup(gold: THREE.Material): THREE.Group {
   const cup = new THREE.Group();
-  const profile = [
+  // The foot, the stem, the bowl and the lid: finely turned at high quality, low-poly like the rest of the sea at low
+  const profile = detail([
+    [0, 0], [0.5, 0], [0.42, 0.15], [0.14, 0.35], [0.1, 0.8], [0.2, 0.98], [0.6, 1.45], [0.72, 2], [0.5, 2.2], [0.2, 2.33], [0, 2.38]
+  ], [
     [0, 0], [0.55, 0], [0.56, 0.1], [0.44, 0.17], [0.4, 0.3], [0.16, 0.38], [0.1, 0.62], [0.17, 0.72], [0.17, 0.8],
     [0.11, 0.88], [0.2, 0.98], [0.44, 1.16], [0.6, 1.48], [0.68, 1.86], [0.75, 2], [0.7, 2.04], [0.66, 2.08], [0.5, 2.2],
     [0.24, 2.3], [0.09, 2.36], [0, 2.38]
-  ].map(([x, y]) => new THREE.Vector2(x, y));
-  cup.add(new THREE.Mesh(new THREE.LatheGeometry(profile, 40), gold));
+  ]).map(([x, y]) => new THREE.Vector2(x!, y!));
+  cup.add(new THREE.Mesh(new THREE.LatheGeometry(profile, detail(12, 40)), gold));
 
   // The handles: a half ring on each side, its ends on the body of the cup
   for (const side of [-1, 1]) {
-    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.055, 10, 24, Math.PI), gold);
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.34, detail(0.06, 0.055), detail(4, 10), detail(8, 24), Math.PI), gold);
     handle.position.set(side * 0.6, 1.55, 0);
     handle.rotation.z = (-side * Math.PI) / 2;
     cup.add(handle);
   }
 
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }));
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.17, detail(10, 24), detail(6, 16)), phong({ color: 0xffffff, roughness: detail(0.6, 0.35), flatShading: !isHigh() }));
   ball.position.y = 2.52;
   cup.add(ball);
+  // It turns as a whole: its parts never move one from the other
+  batchStatic(cup);
   return cup;
 }
 
@@ -286,7 +296,7 @@ function buildCup(gold: THREE.Material): THREE.Group {
  */
 function buildColumn(stone: THREE.Material, broken = false): THREE.Group {
   const column = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.22, 20), stone);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.22, detail(12, 20)), stone);
   base.position.y = 0.11;
   column.add(base);
   const height = broken ? 1.5 : COLUMN_HEIGHT;
@@ -296,14 +306,14 @@ function buildColumn(stone: THREE.Material, broken = false): THREE.Group {
   column.add(shaft);
   if (broken) {
     // The jagged break: a slanted chunk left on top
-    const chunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.37, 0.45, 16, 1, false, 0, Math.PI * 1.3), stone);
+    const chunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.37, 0.45, detail(10, 16), 1, false, 0, Math.PI * 1.3), stone);
     chunk.position.y = 0.22 + height + 0.2;
     chunk.rotation.z = 0.25;
     column.add(chunk);
     return column;
   }
 
-  const echinus = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.38, 0.22, 20), stone);
+  const echinus = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.38, 0.22, detail(12, 20)), stone);
   echinus.position.y = 0.22 + height + 0.11;
   column.add(echinus);
   const abacus = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.18, 1.1), stone);
@@ -318,14 +328,16 @@ function buildColumn(stone: THREE.Material, broken = false): THREE.Group {
  *
  * @param stone - The material of the marble.
  * @param gold - The material of the gilding.
+ * @param renderer - What draws it, for the seaweed drawn at once.
+ * @param detailed - Whether with the seaweed (high quality).
  * @returns The temple, and its seaweed and fans to sway.
  */
-function buildTemple(stone: THREE.Material, gold: THREE.Material): { object: THREE.Group; seaweeds: THREE.Object3D[][]; fans: Swaying[] } {
+function buildTemple(stone: THREE.Material, gold: THREE.Material, renderer: THREE.WebGLRenderer, detailed: boolean): { object: THREE.Group; seaweeds: SeaweedBed; fans: Swaying[] } {
   const temple = new THREE.Group();
   temple.position.z = TEMPLE_Z;
-  const seaweeds: THREE.Object3D[][] = [];
+  const seaweeds = buildSeaweedBed(renderer);
   const fans: Swaying[] = [];
-  const darkStone = new THREE.MeshStandardMaterial({ color: 0x8c8478, roughness: 0.9, flatShading: true });
+  const darkStone = phong({ color: 0x8c8478, roughness: 0.9, flatShading: true });
 
   // The steps it stands on
   let floor = 0;
@@ -358,7 +370,7 @@ function buildTemple(stone: THREE.Material, gold: THREE.Material): { object: THR
     temple.add(column);
   });
   for (const [x, z, turn] of [[6.4, 2.6, 0.5], [7.6, 3.9, -0.3]] as const) {
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.38, 1.5, 16), stone);
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.38, 1.5, detail(10, 16)), stone);
     drum.position.set(x, 0.37, z);
     drum.rotation.set(0, turn, Math.PI / 2);
     temple.add(drum);
@@ -371,7 +383,7 @@ function buildTemple(stone: THREE.Material, gold: THREE.Material): { object: THR
   const architrave = new THREE.Mesh(new THREE.BoxGeometry(right - left, 0.75, 1.3), stone);
   architrave.position.set((left + right) / 2, top + 0.375, 0.9);
   temple.add(architrave);
-  const frieze = new THREE.Mesh(new THREE.PlaneGeometry(right - left - 0.4, ((right - left - 0.4) * 96) / 1024), new THREE.MeshStandardMaterial({ map: friezeTexture(), roughness: 0.9 }));
+  const frieze = new THREE.Mesh(new THREE.PlaneGeometry(right - left - 0.4, ((right - left - 0.4) * 96) / 1024), phong({ map: friezeTexture(), roughness: 0.9 }));
   frieze.position.set((left + right) / 2, top + 0.375, 1.56);
   temple.add(frieze);
   const fallen = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.75, 1.3), stone);
@@ -394,18 +406,17 @@ function buildTemple(stone: THREE.Material, gold: THREE.Material): { object: THR
   const pediment = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 1.1, bevelEnabled: false }), stone);
   pediment.position.set(0, top + 0.75, 0.35);
   temple.add(pediment);
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 32), gold);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, detail(16, 32)), gold);
   disc.rotation.x = Math.PI / 2;
   disc.position.set(0, top + 0.75 + peak * 0.38, 1.5);
   temple.add(disc);
 
   // The sea took it back: seaweed at the feet of the columns, corals and fans on the steps
-  for (const [x, z, height, color] of [[-5.9, 1.9, 2.6, 0x15803d], [-4.2, 2.2, 1.8, 0x16a34a], [2.2, 2.1, 2.2, 0x166534], [4.3, 2.3, 3, 0x15803d], [6.6, 1.2, 2.4, 0x16a34a]] as const) {
-    const weed = buildSeaweed(height, color);
-    weed.object.position.set(x, x > -5 && x < 5 ? floor : 0, z);
-    temple.add(weed.object);
-    seaweeds.push(weed.segments);
+  for (const [x, z, height, color] of detailed ? [[-5.9, 1.9, 2.6, 0x15803d], [-4.2, 2.2, 1.8, 0x16a34a], [2.2, 2.1, 2.2, 0x166534], [4.3, 2.3, 3, 0x15803d], [6.6, 1.2, 2.4, 0x16a34a]] as const : []) {
+    seaweeds.plant(new THREE.Vector3(x, x > -5 && x < 5 ? floor : 0, z), height, color);
   }
+
+  temple.add(seaweeds.object);
 
   for (const [x, z, color, scale] of [[-6.3, 2.4, 0xf472b6, 1.1], [-2, 2.1, 0xfb923c, 0.8], [5.6, 1.9, 0xc084fc, 1]] as const) {
     const coral = buildBranchCoral(color);
@@ -422,6 +433,7 @@ function buildTemple(stone: THREE.Material, gold: THREE.Material): { object: THR
     const fan = buildSeaFan(color);
     fan.object.position.set(x, 0, z);
     fan.object.scale.setScalar(1.4);
+    fan.object.userData['noBatch'] = true;
     temple.add(fan.object);
     fans.push(fan);
   }
@@ -438,39 +450,50 @@ function buildTemple(stone: THREE.Material, gold: THREE.Material): { object: THR
 /**
  * Builds the hall of fame.
  *
- * @param environment - The reflections of the metals: gold reads as gold only if it has something to reflect.
+ * @param renderer - What draws it, for the coins and the seaweed drawn at once.
+ * @param detailed - Whether with the seaweed and the light of the chest (high quality).
+ * @param environment - What the metals and the marble reflect, at high quality: they are physical materials then; at
+ * low quality, Phong ones that reflect nothing.
  * @returns The hall, its origin on the sand under the middle of the podium, facing +z.
  */
-export function buildHallOfFame(environment: THREE.Texture): HallOfFame {
+export function buildHallOfFame(renderer: THREE.WebGLRenderer, detailed: boolean, environment: THREE.Texture | null): HallOfFame {
   const group = new THREE.Group();
-  const marble = new THREE.MeshStandardMaterial({ map: marbleTexture(), roughness: 0.32, metalness: 0, envMap: environment, envMapIntensity: 0.35 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xf5c542, metalness: 1, roughness: 0.22, envMap: environment, envMapIntensity: 1.4 });
+  const marble = environment
+    ? new THREE.MeshStandardMaterial({ map: marbleTexture(), roughness: 0.32, metalness: 0, envMap: environment, envMapIntensity: 0.35 })
+    : phong({ map: marbleTexture(), roughness: 0.32, metalness: 0 });
+  // The gold of the cup and the coins: a mirror of the room at high quality; at low quality flat, with a faint glow of
+  // its own to keep it golden in the dark water
+  const gold = environment
+    ? new THREE.MeshStandardMaterial({ color: 0xf5c542, metalness: 1, roughness: 0.22, envMap: environment, envMapIntensity: 1.4 })
+    : phong({ color: 0xf5c542, metalness: 0.3, roughness: 0.55, flatShading: true, emissive: 0x854d0e, emissiveIntensity: 0.3 });
 
   // The podium: a slab, three steps of marble, each with a band of its metal and its place in a wreath
-  const base = new THREE.Mesh(new RoundedBoxGeometry(STEP_WIDTH * 3 + 0.7, BASE_HEIGHT, STEP_DEPTH + 0.7, 2, 0.05), marble);
+  const base = new THREE.Mesh(new RoundedBoxGeometry(STEP_WIDTH * 3 + 0.7, BASE_HEIGHT, STEP_DEPTH + 0.7, detail(1, 2), 0.05), marble);
   base.position.y = BASE_HEIGHT / 2;
   group.add(base);
   const spots: THREE.Vector3[] = [];
   STEP_HEIGHTS.forEach((height, slot) => {
     const x = (slot - 1) * (STEP_WIDTH + 0.02);
-    const step = new THREE.Mesh(new RoundedBoxGeometry(STEP_WIDTH, height, STEP_DEPTH, 3, 0.06), marble);
+    const step = new THREE.Mesh(new RoundedBoxGeometry(STEP_WIDTH, height, STEP_DEPTH, detail(1, 3), 0.06), marble);
     step.position.set(x, BASE_HEIGHT + height / 2, 0);
     group.add(step);
-    const metal = new THREE.MeshStandardMaterial({ color: MEDALS[slot], metalness: 1, roughness: 0.25, envMap: environment, envMapIntensity: 1.3 });
+    const metal = environment
+      ? new THREE.MeshStandardMaterial({ color: MEDALS[slot], metalness: 1, roughness: 0.25, envMap: environment, envMapIntensity: 1.3 })
+      : phong({ color: MEDALS[slot], metalness: 0.3, roughness: 0.45 });
     const band = new THREE.Mesh(new THREE.BoxGeometry(STEP_WIDTH + 0.03, 0.09, STEP_DEPTH + 0.03), metal);
     band.position.set(x, BASE_HEIGHT + height - 0.16, 0);
     group.add(band);
     const size = Math.min(1.35, (height - 0.2) * 0.95);
     const plaque = new THREE.Mesh(
       new THREE.PlaneGeometry(size, size),
-      new THREE.MeshStandardMaterial({ map: plaqueTexture(PLACES[slot]!, MEDALS[slot]!), transparent: true, roughness: 0.4, metalness: 0.3 })
+      phong({ map: plaqueTexture(PLACES[slot]!, MEDALS[slot]!), transparent: true, roughness: 0.4, metalness: 0.3 })
     );
     plaque.position.set(x, BASE_HEIGHT + (height - 0.2) / 2, STEP_DEPTH / 2 + 0.01);
     group.add(plaque);
     spots.push(new THREE.Vector3(x, BASE_HEIGHT + height, 0.15));
   });
 
-  const temple = buildTemple(marble, gold);
+  const temple = buildTemple(marble, gold, renderer, detailed);
   group.add(temple.object);
 
   // The cup over the winner, and the sparkles around it
@@ -478,6 +501,7 @@ export function buildHallOfFame(environment: THREE.Texture): HallOfFame {
   const cup = buildCup(gold);
   cup.position.y = cupY;
   cup.scale.setScalar(0.8);
+  cup.userData['noBatch'] = true;
   group.add(cup);
   const sparklePositions = new Float32Array(SPARKLES * 3);
   const sparkleColors = new Float32Array(SPARKLES * 3);
@@ -504,18 +528,25 @@ export function buildHallOfFame(environment: THREE.Texture): HallOfFame {
   spot.target.position.set(0, BASE_HEIGHT + STEP_HEIGHTS[1], 0);
   group.add(spot, spot.target);
   const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 1.9, 11, 32, 1, true),
+    new THREE.CylinderGeometry(0.5, 1.9, 11, detail(16, 32), 1, true),
     new THREE.MeshBasicMaterial({ map: beamTexture(), color: 0xfff1c4, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })
   );
   beam.position.set(0, BASE_HEIGHT + STEP_HEIGHTS[1] + 5.5, 0.3);
+  beam.userData['noBatch'] = true;
   group.add(beam);
   const shine = new THREE.PointLight(0xffd26b, 5, 6, 1.5);
   shine.position.set(0, cupY + 1.2, 1.4);
   group.add(shine);
 
   // The coins: some raining down turning, many in heaps around the podium, a chest overflowing with them
-  const coin = new THREE.CylinderGeometry(0.13, 0.13, 0.03, 14);
-  const rain = new THREE.InstancedMesh(coin, gold, RAIN);
+  // Rain and heaps each their own geometry: an InstancedMesh2 adds its own attributes to it
+  const coin = (): THREE.BufferGeometry => new THREE.CylinderGeometry(0.13, 0.13, 0.03, detail(8, 14));
+  // A material of their own: one shared with plain meshes (the cup) leaves an InstancedMesh2 undrawn
+  const coinGold = gold.clone();
+  const rain = new InstancedMesh2(coin(), coinGold, { capacity: RAIN, renderer });
+  rain.addInstances(RAIN);
+  // The coins fall: each one is culled on its own, against where it is now
+  rain.frustumCulled = false;
   const falling = Array.from({ length: RAIN }, () => ({
     position: new THREE.Vector3((Math.random() - 0.5) * 14, Math.random() * RAIN_TOP, -4 + Math.random() * 7),
     rotation: new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6),
@@ -525,8 +556,16 @@ export function buildHallOfFame(environment: THREE.Texture): HallOfFame {
   }));
   group.add(rain);
 
-  const heaps = new THREE.InstancedMesh(coin, gold, HEAPED);
+  const heaps = new InstancedMesh2(coin(), coinGold, { capacity: HEAPED, renderer });
+  heaps.addInstances(HEAPED);
   const dummy = new THREE.Object3D();
+  // In the air already: a still scene never moves them
+  falling.forEach((coin, i) => {
+    dummy.position.copy(coin.position);
+    dummy.rotation.copy(coin.rotation);
+    dummy.updateMatrix();
+    rain.setMatrixAt(i, dummy.matrix);
+  });
   const piles = [[-4.7, 0.9, 1.1], [4.8, 1.1, 0.9], [-2.4, 2, 0.6], [2.6, 1.9, 0.7], [0.4, 2.3, 0.5]] as const;
   for (let i = 0; i < HEAPED; i++) {
     const [x, z, radius] = piles[i % piles.length]!;
@@ -543,6 +582,12 @@ export function buildHallOfFame(environment: THREE.Texture): HallOfFame {
   chest.object.position.set(-5.4, 0, -0.6);
   chest.object.rotation.y = 0.6;
   group.add(chest.object);
+  if (!detailed) {
+    chest.glow.removeFromParent();
+  }
+
+  // The temple, the podium and the chest in batches; the cup, the beam and the fans move
+  batchStatic(group);
 
   return {
     object: group,
@@ -579,14 +624,8 @@ export function buildHallOfFame(environment: THREE.Texture): HallOfFame {
         dummy.updateMatrix();
         rain.setMatrixAt(i, dummy.matrix);
       });
-      rain.instanceMatrix.needsUpdate = true;
 
-      temple.seaweeds.forEach((segments, j) => {
-        segments.forEach((segment, i) => {
-          segment.rotation.z = Math.sin(time * 0.9 + j * 1.7 + i * 0.35) * 0.09;
-          segment.rotation.x = Math.cos(time * 0.7 + j * 1.3 + i * 0.3) * 0.05;
-        });
-      });
+      temple.seaweeds.animate(time);
       temple.fans.forEach(fan => fan.animate(time));
       chest.glow.intensity = 2.3 + Math.sin(time * 2.1) * 0.5;
     }

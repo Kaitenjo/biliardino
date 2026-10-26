@@ -45,6 +45,64 @@ lobby-aquarium {
   backdrop-filter: blur(14px) saturate(1.4);
 }
 
+// The button collapsing a panel to its first line, in its top right corner; the content keeps clear of it
+.collapse {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  background: rgb(15 10 5 / 45%);
+  color: #f6dc7a;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+
+  &:hover {
+    border-color: var(--gold);
+    background: rgb(40 28 8 / 70%);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
+
+.panel:has(> .collapse) {
+  padding-right: 3rem;
+}
+
+// Collapsed: just its first line, tighter
+.panel.collapsed {
+  gap: 0;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+
+  .collapse {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem 1rem;
+  min-height: 2rem;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 h1 {
   margin: 0;
   font-size: 1.4rem;
@@ -634,6 +692,68 @@ league-leaderboard ~ .arrow.left {
   margin-top: 0.9rem;
   visibility: hidden;
   opacity: 0;
+}
+
+// The rules, written over the parchment of their board: laid out 900px wide (see `RULES_LAYOUT_WIDTH` in scene.ts),
+// then the scene scales them to the parchment as the camera sees it, and shows them only in front of the board
+.rules-paper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 44px 58px;
+  overflow: hidden;
+  // The parchment itself: a warm paper, darker at its edges
+  background: radial-gradient(ellipse at center, #f7ecd2 30%, #ecdbb5 70%, #cdb183 100%);
+  color: #2b1a0e;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  transform-origin: 0 0;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+
+  h2 {
+    margin: 0 auto 26px;
+    padding: 0 40px 12px;
+    border-bottom: 3px solid #b08d57;
+    color: #3b2414;
+    font-family: Cinzel, Georgia, serif;
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1.1;
+  }
+
+  ul {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding-left: 34px;
+    font-size: 31px;
+    font-weight: 600;
+    line-height: 1.15;
+
+    // The bullet: a gilded dot
+    &::before {
+      content: '';
+      position: absolute;
+      top: 12px;
+      left: 4px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #9a7432;
+    }
+  }
 }
 
 // On a narrow screen held upright the leaderboard is under the podium; held sideways, it stays on the left

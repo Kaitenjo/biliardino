@@ -1,16 +1,11 @@
-// The flaps over the black face of the board: everything is sized on the box (the face as the camera sees it), so that
+// Chalk on the dark green slate of the board: everything is sized on the box (the face as the camera sees it), so that
 // it grows and shrinks with the board
 :host {
-  --flap: 1.55cqw;
-  --flap-gap: 0.15cqw;
-  --step: calc(var(--flap) + var(--flap-gap));
-  --segment-gap: 1.1cqw;
-  // The icon of a player before its name, as tall as a flap
-  --face: 6.4cqh;
-  --flap-height: 6.4cqh;
-  --flap-font: 4.3cqh;
-  --name: calc(var(--face) + 0.4cqw + 7 * var(--step));
-  --ink: #f6ebc8;
+  // A line of a match, and the icon of a player in it: as big as the lines fit, on a wide board and on a tall one
+  --line: 8cqh;
+  --face: min(6.2cqh, 9cqw);
+  --chalk: rgb(241 245 240 / 92%);
+  --chalk-dim: rgb(241 245 240 / 55%);
 
   position: absolute;
   top: 0;
@@ -27,203 +22,93 @@
 .board {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-  padding: 2.4cqh 2.2cqw;
+  gap: 1.2cqh;
   box-sizing: border-box;
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  height: 100%;
+  padding: 2.6cqh 3cqw;
+  color: var(--chalk);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 700;
+  // The faint halo of chalk
+  text-shadow: 0 0 0.4cqh rgb(255 255 255 / 25%);
 }
 
-// The names of the columns, painted on the board: as wide as the flaps under them
+// The columns: the day, the brown team, the result, the white team, the ELO won
 .head,
 .line {
   display: grid;
-  grid-template-columns: calc(5 * var(--step)) var(--name) var(--name) calc(3 * var(--step)) var(--name) var(--name) calc(3 * var(--step));
-  gap: var(--segment-gap);
-  justify-content: center;
+  grid-template-columns: 1fr 2.4fr 1.2fr 2.4fr 1fr;
+  align-items: center;
+  justify-items: center;
 }
 
 .head {
-  color: #c9a227;
+  padding-bottom: 0.8cqh;
+  border-bottom: 0.3cqh solid var(--chalk-dim);
+  color: var(--chalk-dim);
   font-family: Cinzel, Georgia, serif;
-  font-size: 3.4cqh;
-  font-weight: 700;
+  font-size: min(3.6cqh, 3cqw);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 
-  small {
-    color: rgb(201 162 39 / 60%);
-    font-size: 0.7em;
-    text-transform: none;
+  // The colour of the team, a smudge of chalk before its name
+  .team::before {
+    content: '';
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: 0.35em;
+    border-radius: 50%;
+    vertical-align: -0.05em;
   }
 
-  .score,
-  .delta {
-    text-align: right;
+  .brown::before {
+    background: #c8a27a;
+  }
+
+  .white::before {
+    background: #f8fafc;
   }
 }
 
-.segment {
-  display: flex;
-  align-items: center;
-  gap: var(--flap-gap);
-}
-
-// The names of a team stand under it, across two columns
-.head .team {
-  grid-column: span 2;
-}
-
-// The icon of the player, a round medallion before the flaps of its name
-.face {
+.lines {
   display: grid;
-  place-items: center;
-  width: var(--face);
-  height: var(--face);
-  margin-right: 0.4cqw;
-  border-radius: 50%;
-  background: #0d0d10;
-  box-shadow: inset 0 0 0 0.25cqh rgb(201 162 39 / 45%);
+  flex: 1;
+  align-content: start;
+}
+
+.line {
+  height: var(--line);
+  border-bottom: 0.2cqh dashed rgb(241 245 240 / 14%);
+  font-size: min(4.4cqh, 5.4cqw);
+}
+
+.team {
+  display: flex;
+  gap: 1cqw;
 
   player-avatar {
-    --avatar-size: calc(var(--face) - 0.6cqh);
-
-    animation: face-in 0.35s ease-out;
+    --avatar-size: var(--face);
   }
 }
 
-.lost .face {
-  opacity: 0.55;
+// The losers rubbed out a little
+.lost {
+  opacity: 0.45;
 }
 
-@keyframes face-in {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
-  }
+.date,
+.foot {
+  color: var(--chalk-dim);
 }
 
-// A flap: two halves of black plate with the split across the middle, the letter cut by it
-.flap {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--flap);
-  height: var(--flap-height);
-  border-radius: 0.5cqh;
-  background: linear-gradient(180deg, #232327 0%, #18181b 48%, #050505 48%, #050505 52%, #141417 52%, #0d0d10 100%);
-  box-shadow: inset 0 0.3cqh 0.4cqh rgb(255 255 255 / 6%), 0 0.3cqh 0.5cqh rgb(0 0 0 / 70%);
-  color: var(--ink);
-  font-size: var(--flap-font);
-  font-weight: 700;
-  line-height: 1;
-
-  // The hinge: a thin dark line through the letter
-  &::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 0.25cqh;
-    background: rgb(0 0 0 / 85%);
-    transform: translateY(-50%);
-  }
-}
-
-.date .flap {
-  color: #fbbf24;
-}
-
-.white .flap {
-  color: #f8fafc;
-}
-
-.brown .flap {
-  color: #d9b38c;
-}
-
-// The losers a little dimmer than the winners
-.lost .flap {
-  opacity: 0.55;
-}
-
-.score .flap {
-  color: #fde68a;
-}
-
-.delta .flap {
-  color: #4ade80;
+.delta {
+  color: #bbf7d0;
 }
 
 .foot {
   display: flex;
   justify-content: space-between;
-  color: rgb(201 162 39 / 75%);
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 3.4cqh;
+  font-size: min(3.4cqh, 4.4cqw);
   font-style: italic;
-}
-
-// On a tall board (a phone held upright) a match takes three lines: the day, the result and the ELO won, then the
-// white team, then the brown one; the names of the columns are left out, the colours tell the teams
-@container (max-aspect-ratio: 1/1) {
-  .board {
-    --flap: 4.6cqw;
-    --flap-gap: 0.4cqw;
-    --segment-gap: 3cqw;
-    --face: 2.5cqh;
-    --flap-height: 2.5cqh;
-    --flap-font: 1.9cqh;
-    // Worked out again from the sizes above: on the host they were worked out from its own
-    --step: calc(var(--flap) + var(--flap-gap));
-    --name: calc(var(--face) + 0.4cqw + 7 * var(--step));
-
-    padding: 2cqh 3cqw;
-  }
-
-  .head {
-    display: none;
-  }
-
-  .line {
-    grid-template-columns: var(--name) var(--name);
-    row-gap: 0.35cqh;
-    padding-bottom: 0.7cqh;
-    border-bottom: 1px solid rgb(201 162 39 / 18%);
-
-    // The day and the result over the white team, the ELO at the end of their line
-    .segment:nth-child(1) {
-      grid-area: 1 / 1;
-    }
-
-    .segment:nth-child(4) {
-      grid-area: 1 / 2;
-    }
-
-    .segment:nth-child(7) {
-      grid-area: 1 / 2;
-      justify-self: end;
-    }
-
-    .segment:nth-child(2) {
-      grid-area: 2 / 1;
-    }
-
-    .segment:nth-child(3) {
-      grid-area: 2 / 2;
-    }
-
-    .segment:nth-child(5) {
-      grid-area: 3 / 1;
-    }
-
-    .segment:nth-child(6) {
-      grid-area: 3 / 2;
-    }
-  }
-
-  .foot {
-    font-size: 1.8cqh;
-  }
 }

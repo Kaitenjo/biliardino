@@ -104,6 +104,24 @@ canvas {
     background: var(--team-brown);
     color: #3b2416;
   }
+
+  // Smaller on a phone, to fit the four of them (the scene frames them at this size)
+  @media (max-width: 640px) {
+    player-avatar {
+      --avatar-size: 3.4rem;
+
+      margin-bottom: 0.2rem;
+    }
+
+    .name {
+      max-width: 7.5rem;
+      font-size: 0.95rem;
+    }
+
+    .role {
+      font-size: 0.7rem;
+    }
+  }
 }
 
 // The first three of the leaderboard on the podium of the hall of fame, moved by the scene; they appear once the camera is

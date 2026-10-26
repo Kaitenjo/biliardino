@@ -1,8 +1,9 @@
+import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { LobbyPlayer } from '../../core/api/api.models';
-import { buildChest, buildCreature, buildRock, buildSeaweed, buildShipwreck, SPECIES } from './creatures';
-import type { Creature, Species } from './creatures';
+import { buildChest, buildCreature, buildRock, buildSeaweedBed, buildShipwreck, SPECIES } from './creatures';
+import type { Creature, SeaweedBed, Species } from './creatures';
 import {
   buildAmphora,
   buildAnchor,
@@ -17,13 +18,16 @@ import {
 import type { Swaying } from './decor';
 import { buildFoosballTable } from './foosball3d';
 import type { SeatKey } from './foosball3d';
-import { RULES } from '../../core/rules/rules';
 import { buildHallOfFame } from './hall-of-fame';
 import type { HallOfFame } from './hall-of-fame';
 import { buildLounge, LOUNGE_FLOOR, MATCH_BOARD, MATCH_BOARD_SIZE, RULES_BOARD, STATS_BOARD, STATS_BOARD_SIZE, TABLE_POSITION, WALL_Z, wallBoard } from './lounge';
 import { PlayerBoard, TALL_BOARD_SIZE } from './player-board';
 import type { PlayerDetail, PlayerMatch, RankingMode } from '../../core/api/api.models';
-import { BOARD_HEIGHT as RULES_BOARD_HEIGHT, BOARD_WIDTH as RULES_BOARD_WIDTH, buildRulesBoard } from './rules-board';
+import { BOARD_HEIGHT as RULES_BOARD_HEIGHT, BOARD_WIDTH as RULES_BOARD_WIDTH, buildRulesBoard, PAPER_SIZE as RULES_PAPER } from './rules-board';
+import { batchStatic } from './batching';
+import { detail, isHigh, paintedColorSpace, setQuality } from './detail';
+import { phong } from './materials';
+import type { Quality } from '../../core/settings/quality';
 
 /**
  * The match of the chart of the player under the pointer: the match, the ELO of the player after it, and where its
@@ -42,7 +46,8 @@ export interface ChartHover {
   point (on the bottom for the sole, low for the octopus), steers there turning smoothly, now and then stops for a
   moment, and picks another one.
   It draws only while visible on the screen (`setVisible`), and not at all, after the first frame, for who asked for
-  less motion.
+  less motion. Only what is seen from where the camera is moves, and a frame is drawn only when something moved or
+  changed.
 */
 
 /**
@@ -96,6 +101,11 @@ const RULES_BOARD_DISTANCE = 5.4;
 const MATCH_BOARD_DISTANCE = 8.8;
 
 /**
+ * The width, in pixels, the rules written by the page are laid out at before being scaled to the parchment.
+ */
+const RULES_LAYOUT_WIDTH = 900;
+
+/**
  * The boards on the walls whose content is a page element drawn over the canvas: where it is seen from, the corners
  * of the face, and the width the element is laid out at before being scaled to the face (`null`: laid out as big as
  * the face is seen, its content sized on its box).
@@ -111,9 +121,9 @@ interface WallBoard {
 }
 
 /**
- * The boards on the walls drawn by the page: the matches, and its pages under it.
+ * The boards on the walls drawn by the page: the matches, its pages under it, and the rules.
  */
-export type Wall = 'matches' | 'matchesFoot';
+export type Wall = 'matches' | 'matchesFoot' | 'rules';
 
 /**
  * The boards on the walls drawn by the page, as the board of the matches hangs.
@@ -123,11 +133,15 @@ export type Wall = 'matches' | 'matchesFoot';
  * @returns The board, and its pages under its case.
  */
 function wallBoards(center: THREE.Vector3, size: BoardSize): Record<Wall, WallBoard> {
-  const corners = [-1, 1].flatMap(z => [-1, 1].map(y => new THREE.Vector3(center.x, center.y + (y * size.height) / 2, center.z + (z * size.width) / 2)));
+  const face = (middle: THREE.Vector3, { width, height }: BoardSize): THREE.Vector3[] =>
+    [-1, 1].flatMap(z => [-1, 1].map(y => new THREE.Vector3(middle.x, middle.y + (y * height) / 2, middle.z + (z * width) / 2)));
+  const corners = face(center, size);
   const below = center.y - size.height / 2 - 0.3;
   return {
     matches: { view: 'matches', corners, layoutWidth: null },
-    matchesFoot: { view: 'matches', corners: corners.map(corner => corner.clone().setY(below)), layoutWidth: null, under: true }
+    matchesFoot: { view: 'matches', corners: corners.map(corner => corner.clone().setY(below)), layoutWidth: null, under: true },
+    // Laid out at a width of its own, the writing sized in pixels, then scaled to the parchment
+    rules: { view: 'rules', corners: face(RULES_BOARD, RULES_PAPER), layoutWidth: RULES_LAYOUT_WIDTH }
   };
 }
 
@@ -157,6 +171,38 @@ const ARROWS_SPACE = 70;
 const BIG_ARROW_SPACE = 80;
 const PAGES_SPACE = 60;
 const SCOPES_SPACE = 44;
+
+/**
+ * Pixels of a panel over the table collapsed to its first line: the lobby under the header, the match at the bottom.
+ */
+const PANEL_BAR_SPACE = 60;
+
+/**
+ * The field of view of the camera, from top to bottom, in degrees; at the table, on a narrow screen, it widens up to the
+ * widest one to show the players (see `_frameTable`).
+ */
+const FOV = 38;
+const WIDEST_TABLE_FOV = 90;
+
+/**
+ * The step of the way of the camera at the table.
+ */
+const TABLE_STEP = 3;
+
+/**
+ * How high the camera rises over the table at most, to fit the players on a narrow screen: under the chandelier.
+ */
+const MAX_TABLE_RISE = 3.25;
+
+/**
+ * What the camera looks at, at the table: the higher it is, the lower it looks, down at the table.
+ *
+ * @param rise - How high it rose.
+ * @returns The point.
+ */
+function tableTarget(rise: number): THREE.Vector3 {
+  return CAMERA_PATH[TABLE_STEP]!.target.clone().add(new THREE.Vector3(rise * 0.24, -rise * 0.3, 0));
+}
 
 /**
  * Where the hall of fame stands: on the sand, far to the left of the aquarium.
@@ -248,7 +294,11 @@ const UP = new THREE.Vector3(0, 1, 0);
  * up and down slowly.
  */
 interface School {
-  mesh: THREE.InstancedMesh;
+  /**
+   * The fish of all the schools, and the first of this one among them.
+   */
+  mesh: InstancedMesh2;
+  first: number;
   /**
    * Where each fish is in the school, and its own wobble.
    */
@@ -384,9 +434,24 @@ function easeOutBack(t: number): number {
 export class AquariumScene {
   private readonly _renderer: THREE.WebGLRenderer;
   private readonly _scene = new THREE.Scene();
-  private readonly _camera = new THREE.PerspectiveCamera(38, 2, 0.1, 100);
+  private readonly _camera = new THREE.PerspectiveCamera(FOV, 2, 0.1, 100);
+  /**
+   * The field of view at the table, and a camera to try them on.
+   */
+  private _tableFov = FOV;
+  private readonly _probe = new THREE.PerspectiveCamera(FOV, 2, 0.1, 100);
   private readonly _inhabitants = new Map<number, Inhabitant>();
-  private readonly _seaweeds: Array<{ segments: THREE.Object3D[]; phase: number }> = [];
+  private readonly _seaweeds: SeaweedBed;
+  /**
+   * What lies still on the sea floor of the aquarium: the sand, the rocks, the chest, the wreck, the corals and what the
+   * wreck lost. Drawn in batches.
+   */
+  private readonly _seabed = new THREE.Group();
+  /**
+   * The sand: so wide that some of it is always in front of the camera, also in the lounge behind its walls. Hidden
+   * there.
+   */
+  private _sand: THREE.Mesh | null = null;
   private readonly _swaying: Swaying[] = [];
   private readonly _jellyfish: Drifter[] = [];
   private readonly _schools: School[] = [];
@@ -404,10 +469,9 @@ export class AquariumScene {
   private readonly _seatAnchors = new Map<SeatKey, THREE.Vector3>();
   private _seatElements = new Map<SeatKey, HTMLElement>();
   /**
-   * The hall of fame, the reflections of its metals, and the icons of the first three standing on its podium.
+   * The hall of fame, and the icons of the first three standing on its podium.
    */
   private readonly _hall: HallOfFame;
-  private readonly _environment: THREE.Texture;
   private _podiumElements: HTMLElement[] = [];
   /**
    * What is drawn over the boards on the walls, kept over their faces.
@@ -490,7 +554,7 @@ export class AquariumScene {
       x: ((this._projected.x + 1) / 2) * this._width,
       y: ((1 - this._projected.y) / 2) * this._height
     });
-    this._drawIfStill();
+    this._invalidate();
   };
   /**
    * Unmarks the match when the pointer leaves the canvas; not when a finger is lifted: the match tapped stays marked.
@@ -504,13 +568,16 @@ export class AquariumScene {
   };
   private readonly _lookAt = new THREE.Vector3();
   /**
-   * The light of the water: full in the aquarium, dimmed in the lounge, so that the lamps cast clear shadows there.
+   * The light of the water: full in the aquarium, dimmed in the lounge, lit by its lamps.
    */
   private readonly _hemisphere = new THREE.HemisphereLight(0xaeeaff, 0xd8b77c, 1.6);
   private readonly _rays: THREE.Mesh[] = [];
   private readonly _bubbles: THREE.Points;
   private readonly _bubbleSpeeds = new Float32Array(BUBBLES);
-  private readonly _glow: THREE.PointLight;
+  /**
+   * The light of the gold of the chest, `null` at low quality.
+   */
+  private readonly _glow: THREE.PointLight | null;
   private readonly _projected = new THREE.Vector3();
   /**
    * The layer over the canvas for the names.
@@ -520,34 +587,74 @@ export class AquariumScene {
    * Whether to draw a single still frame (less motion).
    */
   private readonly _still: boolean;
+  /**
+   * Whether to draw also what only decorates the scene: the jellyfish, the schools and the fish in the background, the
+   * seaweed, the light of the chests (high quality).
+   */
+  private readonly _detailed: boolean;
+  /**
+   * What the metals and the marble reflect, at high quality.
+   */
+  private readonly _environment: THREE.Texture | null = null;
   private _width = 1;
   private _height = 1;
   private _halfWidth = 8;
   private _running = false;
   private _frame = 0;
+  /**
+   * Whether something changed since the last frame drawn, to draw again even if nothing moves.
+   */
+  private _dirty = true;
   private _last = 0;
 
   /**
-   * @param canvas - Where to draw.
+   * Creates the scene at a quality.
+   *
+   * @param box - Where to draw: the canvas of the scene goes first in it.
+   * @param labels - The layer over the canvas for the names.
+   * @param still - Whether to draw a single still frame (less motion).
+   * @param quality - How detailed (see detail.ts).
+   * @returns The scene.
+   * @throws When WebGL is not available.
+   */
+  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality): AquariumScene {
+    // Before anything of the scene is made: its colours too
+    setQuality(quality);
+    return new AquariumScene(box, labels, still);
+  }
+
+  /**
+   * @param box - Where to draw: the canvas of the scene goes first in it.
    * @param labels - The layer over the canvas for the names.
    * @param still - Whether to draw a single still frame (less motion).
    * @throws When WebGL is not available.
    */
-  constructor(canvas: HTMLCanvasElement, labels: HTMLElement, still: boolean) {
+  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean) {
     this._labels = labels;
     this._still = still;
-    this._renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this._detailed = isHigh();
+    // A canvas of its own: the smoothing of the edges is chosen when it is made, and only the high quality has it
+    this._renderer = new THREE.WebGLRenderer({ antialias: this._detailed });
+    box.prepend(this._renderer.domElement);
     this._renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    this._renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this._renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    // Soft shadows, cast in the lounge by its two chandeliers
-    this._renderer.shadowMap.enabled = true;
-    this._renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this._seaweeds = buildSeaweedBed(this._renderer);
+    if (this._detailed) {
+      this._renderer.outputColorSpace = THREE.SRGBColorSpace;
+      this._renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      // The shadows of the lamps in the lounge: it doesn't move, so they are drawn once, and again only when a board
+      // is hung (see `_redrawShadows`)
+      this._renderer.shadowMap.enabled = true;
+      this._renderer.shadowMap.type = THREE.PCFShadowMap;
+      this._renderer.shadowMap.autoUpdate = false;
+      // What the metals and the marble of the hall of fame reflect
+      const environment = new THREE.PMREMGenerator(this._renderer);
+      this._environment = environment.fromScene(new RoomEnvironment(), 0.04).texture;
+      environment.dispose();
+    } else {
+      this._renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+    }
 
     this._scene.background = this._waterGradient();
-    const environment = new THREE.PMREMGenerator(this._renderer);
-    this._environment = environment.fromScene(new RoomEnvironment(), 0.04).texture;
-    environment.dispose();
     this._scene.fog = new THREE.FogExp2(0x0b4f74, 0.04);
     this._applyCamera();
 
@@ -560,23 +667,32 @@ export class AquariumScene {
     const chest = buildChest();
     chest.object.position.set(5.6, FLOOR_Y - 0.08, 0.6);
     chest.object.rotation.y = -0.55;
-    this._scene.add(chest.object);
-    this._glow = chest.glow;
+    this._seabed.add(chest.object);
+    // At low quality the chest doesn't light the sand around it
+    this._glow = this._detailed ? chest.glow : null;
+    if (!this._detailed) {
+      chest.glow.removeFromParent();
+    }
 
     const wreck = buildShipwreck();
     wreck.position.set(-6.5, FLOOR_Y + 0.15, -7.5);
     wreck.rotation.set(0.12, 0.55, 0.2);
     wreck.scale.setScalar(1.35);
-    this._scene.add(wreck);
+    this._seabed.add(wreck);
 
     this._buildDecor();
+    batchStatic(this._seabed);
+    this._scene.add(this._seabed);
     this._buildRays();
     this._bubbles = this._buildBubbles();
     this._scene.add(this._bubbles);
-    this._buildSchools();
-    this._buildJellyfish();
-    this._buildBackgroundFish();
-    this._hall = buildHallOfFame(this._environment);
+    if (this._detailed) {
+      this._buildSchools();
+      this._buildJellyfish();
+      this._buildBackgroundFish();
+    }
+
+    this._hall = buildHallOfFame(this._renderer, this._detailed, this._environment);
     this._hall.object.position.copy(HALL);
     this._scene.add(this._hall.object);
 
@@ -586,26 +702,33 @@ export class AquariumScene {
     table.object.position.copy(TABLE_POSITION);
     this._scene.add(table.object);
     // The board of the rules, facing the table
-    const board = buildRulesBoard(RULES);
+    const board = buildRulesBoard();
     board.position.copy(RULES_BOARD);
     board.rotation.y = -Math.PI / 2;
     this._scene.add(board);
     // The board of the player, between the rules and the matches
     this._hangPlayerBoard(STATS_BOARD_SIZE);
     this._hangMatchBoard(MATCH_BOARD_SIZE, MATCH_BOARD);
+    if (this._detailed) {
+      // Everything in the lounge receives shadows; only the furniture casts them (not the room itself, nor the
+      // chandeliers)
+      for (const part of [lounge, table.object, board]) {
+        part.traverse(object => {
+          if (object instanceof THREE.Mesh) {
+            object.receiveShadow = true;
+            object.castShadow = !this._castsNoShadow(object);
+          }
+        });
+      }
+
+      this._redrawShadows();
+    }
+
+    const canvas = this._renderer.domElement;
     canvas.addEventListener('pointermove', this._onPointerMove);
     // A tap marks a match too
     canvas.addEventListener('pointerdown', this._onPointerMove);
     canvas.addEventListener('pointerleave', this._onPointerLeave);
-    // Everything in the lounge receives shadows; only the furniture casts them (not the room itself, nor the chandeliers)
-    for (const part of [lounge, table.object]) {
-      part.traverse(object => {
-        if (object instanceof THREE.Mesh) {
-          object.receiveShadow = true;
-          object.castShadow = !this._castsNoShadow(object);
-        }
-      });
-    }
     for (const [key, anchor] of Object.entries(table.seats) as Array<[SeatKey, THREE.Vector3]>) {
       this._seatAnchors.set(key, anchor.clone().add(TABLE_POSITION));
     }
@@ -630,7 +753,7 @@ export class AquariumScene {
       this._progress = this._goal.progress;
       this._side = this._goal.side;
       this._applyCamera();
-      this._drawIfStill();
+      this._invalidate();
     }
   }
 
@@ -643,7 +766,7 @@ export class AquariumScene {
   public setPlayer(detail: PlayerDetail | null, scope: RankingMode): void {
     this._shown = { detail, scope };
     this._playerBoard.show(detail, scope);
-    this._drawIfStill();
+    this._invalidate();
   }
 
   /**
@@ -653,7 +776,7 @@ export class AquariumScene {
    */
   public setSeats(elements: Map<SeatKey, HTMLElement>): void {
     this._seatElements = elements;
-    this._drawIfStill();
+    this._invalidate();
   }
 
   /**
@@ -664,7 +787,7 @@ export class AquariumScene {
    */
   public setPodium(elements: HTMLElement[]): void {
     this._podiumElements = elements;
-    this._drawIfStill();
+    this._invalidate();
   }
 
   /**
@@ -680,7 +803,7 @@ export class AquariumScene {
       this._wallElements.delete(wall);
     }
 
-    this._drawIfStill();
+    this._invalidate();
   }
 
   /**
@@ -709,7 +832,7 @@ export class AquariumScene {
     }
 
     this._populated = true;
-    this._drawIfStill();
+    this._invalidate();
   }
 
   /**
@@ -723,6 +846,8 @@ export class AquariumScene {
     this._height = Math.max(1, height);
     this._renderer.setSize(this._width, this._height, false);
     this._camera.aspect = this._width / this._height;
+    // The sizes below are measured with the usual view, wherever the camera is now
+    this._camera.fov = FOV;
     this._camera.updateProjectionMatrix();
     // Half the width seen at z = 0, minus a margin
     const halfHeight = Math.tan(THREE.MathUtils.degToRad(this._camera.fov / 2)) * VIEW_Z;
@@ -754,8 +879,84 @@ export class AquariumScene {
     this._frameBoard(this._path[this._path.length - 1]!, STATS_BOARD, statsSize, 0.85, STATS_BOARD_DISTANCE, arrows, arrows && this._height > 500 ? HEADER_SPACE + SCOPES_SPACE : HEADER_SPACE);
     this._frameBoard(this._sides.rules, RULES_BOARD, { width: RULES_BOARD_WIDTH, height: RULES_BOARD_HEIGHT }, 0.15, RULES_BOARD_DISTANCE, arrows);
     this._frameBoard(this._sides.matches, this._matchCenter, this._matchSize, 0.85, MATCH_BOARD_DISTANCE, (arrows || BIG_ARROW_SPACE) + PAGES_SPACE);
+    this._frameTable(HEADER_SPACE + PANEL_BAR_SPACE, arrows + PANEL_BAR_SPACE);
     this._applyCamera();
-    this._drawIfStill();
+    this._invalidate();
+  }
+
+  /**
+   * Frames the players of the match at the table, with their names above them, between what stands at the top and at
+   * the bottom of the screen (the panels collapsed), the names of the two on a side not over each other: on a narrow
+   * screen the camera rises over the goal, to see the table more from above (the attacker then stands higher than the
+   * defender), and widens its view. The view narrows back as the camera leaves the table (see `_applyCamera`).
+   *
+   * @param top - Pixels covered at the top of the screen.
+   * @param bottom - Pixels covered at its bottom.
+   */
+  private _frameTable(top: number, bottom: number): void {
+    const base = CAMERA_PATH[TABLE_STEP]!;
+    const step = this._path[TABLE_STEP]!;
+    // The label of a player: smaller on a small screen (see the styles of `.seat`)
+    const small = this._width <= 640;
+    const halfWidth = small ? 68 : 90;
+    const height = small ? 110 : 145;
+    const seats = [...this._seatAnchors.entries()];
+    const placed = seats.map(() => new THREE.Vector2());
+    this._probe.aspect = this._camera.aspect;
+    const fits = (fov: number): boolean => {
+      this._probe.fov = fov;
+      this._probe.updateProjectionMatrix();
+      this._probe.updateMatrixWorld();
+      for (const [i, [, anchor]] of seats.entries()) {
+        this._projected.copy(anchor).project(this._probe);
+        const x = ((this._projected.x + 1) / 2) * this._width;
+        const y = ((1 - this._projected.y) / 2) * this._height;
+        if (x < halfWidth || x > this._width - halfWidth || y - height < top || y > this._height - bottom) {
+          return false;
+        }
+
+        placed[i]!.set(x, y);
+      }
+
+      // The two of a team, on the same side: one name over the other, or beside it
+      return seats.every(([key], i) =>
+        seats.every(([other], j) => j <= i || key.split('-')[0] !== other.split('-')[0] || Math.abs(placed[i]!.x - placed[j]!.x) >= halfWidth * 2 || Math.abs(placed[i]!.y - placed[j]!.y) >= height)
+      );
+    };
+
+    // From the lowest place (the one of a wide screen) up to under the chandelier, looking lower and lower, down at the
+    // table: the one with the narrowest view that fits them all
+    let best: { rise: number; fov: number } | null = null;
+    for (let rise = 0; rise <= MAX_TABLE_RISE && best?.fov !== FOV; rise += 0.75) {
+      this._probe.position.set(base.position.x - rise * 0.4, base.position.y + rise, base.position.z);
+      this._probe.lookAt(tableTarget(rise));
+      let narrow = FOV;
+      let wide = WIDEST_TABLE_FOV;
+      if (fits(narrow)) {
+        wide = FOV;
+      } else if (!fits(wide)) {
+        continue;
+      } else {
+        for (let i = 0; i < 12; i++) {
+          const middle = (narrow + wide) / 2;
+          if (fits(middle)) {
+            wide = middle;
+          } else {
+            narrow = middle;
+          }
+        }
+      }
+
+      if (!best || wide < best.fov) {
+        best = { rise, fov: wide };
+      }
+    }
+
+    // Nothing fits (a tiny screen): from the highest place, as wide as it gets
+    const { rise, fov } = best ?? { rise: MAX_TABLE_RISE, fov: WIDEST_TABLE_FOV };
+    step.position.set(base.position.x - rise * 0.4, base.position.y + rise, base.position.z);
+    step.target.copy(tableTarget(rise));
+    this._tableFov = fov;
   }
 
   /**
@@ -802,10 +1003,8 @@ export class AquariumScene {
     this._statsBoard.add(this._playerBoard.object);
     this._statsBoard.position.copy(STATS_BOARD);
     this._statsBoard.rotation.y = -Math.PI / 2;
-    this._statsBoard.traverse(object => {
-      object.receiveShadow = true;
-    });
     this._scene.add(this._statsBoard);
+    this._redrawShadows(this._statsBoard);
   }
 
   /**
@@ -827,10 +1026,42 @@ export class AquariumScene {
     this._matchBoard = wallBoard(size, 'PARTITE');
     this._matchBoard.position.copy(center);
     this._matchBoard.rotation.y = -Math.PI / 2;
-    this._matchBoard.traverse(object => {
+    this._scene.add(this._matchBoard);
+    this._redrawShadows(this._matchBoard);
+  }
+
+  /**
+   * At high quality, draws the shadows again at the next frame: the lounge doesn't move, so they are drawn only after
+   * a change.
+   *
+   * @param board - A board just hung, to receive the shadows.
+   */
+  private _redrawShadows(board?: THREE.Object3D): void {
+    if (!this._detailed) {
+      return;
+    }
+
+    board?.traverse(object => {
       object.receiveShadow = true;
     });
-    this._scene.add(this._matchBoard);
+    this._renderer.shadowMap.needsUpdate = true;
+    this._invalidate();
+  }
+
+  /**
+   * Whether a part of the lounge casts no shadow: a part of the room itself, or of a chandelier.
+   *
+   * @param object - The part.
+   * @returns Whether it does.
+   */
+  private _castsNoShadow(object: THREE.Object3D): boolean {
+    for (let parent: THREE.Object3D | null = object; parent; parent = parent.parent) {
+      if (parent.userData['noShadow']) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -845,6 +1076,7 @@ export class AquariumScene {
 
     this._running = visible;
     if (visible) {
+      this._dirty = true;
       this._last = performance.now();
       this._frame = requestAnimationFrame(this._tick);
     } else {
@@ -862,9 +1094,12 @@ export class AquariumScene {
     this._renderer.domElement.removeEventListener('pointerleave', this._onPointerLeave);
     cancelAnimationFrame(this._frame);
     this._dispose(this._scene);
-    this._environment.dispose();
     (this._scene.background as THREE.Texture | null)?.dispose();
+    this._environment?.dispose();
     this._renderer.dispose();
+    // Its own canvas goes, and its context with it: a new scene makes another one
+    this._renderer.forceContextLoss();
+    this._renderer.domElement.remove();
     this._labels.replaceChildren();
   }
 
@@ -881,18 +1116,23 @@ export class AquariumScene {
     this._frame = requestAnimationFrame(this._tick);
     const delta = Math.min(0.05, (now - this._last) / 1000);
     this._last = now;
-    this._update(delta, now / 1000);
-    this._draw();
+    // Nothing moved and nothing changed: the last frame is still right
+    if (this._update(delta, now / 1000) || this._dirty) {
+      this._dirty = false;
+      this._draw();
+    }
   };
 
   /**
-   * Draws once, for who asked for less motion: nothing moves.
+   * Something changed: draws again at the next frame; at once for who asked for less motion, where nothing else draws.
    */
-  private _drawIfStill(): void {
+  private _invalidate(): void {
     if (this._still) {
       this._inhabitants.forEach(inhabitant => this._place(inhabitant));
       this._background.forEach(inhabitant => this._place(inhabitant));
       this._draw();
+    } else {
+      this._dirty = true;
     }
   }
 
@@ -998,13 +1238,17 @@ export class AquariumScene {
   }
 
   /**
-   * Moves the creatures, the seaweed, the light and the bubbles.
+   * Moves the camera, and what is seen from where it is: the cup and the coins of the hall of fame at the leaderboard;
+   * the creatures, the seaweed, the light and the bubbles at the lobby; the medal at the board of the player. All the
+   * rest stays still.
    *
    * @param delta - Seconds since the last frame.
    * @param time - Seconds since the start.
+   * @returns Whether anything moved, to draw.
    */
-  private _update(delta: number, time: number): void {
-    if (this._progress !== this._goal.progress || this._side !== this._goal.side) {
+  private _update(delta: number, time: number): boolean {
+    const travelling = this._progress !== this._goal.progress || this._side !== this._goal.side;
+    if (travelling) {
       // Every trip in TRAVEL_SECONDS, however many steps it crosses: slow at its start and at its end, not at each step
       this._travelled += delta;
       const along = Math.min(1, this._travelled / TRAVEL_SECONDS);
@@ -1014,8 +1258,15 @@ export class AquariumScene {
       this._applyCamera();
     }
 
-    this._playerBoard.animate(time);
+    // At a place, or on the way to the next one: there it is still seen
+    const hall = this._near('ranking', VIEW_PROGRESS.aquarium) > 0;
+    const sea = this._near('aquarium', VIEW_PROGRESS.aquarium) > 0;
+    const board = this._near('stats', VIEW_PROGRESS.stats - VIEW_PROGRESS.table) > 0;
+    if (board) {
+      this._playerBoard.animate(time);
+    }
 
+    // Who comes and goes does it anyway, to be gone when the lobby is seen again
     for (const [id, inhabitant] of this._inhabitants) {
       const object = inhabitant.creature.object;
       if (inhabitant.appear < 1) {
@@ -1036,6 +1287,13 @@ export class AquariumScene {
     }
 
     this._moveBursts(delta);
+    if (hall) {
+      this._hall.animate(time, delta);
+    }
+
+    if (!sea) {
+      return travelling || hall || board;
+    }
 
     for (const inhabitant of [...this._inhabitants.values(), ...this._background]) {
       this._steer(inhabitant, delta);
@@ -1055,19 +1313,14 @@ export class AquariumScene {
     }
 
     this._moveSchools(delta, time);
-    this._hall.animate(time, delta);
-
-    for (const { segments, phase } of this._seaweeds) {
-      segments.forEach((segment, i) => {
-        segment.rotation.z = Math.sin(time * 0.9 + phase + i * 0.35) * 0.09;
-        segment.rotation.x = Math.cos(time * 0.7 + phase + i * 0.3) * 0.05;
-      });
-    }
+    this._seaweeds.animate(time);
 
     this._rays.forEach((ray, i) => {
       (ray.material as THREE.MeshBasicMaterial).opacity = 0.07 + Math.sin(time * 0.4 + i * 1.7) * 0.04;
     });
-    this._glow.intensity = 2.3 + Math.sin(time * 2.1) * 0.5 + Math.sin(time * 5.3) * 0.2;
+    if (this._glow) {
+      this._glow.intensity = 2.3 + Math.sin(time * 2.1) * 0.5 + Math.sin(time * 5.3) * 0.2;
+    }
 
     const positions = this._bubbles.geometry.getAttribute('position') as THREE.BufferAttribute;
     for (let i = 0; i < BUBBLES; i++) {
@@ -1085,6 +1338,7 @@ export class AquariumScene {
     }
 
     positions.needsUpdate = true;
+    return true;
   }
 
   /**
@@ -1125,26 +1379,17 @@ export class AquariumScene {
   }
 
   /**
-   * Whether a part of the lounge casts no shadow: a part of the room itself, or of a chandelier.
-   *
-   * @param object - The part.
-   * @returns Whether it does.
-   */
-  private _castsNoShadow(object: THREE.Object3D): boolean {
-    for (let parent: THREE.Object3D | null = object; parent; parent = parent.parent) {
-      if (parent.userData['noShadow']) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
    * Puts the camera where it is along its way, easing in and out of each step. The fog thins in the lounge, and the names
    * of the creatures fade out of the aquarium.
    */
   private _applyCamera(): void {
+    // Wider at the table, back to the usual view at the next places (see `_frameTable`)
+    const fov = THREE.MathUtils.lerp(FOV, this._tableFov, this._near('table', VIEW_PROGRESS.table - VIEW_PROGRESS.aquarium));
+    if (fov !== this._camera.fov) {
+      this._camera.fov = fov;
+      this._camera.updateProjectionMatrix();
+    }
+
     const steps = this._path.length - 1;
     const along = this._progress * steps;
     const index = Math.min(steps - 1, Math.floor(along));
@@ -1181,6 +1426,10 @@ export class AquariumScene {
     this._hemisphere.intensity = THREE.MathUtils.lerp(1.6, 0.45, inside);
     (this._scene.fog as THREE.FogExp2).density = THREE.MathUtils.lerp(0.04, 0.008, inside);
     this._labels.style.opacity = String(THREE.MathUtils.clamp(1 - Math.max(inside, away) * 6, 0, 1));
+    // From the table on the ocean is behind the walls
+    if (this._sand) {
+      this._sand.visible = inside < 1;
+    }
   }
 
   /**
@@ -1191,7 +1440,7 @@ export class AquariumScene {
       this._hovering = false;
       this._playerBoard.hover(null);
       this.onChartHover?.(null);
-      this._drawIfStill();
+      this._invalidate();
     }
   }
 
@@ -1313,7 +1562,7 @@ export class AquariumScene {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const bubbles = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.26, map: this._bubbleMap, transparent: true, depthWrite: false }));
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.38, 0.5, 40),
+      new THREE.RingGeometry(0.38, 0.5, detail(20, 40)),
       new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })
     );
     ring.position.copy(at);
@@ -1413,7 +1662,7 @@ export class AquariumScene {
    * The sand with its dunes, rocks and seaweed.
    */
   private _buildFloor(): void {
-    const geometry = new THREE.PlaneGeometry(100, 46, 100, 46);
+    const geometry = new THREE.PlaneGeometry(100, 46, detail(50, 100), detail(23, 46));
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
     for (let i = 0; i < positions.count; i++) {
@@ -1423,9 +1672,11 @@ export class AquariumScene {
     }
 
     geometry.computeVertexNormals();
-    const sand = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xd9bf8c, roughness: 1, flatShading: true }));
+    const sand = new THREE.Mesh(geometry, phong({ color: 0xd9bf8c, roughness: 1, flatShading: true }));
+    sand.userData['noBatch'] = true;
+    this._sand = sand;
     sand.position.set(-15, FLOOR_Y, -6);
-    this._scene.add(sand);
+    this._seabed.add(sand);
 
     const rocks: Array<[number, number, number, number]> = [
       [4.2, 0.2, 0.45, 0x6b7280],
@@ -1438,7 +1689,7 @@ export class AquariumScene {
     for (const [x, z, size, color] of rocks) {
       const rock = buildRock(size, color);
       rock.position.set(x, FLOOR_Y + size * 0.2, z);
-      this._scene.add(rock);
+      this._seabed.add(rock);
     }
 
     const weeds: Array<[number, number, number, number]> = [
@@ -1451,11 +1702,12 @@ export class AquariumScene {
       [3.2, -3.6, 3, 0x166534],
       [-0.2, -4, 2.2, 0x15803d]
     ];
-    for (const [x, z, height, color] of weeds) {
-      const weed = buildSeaweed(height, color);
-      weed.object.position.set(x, FLOOR_Y, z);
-      this._scene.add(weed.object);
-      this._seaweeds.push({ segments: weed.segments, phase: Math.random() * 10 });
+    if (this._detailed) {
+      for (const [x, z, height, color] of weeds) {
+        this._seaweeds.plant(new THREE.Vector3(x, FLOOR_Y, z), height, color);
+      }
+
+      this._scene.add(this._seaweeds.object);
     }
   }
 
@@ -1468,10 +1720,11 @@ export class AquariumScene {
       object.position.set(x, FLOOR_Y + y, z);
       object.rotation.y = turn;
       object.scale.multiplyScalar(scale);
-      this._scene.add(object);
+      this._seabed.add(object);
     };
     const sway = (swaying: Swaying, x: number, z: number, scale = 1): void => {
       put(swaying.object, x, 0, z, scale);
+      swaying.object.userData['noBatch'] = true;
       this._swaying.push(swaying);
     };
 
@@ -1480,14 +1733,11 @@ export class AquariumScene {
     for (const [x, z, size] of [[-13, -15, 2.6], [3, -17, 3.2], [14, -10, 2], [-6, -18, 3]] as const) {
       const rock = buildRock(size, 0x3f4f62);
       rock.position.set(x, FLOOR_Y + size * 0.2, z);
-      this._scene.add(rock);
+      this._seabed.add(rock);
     }
 
-    for (let x = -14; x <= 14; x += 2.6 + Math.random() * 1.6) {
-      const kelp = buildSeaweed(5 + Math.random() * 3, Math.random() < 0.5 ? 0x166534 : 0x3f6212, 0.5);
-      kelp.object.position.set(x, FLOOR_Y, -10 - Math.random() * 3);
-      this._scene.add(kelp.object);
-      this._seaweeds.push({ segments: kelp.segments, phase: Math.random() * 10 });
+    for (let x = -14; this._detailed && x <= 14; x += 2.6 + Math.random() * 1.6) {
+      this._seaweeds.plant(new THREE.Vector3(x, FLOOR_Y, -10 - Math.random() * 3), 5 + Math.random() * 3, Math.random() < 0.5 ? 0x166534 : 0x3f6212, 0.5);
     }
 
     // Two compact reefs: one by the chest, one at the foot of the wreck. Each a mound of rocks and brain corals, branching
@@ -1496,7 +1746,7 @@ export class AquariumScene {
       for (const [dx, dz, size] of [[0, 0, 0.75], [-0.9, 0.3, 0.5], [0.8, -0.2, 0.55], [0.2, -0.8, 0.6]] as const) {
         const rock = buildRock(size, 0x57534e);
         rock.position.set(x + dx, FLOOR_Y + size * 0.25, z + dz);
-        this._scene.add(rock);
+        this._seabed.add(rock);
       }
 
       put(buildBrainCoral(brain), x - 0.5, 0.15, z + 0.55, 0.75);
@@ -1526,23 +1776,30 @@ export class AquariumScene {
    * The schools of little fish in the background: silver, yellow and blue, each drawn at once.
    */
   private _buildSchools(): void {
-    const geometry = schoolFishGeometry();
     const color = new THREE.Color();
-    for (const [count, tint, z, y, speed] of [[40, 0xcbd5e1, -9, 0.6, 1.1], [26, 0xfde047, -6.5, -1.2, 1.4], [32, 0x60a5fa, -12, 1.8, 0.9]] as const) {
-      const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.5, flatShading: true }), count);
+    const schools = [[40, 0xcbd5e1, -9, 0.6, 1.1], [26, 0xfde047, -6.5, -1.2, 1.4], [32, 0x60a5fa, -12, 1.8, 0.9]] as const;
+    // All the schools in one draw call: the same fish, each one its colour
+    const total = schools.reduce((sum, [count]) => sum + count, 0);
+    const mesh = new InstancedMesh2(schoolFishGeometry(), phong({ roughness: 0.35, metalness: 0.5, flatShading: true }), { capacity: total, renderer: this._renderer });
+    mesh.addInstances(total);
+    // The schools cross the water: each fish is culled on its own, against where it is now
+    mesh.frustumCulled = false;
+    this._scene.add(mesh);
+    let first = 0;
+    for (const [count, tint, z, y, speed] of schools) {
       const offsets: THREE.Vector3[] = [];
       const phases: number[] = [];
       for (let i = 0; i < count; i++) {
         // A loose ball, flattened: a school is wider than tall
         offsets.push(new THREE.Vector3((Math.random() - 0.5) * 2.6, (Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 1.6));
         phases.push(Math.random() * 10);
-        mesh.setColorAt(i, color.set(tint).offsetHSL(0, 0, (Math.random() - 0.5) * 0.12));
+        mesh.setColorAt(first + i, color.set(tint).offsetHSL(0, 0, (Math.random() - 0.5) * 0.12));
       }
 
       const direction = Math.random() < 0.5 ? 1 : -1;
-      this._scene.add(mesh);
       this._schools.push({
         mesh,
+        first,
         offsets,
         phases,
         center: new THREE.Vector3((Math.random() * 2 - 1) * 6, y, z),
@@ -1551,7 +1808,11 @@ export class AquariumScene {
         direction,
         speed
       });
+      first += count;
     }
+
+    // In place already: a still scene never moves them
+    this._moveSchools(0, 0);
   }
 
   /**
@@ -1580,9 +1841,8 @@ export class AquariumScene {
         this._dummy.position.y += Math.sin(time * 1.3 + phase) * 0.1;
         this._dummy.rotation.set(0, school.heading + Math.sin(time * 9 + phase) * 0.12, 0);
         this._dummy.updateMatrix();
-        school.mesh.setMatrixAt(i, this._dummy.matrix);
+        school.mesh.setMatrixAt(school.first + i, this._dummy.matrix);
       });
-      school.mesh.instanceMatrix.needsUpdate = true;
     });
   }
 
@@ -1613,7 +1873,7 @@ export class AquariumScene {
    * @returns The height of the upper edge of the view there.
    */
   private _visibleTop(z: number): number {
-    return VIEW_Y + Math.tan(THREE.MathUtils.degToRad(this._camera.fov / 2)) * (VIEW_Z - z);
+    return VIEW_Y + Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * (VIEW_Z - z);
   }
 
   /**
@@ -1725,7 +1985,7 @@ export class AquariumScene {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 2, 256);
     const background = new THREE.CanvasTexture(canvas);
-    background.colorSpace = THREE.SRGBColorSpace;
+    background.colorSpace = paintedColorSpace();
     return background;
   }
 
@@ -1736,10 +1996,14 @@ export class AquariumScene {
    */
   private _dispose(root: THREE.Object3D): void {
     root.traverse(object => {
+      if (object instanceof InstancedMesh2 || object instanceof THREE.BatchedMesh) {
+        object.dispose();
+      }
+
       if (object instanceof THREE.Mesh || object instanceof THREE.Points) {
         object.geometry.dispose();
         for (const used of Array.isArray(object.material) ? object.material : [object.material]) {
-          (used as THREE.MeshStandardMaterial).map?.dispose();
+          (used as THREE.MeshPhongMaterial).map?.dispose();
           used.dispose();
         }
       }

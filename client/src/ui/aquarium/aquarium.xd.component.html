@@ -3,10 +3,10 @@
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
 <div class="water" role="img" aria-label="{description()}">
-  <canvas />
   <div class="labels" aria-hidden="true" />
   <slot name="matches" (slotchange)="placeWalls()" />
   <slot name="matchesFoot" (slotchange)="placeWalls()" />
+  <slot name="rules" (slotchange)="placeWalls()" />
 
   @for (seat of seats(); track seat().key) {
     <a class="{`seat ${seat().side}`}" data-key="{seat().key}" href="{`#/players/${seat().player.id}`}">
@@ -31,8 +31,8 @@
         <strong class="preview-delta" [class.up]="{hover().match.eloDelta >= 0}">{ formatDelta(hover().match.eloDelta) }</strong>
       </div>
       <div class="preview-teams">
-        @render team('Bianchi', 'white', hover().match.red, hover().match.team === 'red')
-        @render team('Marroni', 'brown', hover().match.blue, hover().match.team === 'blue')
+        @render team('Marroni', 'brown', hover().match.red, hover().match.team === 'red')
+        @render team('Bianchi', 'white', hover().match.blue, hover().match.team === 'blue')
       </div>
       <div class="preview-foot">
         <span class="result" [class.won]="{hover().match.team === hover().match.winner}">{ hover().match.redScore } - { hover().match.blueScore }</span>

@@ -1,5 +1,6 @@
 @import { Role } from '../../core/api/api.models.ts'
 @import { user } from '../../core/auth/session.ts'
+@import { RULES } from '../../core/rules/rules.ts'
 @import { AquariumComponent } from '../../ui/aquarium/aquarium.xd.component.ts'
 @import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
 @import { LeaderboardComponent } from '../../ui/leaderboard/leaderboard.xd.component.ts'
@@ -39,13 +40,31 @@
       <app-icon name="arrow-right" />
     </button>
   </nav>
+  <section slot="rules" class="rules-paper" aria-label="Regolamento">
+    <h2>Regolamento</h2>
+    <ul>
+      @for (rule of RULES; track $index()) {
+        <li>{ rule() }</li>
+      }
+    </ul>
+  </section>
 </lobby-aquarium>
 
 @if (view() === 'ranking') {
   <league-leaderboard players="{ranked()}" mode="{rankingMode()}" loading="{rankingLoading()}"
     (modeChange)="setRankingMode($event.detail)" />
 } @else if ((view() === 'aquarium' || view() === 'table') && user()) {
-  <section class="panel lobby" aria-live="polite">
+  <section class="panel lobby" [class.collapsed]="{collapsed().includes('lobby')}" aria-live="polite">
+    <button
+      type="button"
+      class="collapse"
+      aria-expanded="{String(!collapsed().includes('lobby'))}"
+      aria-label="{collapsed().includes('lobby') ? 'Espandi la lobby' : 'Riduci la lobby'}"
+      title="{collapsed().includes('lobby') ? 'Espandi' : 'Riduci'}"
+      (click)="toggleCollapsed('lobby')"
+    >
+      <app-icon name="{collapsed().includes('lobby') ? 'chevron-down' : 'chevron-up'}" />
+    </button>
     <div class="lobby-head">
       @if (lobby()) {
         <div class="lobby-text">
@@ -69,7 +88,7 @@
       } @else if (state()) {
         <div class="lobby-text">
           <h1>Nessuna lobby aperta</h1>
-          @if (state()?.next) {
+          @if (state()?.next && !collapsed().includes('lobby')) {
             <p class="next">
               <app-icon name="calendar" />
               La prossima apre <strong>{ formatDay(state()?.next?.day ?? '') } alle { state()?.next?.opensAt }</strong>
@@ -81,7 +100,7 @@
       }
     </div>
 
-    @if (roles()) {
+    @if (roles() && !collapsed().includes('lobby')) {
       <div class="roles">
         <span class="roles-label">I tuoi ruoli</span>
         <div class="switches">
@@ -184,23 +203,44 @@
       <app-icon name="arrow-up" />
     </button>
 
-    <section class="panel match" aria-live="polite">
-      @if (running()) {
+    <section class="panel match" [class.collapsed]="{collapsed().includes('match')}" aria-live="polite">
+      <button
+        type="button"
+        class="collapse"
+        aria-expanded="{String(!collapsed().includes('match'))}"
+        aria-label="{collapsed().includes('match') ? 'Espandi la partita' : 'Riduci la partita'}"
+        title="{collapsed().includes('match') ? 'Espandi' : 'Riduci'}"
+        (click)="toggleCollapsed('match')"
+      >
+        <app-icon name="{collapsed().includes('match') ? 'chevron-up' : 'chevron-down'}" />
+      </button>
+      @if (collapsed().includes('match')) {
+        <p class="summary">
+          @if (running()) {
+            <span class="team brown">Marroni { brownChance() }%</span>
+            <span class="team white">Bianchi { 100 - brownChance() }%</span>
+          } @else if (saved()) {
+            Partita salvata!
+          } @else {
+            Nessuna partita in corso
+          }
+        </p>
+      } @else if (running()) {
         <p class="odds">
           Probabilità di vittoria
-          <span class="team white">Bianchi { whiteChance() }%</span>
-          <span class="team brown">Marroni { 100 - whiteChance() }%</span>
+          <span class="team brown">Marroni { brownChance() }%</span>
+          <span class="team white">Bianchi { 100 - brownChance() }%</span>
         </p>
         @if (user()) {
-          <form class="score" novalidate (submit)="save($event, whiteScore.valueAsNumber, brownScore.valueAsNumber)">
-            <label class="goal white">
-              <span>Bianchi</span>
-              <input #whiteScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
-            </label>
-            <span class="dash">–</span>
+          <form class="score" novalidate (submit)="save($event, brownScore.valueAsNumber, whiteScore.valueAsNumber)">
             <label class="goal brown">
               <span>Marroni</span>
               <input #brownScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+            </label>
+            <span class="dash">–</span>
+            <label class="goal white">
+              <span>Bianchi</span>
+              <input #whiteScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
             </label>
             <div class="score-actions">
               <button
@@ -234,8 +274,8 @@
           <div class="saved-body">
             <strong>Partita salvata!</strong>
             <p>
-              <span class="team white">Bianchi { formatDelta(saved()?.redDelta ?? 0) }</span>
-              <span class="team brown">Marroni { formatDelta(saved()?.blueDelta ?? 0) }</span>
+              <span class="team brown">Marroni { formatDelta(saved()?.redDelta ?? 0) }</span>
+              <span class="team white">Bianchi { formatDelta(saved()?.blueDelta ?? 0) }</span>
               punti ELO a testa.
             </p>
             @if (offerNext()) {

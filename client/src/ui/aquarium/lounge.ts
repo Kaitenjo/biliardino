@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { DISPLAY } from './fonts';
+import { batchStatic } from './batching';
+import { detail, isHigh, paintedColorSpace } from './detail';
+import { phong } from './materials';
+import type { Look } from './materials';
 
 /*
   The room the ocean is seen from: a rich lounge under the sea, with a big window on the ocean and an arched one behind
   the foosball table. Walnut panelling with gilded mouldings, a checkered marble floor, a red rug under the table, a
-  coffered ceiling with crystal chandeliers, velvet curtains, chesterfield sofas and armchairs, paintings, palms in brass
-  pots, a bar cabinet with bottles, and on the wall in front of the table the boards of the rules, of a player and of the
-  matches.
+  coffered ceiling with crystal chandeliers, velvet curtains, chesterfield armchairs, palms in brass pots, and on the
+  wall in front of the table the boards of the rules, of a player and of the matches. Only what the camera can see:
+  nothing along the back and the left walls.
 */
 
 /**
@@ -72,14 +76,14 @@ const ARCH = { x: TABLE_POSITION.x, halfWidth: 1.4, bottom: -1.2, top: 2.4 };
  * @param options - Other settings.
  * @returns The material.
  */
-function material(color: number, options: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, flatShading: true, ...options });
+function material(color: number, options: Look = {}): THREE.MeshPhongMaterial {
+  return phong({ color, roughness: 0.6, metalness: 0.05, flatShading: true, ...options });
 }
 
 /**
  * The gilding of frames and mouldings.
  */
-function gold(): THREE.MeshStandardMaterial {
+function gold(): THREE.MeshPhongMaterial {
   return material(0xd4af37, { metalness: 0.9, roughness: 0.28 });
 }
 
@@ -98,10 +102,10 @@ function texture(width: number, height: number, paint: (ctx: CanvasRenderingCont
   canvas.height = height;
   paint(canvas.getContext('2d')!);
   const result = new THREE.CanvasTexture(canvas);
+  result.colorSpace = paintedColorSpace();
   result.wrapS = THREE.RepeatWrapping;
   result.wrapT = THREE.RepeatWrapping;
   result.repeat.set(repeat[0], repeat[1]);
-  result.colorSpace = THREE.SRGBColorSpace;
   return result;
 }
 
@@ -130,13 +134,14 @@ export function wallBoard({ width, height }: { width: number; height: number }, 
     board.add(edge);
   }
 
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material(0x0b0b0d, { roughness: 0.9, flatShading: false }));
+  // Dark green slate: the board of the matches is written on it in chalk (the one of the player covers it)
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material(0x1d2b24, { roughness: 0.9, flatShading: false }));
   face.position.z = 0.01;
   board.add(face);
 
   const plate = new THREE.Mesh(
     new THREE.PlaneGeometry(2.6, 0.5),
-    new THREE.MeshStandardMaterial({
+    phong({
       map: texture(520, 100, ctx => {
         const shine = ctx.createLinearGradient(0, 0, 0, 100);
         shine.addColorStop(0, '#f6dc7a');
@@ -162,11 +167,12 @@ export function wallBoard({ width, height }: { width: number; height: number }, 
 
   // Two lamps over it
   for (const x of [-width / 3, width / 3]) {
-    const lamp = new THREE.PointLight(0xffd8a0, 5, 6, 1.8);
+    const lamp = new THREE.PointLight(0xffd8a0, detail(3.5, 5), 6, 1.8);
     lamp.position.set(x, height / 2 + 1, 0.8);
     board.add(lamp);
   }
 
+  batchStatic(board);
   return board;
 }
 
@@ -320,25 +326,6 @@ function rug(): THREE.CanvasTexture {
 }
 
 /**
- * A painting: abstract strokes on a dark canvas.
- *
- * @param hue - The main colour.
- * @returns The texture.
- */
-function painting(hue: number): THREE.CanvasTexture {
-  return texture(96, 128, ctx => {
-    ctx.fillStyle = `hsl(${hue}, 35%, 18%)`;
-    ctx.fillRect(0, 0, 96, 128);
-    for (let i = 0; i < 9; i++) {
-      ctx.fillStyle = `hsla(${hue + (Math.random() - 0.5) * 80}, 60%, ${40 + Math.random() * 30}%, 0.7)`;
-      ctx.beginPath();
-      ctx.ellipse(Math.random() * 96, Math.random() * 128, 6 + Math.random() * 22, 4 + Math.random() * 14, Math.random() * 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  });
-}
-
-/**
  * A velvet curtain, falling in folds, gathered by a golden tie.
  *
  * @param width - Its width.
@@ -355,7 +342,7 @@ function curtain(width: number, height: number): THREE.Group {
 
   geometry.computeVertexNormals();
   group.add(new THREE.Mesh(geometry, material(0x7f1d1d, { roughness: 0.9, side: THREE.DoubleSide })));
-  const tie = new THREE.Mesh(new THREE.TorusGeometry(width * 0.42, 0.05, 5, 14), gold());
+  const tie = new THREE.Mesh(new THREE.TorusGeometry(width * 0.42, 0.05, 5, detail(10, 14)), gold());
   tie.scale.y = 0.35;
   tie.position.y = -height * 0.15;
   group.add(tie);
@@ -435,34 +422,37 @@ function palm(): THREE.Group {
  * A crystal chandelier: gilded rings with hanging crystals, and its warm light.
  *
  * @param strength - How bright.
- * @param shadows - Whether its light casts shadows.
+ * @param seen - Whether the camera ever sees it: if not, just its light.
  * @returns The chandelier, hanging from its top.
  */
-function chandelier(strength: number, shadows: boolean): THREE.Group {
+function chandelier(strength: number, seen: boolean): THREE.Group {
   const group = new THREE.Group();
-  const gilt = gold();
-  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 4), gilt);
-  chain.position.y = -0.4;
-  group.add(chain);
-  const crystal = new THREE.MeshStandardMaterial({ color: 0xfffbeb, emissive: 0xffe9b0, emissiveIntensity: 0.8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.85 });
-  const drop = new THREE.OctahedronGeometry(0.06, 0);
-  for (const [radius, y, count] of [[0.7, -0.9, 14], [0.45, -1.15, 10], [0.2, -1.35, 6]] as const) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.025, 4, 20), gilt);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = y;
-    group.add(ring);
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const piece = new THREE.Mesh(drop, crystal);
-      piece.scale.y = 1.8;
-      piece.position.set(Math.cos(angle) * radius, y - 0.12, Math.sin(angle) * radius);
-      group.add(piece);
+  if (seen) {
+    const gilt = gold();
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 4), gilt);
+    chain.position.y = -0.4;
+    group.add(chain);
+    const crystal = phong({ color: 0xfffbeb, emissive: 0xffe9b0, emissiveIntensity: 0.8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.85 });
+    const drop = new THREE.OctahedronGeometry(0.06, 0);
+    for (const [radius, y, count] of [[0.7, -0.9, 14], [0.45, -1.15, 10], [0.2, -1.35, 6]] as const) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.025, 4, 20), gilt);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = y;
+      group.add(ring);
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const piece = new THREE.Mesh(drop, crystal);
+        piece.scale.y = 1.8;
+        piece.position.set(Math.cos(angle) * radius, y - 0.12, Math.sin(angle) * radius);
+        group.add(piece);
+      }
     }
   }
 
   const light = new THREE.PointLight(0xffd8a0, strength, 22, 1.5);
   light.position.y = -1.1;
-  if (shadows) {
+  // At high quality it casts the shadows of the furniture and of the table (see `AquariumScene`)
+  if (isHigh()) {
     light.castShadow = true;
     light.shadow.mapSize.set(1024, 1024);
     light.shadow.bias = -0.002;
@@ -494,7 +484,7 @@ function structure<T extends THREE.Object3D>(object: T): T {
  */
 export function buildLounge(): THREE.Group {
   const group = new THREE.Group();
-  const panels = new THREE.MeshStandardMaterial({ map: walnut(), roughness: 0.55, metalness: 0.05 });
+  const panels = phong({ map: walnut(), roughness: 0.55, metalness: 0.05 });
   const gilt = gold();
   const width = RIGHT - LEFT;
   const depth = BACK - WALL_Z;
@@ -509,7 +499,7 @@ export function buildLounge(): THREE.Group {
   wallShape.lineTo(LEFT, LOUNGE_FLOOR - 0.5);
   wallShape.holes.push(roundedRect(new THREE.Path(), WINDOW.x, WINDOW.y, WINDOW.halfWidth, WINDOW.halfHeight, WINDOW.radius));
   wallShape.holes.push(arch(new THREE.Path()));
-  const wallGeometry = new THREE.ExtrudeGeometry(wallShape, { depth: 0.4, bevelEnabled: false, curveSegments: 16 });
+  const wallGeometry = new THREE.ExtrudeGeometry(wallShape, { depth: 0.4, bevelEnabled: false, curveSegments: detail(8, 16) });
   // The texture of an extrusion follows its coordinates: one panel every PANEL units, as on the other walls
   const uv = wallGeometry.getAttribute('uv') as THREE.BufferAttribute;
   for (let i = 0; i < uv.count; i++) {
@@ -523,19 +513,19 @@ export function buildLounge(): THREE.Group {
   // Gilded frames
   const frameShape = roundedRect(new THREE.Shape(), WINDOW.x, WINDOW.y, WINDOW.halfWidth + 0.35, WINDOW.halfHeight + 0.35, WINDOW.radius + 0.35);
   frameShape.holes.push(roundedRect(new THREE.Path(), WINDOW.x, WINDOW.y, WINDOW.halfWidth, WINDOW.halfHeight, WINDOW.radius));
-  const frame = new THREE.Mesh(new THREE.ExtrudeGeometry(frameShape, { depth: 0.18, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 2, curveSegments: 10 }), gilt);
+  const frame = new THREE.Mesh(new THREE.ExtrudeGeometry(frameShape, { depth: 0.18, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: detail(1, 2), curveSegments: detail(6, 10) }), gilt);
   frame.position.z = WALL_Z + 0.4;
   group.add(structure(frame));
   const archFrame = arch(new THREE.Shape(), 0.3);
   archFrame.holes.push(arch(new THREE.Path()));
-  const archMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(archFrame, { depth: 0.18, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 2, curveSegments: 16 }), gilt);
+  const archMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(archFrame, { depth: 0.18, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: detail(1, 2), curveSegments: detail(8, 16) }), gilt);
   archMesh.position.z = WALL_Z + 0.4;
   group.add(structure(archMesh));
   const glass = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.04, depthWrite: false });
-  const pane = new THREE.Mesh(new THREE.ShapeGeometry(roundedRect(new THREE.Shape(), WINDOW.x, WINDOW.y, WINDOW.halfWidth, WINDOW.halfHeight, WINDOW.radius), 8), glass);
+  const pane = new THREE.Mesh(new THREE.ShapeGeometry(roundedRect(new THREE.Shape(), WINDOW.x, WINDOW.y, WINDOW.halfWidth, WINDOW.halfHeight, WINDOW.radius), detail(6, 8)), glass);
   pane.position.z = WALL_Z + 0.2;
   group.add(pane);
-  const archPane = new THREE.Mesh(new THREE.ShapeGeometry(arch(new THREE.Shape()), 12), glass);
+  const archPane = new THREE.Mesh(new THREE.ShapeGeometry(arch(new THREE.Shape()), detail(8, 12)), glass);
   archPane.position.z = WALL_Z + 0.2;
   group.add(archPane);
 
@@ -557,11 +547,11 @@ export function buildLounge(): THREE.Group {
   group.add(structure(rail));
 
   // Marble floor, a rug under the table
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), new THREE.MeshStandardMaterial({ map: marble(), roughness: 0.55, metalness: 0.05 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), phong({ map: marble(), roughness: 0.55, metalness: 0.05 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set((LEFT + RIGHT) / 2, LOUNGE_FLOOR, (WALL_Z + BACK) / 2);
   group.add(structure(floor));
-  const carpet = new THREE.Mesh(new THREE.PlaneGeometry(8, 5.5), new THREE.MeshStandardMaterial({ map: rug(), roughness: 0.95 }));
+  const carpet = new THREE.Mesh(new THREE.PlaneGeometry(8, 5.5), phong({ map: rug(), roughness: 0.95 }));
   carpet.rotation.x = -Math.PI / 2;
   carpet.position.set(TABLE_POSITION.x, LOUNGE_FLOOR + 0.01, TABLE_POSITION.z);
   group.add(structure(carpet));
@@ -578,9 +568,9 @@ export function buildLounge(): THREE.Group {
   back.rotation.y = Math.PI;
   back.position.set((LEFT + RIGHT) / 2, LOUNGE_FLOOR + height / 2, BACK);
   group.add(structure(back));
+  // Not on the left wall: its top is never seen
   for (const [x, z, length, turn] of [
     [(LEFT + RIGHT) / 2, BACK - 0.05, width, 0],
-    [LEFT + 0.05, (WALL_Z + BACK) / 2, depth, Math.PI / 2],
     [RIGHT - 0.05, (WALL_Z + BACK) / 2, depth, Math.PI / 2]
   ] as const) {
     for (const y of [CEILING - 0.15]) {
@@ -609,22 +599,14 @@ export function buildLounge(): THREE.Group {
     group.add(structure(piece));
   }
 
-  // Chandeliers: over the table, and in the middle of the lounge
-  for (const [x, z, strength, shadows] of [[TABLE_POSITION.x, TABLE_POSITION.z, 22, true], [-2, WALL_Z + 10, 14, true]] as const) {
-    const light = chandelier(strength, shadows);
+  // Chandeliers: over the table, and in the middle of the lounge (never seen: just its light)
+  for (const [x, z, strength, seen] of [[TABLE_POSITION.x, TABLE_POSITION.z, 22, true], [-2, WALL_Z + 10, 14, false]] as const) {
+    const light = chandelier(strength, seen);
     light.position.set(x, CEILING - 0.3, z);
     group.add(light);
   }
 
-  // Sofas and armchairs along the back wall and by the window, with paintings above
-  const back1 = sofa(3);
-  back1.position.set(-6, LOUNGE_FLOOR, BACK - 1.2);
-  back1.rotation.y = Math.PI;
-  group.add(back1);
-  const back2 = sofa(3);
-  back2.position.set(3, LOUNGE_FLOOR, BACK - 1.2);
-  back2.rotation.y = Math.PI;
-  group.add(back2);
+  // Armchairs by the window and by the table. Nothing along the back and the left walls: the camera never looks there
   for (const [x, z, turn] of [[-9, WALL_Z + 4, 0.6], [-4.5, WALL_Z + 3.5, -0.4], [17.5, WALL_Z + 14, -2]] as const) {
     const armchair = sofa(1.1);
     armchair.position.set(x, LOUNGE_FLOOR, z);
@@ -634,56 +616,33 @@ export function buildLounge(): THREE.Group {
 
   // The boards of the player and of the matches change their shape with the screen: the scene hangs them
 
-  for (const [x, hue] of [[-6, 210], [3, 20], [14, 280]] as const) {
-    const frameBox = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.1), gilt);
-    frameBox.position.set(x, 2.6, BACK - 0.08);
-    group.add(frameBox);
-    const canvas = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.3), new THREE.MeshStandardMaterial({ map: painting(hue), roughness: 0.8 }));
-    canvas.rotation.y = Math.PI;
-    canvas.position.set(x, 2.6, BACK - 0.14);
-    group.add(canvas);
-    const sconce = new THREE.PointLight(0xffd8a0, 4, 5, 1.8);
-    sconce.position.set(x, 3.7, BACK - 0.6);
-    group.add(sconce);
-  }
-
-  // Palms in the corners, but on the wall of the boards
-  for (const [x, z] of [[LEFT + 1.2, WALL_Z + 1.5], [LEFT + 1.2, BACK - 1.2], [7.4, WALL_Z + 1.3]] as const) {
+  // Palms by the windows
+  for (const [x, z] of [[LEFT + 1.2, WALL_Z + 1.5], [7.4, WALL_Z + 1.3]] as const) {
     const plant = palm();
     plant.position.set(x, LOUNGE_FLOOR, z);
     group.add(plant);
   }
 
-  // A bar cabinet on the left wall, with bottles
-  const cabinet = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.2, 3.4), material(0x3b2414, { roughness: 0.5 }));
-  cabinet.position.set(LEFT + 0.45, LOUNGE_FLOOR + 1.1, WALL_Z + 12);
-  group.add(cabinet);
-  const shelfTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 3.5), gilt);
-  shelfTop.position.set(LEFT + 0.45, LOUNGE_FLOOR + 2.24, WALL_Z + 12);
-  group.add(shelfTop);
-  for (let i = 0; i < 7; i++) {
-    const color = [0x14532d, 0x78350f, 0x7f1d1d, 0xfef3c7][i % 4]!;
-    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.45, 8), material(color, { transparent: true, opacity: 0.85, roughness: 0.1, metalness: 0.2 }));
-    bottle.position.set(LEFT + 0.45, LOUNGE_FLOOR + 2.5, WALL_Z + 10.6 + i * 0.45);
-    group.add(bottle);
-  }
-
   // Soft light all over, and a cold one from the ocean
   group.add(new THREE.AmbientLight(0xffe7c2, 0.12));
-  // The light of the water coming in from the big window, slanting down into the lounge: it casts the sharp shadows
-  // of the furniture on the floor
+  // The light of the water coming in from the big window, slanting down into the lounge: at high quality it casts the
+  // sharp shadows of the furniture on the floor
   const windowLight = new THREE.DirectionalLight(0xdbeafe, 2.2);
   windowLight.position.set(2, CEILING - 0.2, WALL_Z + 0.6);
   windowLight.target.position.set(8, LOUNGE_FLOOR, WALL_Z + 19);
-  windowLight.castShadow = true;
-  windowLight.shadow.mapSize.set(2048, 2048);
-  windowLight.shadow.bias = -0.0015;
-  windowLight.shadow.normalBias = 0.02;
-  Object.assign(windowLight.shadow.camera, { left: -22, right: 22, top: 14, bottom: -14, near: 0.5, far: 45 });
-  windowLight.shadow.camera.updateProjectionMatrix();
+  if (isHigh()) {
+    windowLight.castShadow = true;
+    windowLight.shadow.mapSize.set(2048, 2048);
+    windowLight.shadow.bias = -0.0015;
+    windowLight.shadow.normalBias = 0.02;
+    Object.assign(windowLight.shadow.camera, { left: -22, right: 22, top: 14, bottom: -14, near: 0.5, far: 45 });
+    windowLight.shadow.camera.updateProjectionMatrix();
+  }
+
   group.add(windowLight, windowLight.target);
   const seaLight = new THREE.PointLight(0x7dd3fc, 4, 18, 1.5);
   seaLight.position.set(0, 0.5, WALL_Z + 2.5);
   group.add(seaLight);
+  batchStatic(group);
   return group;
 }

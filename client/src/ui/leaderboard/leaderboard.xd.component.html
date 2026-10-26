@@ -118,8 +118,8 @@
       <strong class="preview-delta" [class.up]="{item().entry.delta >= 0}">{ formatDelta(item().entry.delta) }</strong>
     </div>
     <div class="teams">
-      @render team('Rossi', 'red', item().entry)
-      @render team('Blu', 'blue', item().entry)
+      @render team('Bianchi', 'white', item().entry)
+      @render team('Marroni', 'brown', item().entry)
     </div>
     <div class="preview-score">
       <span class="result" [class.won]="{item().entry.won}">{ item().entry.redScore }-{ item().entry.blueScore }</span>

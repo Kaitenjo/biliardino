@@ -1,0 +1,13 @@
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+
+<button
+  type="button"
+  class="toggle"
+  [class.on]="{high()}"
+  aria-pressed="{String(high())}"
+  aria-label="{high() ? 'Qualità grafica alta: tocca per abbassarla' : 'Qualità grafica bassa: tocca per alzarla'}"
+  title="{high() ? 'Qualità grafica alta' : 'Qualità grafica bassa'}"
+  (click)="toggle()"
+>
+  <app-icon name="star" />
+</button>

@@ -1,4 +1,9 @@
+import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 import * as THREE from 'three';
+import { batchMoving } from './batching';
+import { detail, paintedColorSpace } from './detail';
+import { phong } from './materials';
+import type { Look } from './materials';
 
 /*
   The inhabitants and the furniture of the 3D aquarium, low poly, built from the primitives of three.js (no models to
@@ -117,8 +122,8 @@ const DOUBLE = THREE.DoubleSide;
  * @param options - Other settings.
  * @returns The material.
  */
-function material(color: number, options: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, flatShading: true, ...options });
+function material(color: number, options: Look = {}): THREE.MeshPhongMaterial {
+  return phong({ color, roughness: 0.6, metalness: 0.05, flatShading: true, ...options });
 }
 
 /**
@@ -135,7 +140,7 @@ function texture(paint: Painter, width = 256, height = 128): THREE.CanvasTexture
   canvas.height = height;
   paint(canvas.getContext('2d')!, width, height);
   const result = new THREE.CanvasTexture(canvas);
-  result.colorSpace = THREE.SRGBColorSpace;
+  result.colorSpace = paintedColorSpace();
   return result;
 }
 
@@ -210,7 +215,7 @@ function bands(ctx: CanvasRenderingContext2D, width: number, height: number, ban
  * @returns The mesh.
  */
 function fin(shape: THREE.Shape, color: number, opacity = 1): THREE.Mesh {
-  return new THREE.Mesh(new THREE.ShapeGeometry(shape, 8), material(color, { side: DOUBLE, transparent: opacity < 1, opacity }));
+  return new THREE.Mesh(new THREE.ShapeGeometry(shape, detail(4, 8)), material(color, { side: DOUBLE, transparent: opacity < 1, opacity }));
 }
 
 /**
@@ -286,11 +291,11 @@ function finShape(length: number, height: number, sweep: number): THREE.Shape {
  * @param options - Other settings of the material.
  * @returns The mesh.
  */
-function body(length: number, height: number, width: number, skin: Painter, options: THREE.MeshStandardMaterialParameters = {}): THREE.Mesh {
-  const geometry = new THREE.SphereGeometry(1, 20, 14);
+function body(length: number, height: number, width: number, skin: Painter, options: Look = {}): THREE.Mesh {
+  const geometry = new THREE.SphereGeometry(1, detail(12, 20), detail(8, 14));
   // The poles of the sphere become the nose and the tail: the texture goes from the head to the tail
   geometry.rotateZ(-Math.PI / 2);
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: texture(skin), roughness: 0.45, metalness: 0.1, flatShading: true, ...options }));
+  const mesh = new THREE.Mesh(geometry, phong({ map: texture(skin), roughness: 0.45, metalness: 0.1, flatShading: true, ...options }));
   mesh.scale.set(length, height, width);
   return mesh;
 }
@@ -308,9 +313,9 @@ function eyes(group: THREE.Object3D, x: number, y: number, z: number, radius: nu
   const white = material(0xffffff, { roughness: 0.3 });
   const black = material(0x0b0b0d, { roughness: 0.2 });
   for (const side of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 8), white);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(radius, detail(6, 10), detail(4, 8)), white);
     eye.position.set(x, y, z * side);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.62, 10, 8), black);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.62, detail(6, 10), detail(4, 8)), black);
     pupil.position.set(radius * 0.15, 0, radius * 0.5 * side);
     eye.add(pupil);
     group.add(eye);
@@ -390,12 +395,30 @@ function swimmer(parts: FishParts, speed: number, height: number, motion: Motion
 }
 
 /**
- * Builds a creature of a species.
+ * Builds a creature of a species, its parts drawn in batches.
  *
  * @param species - The species.
  * @returns The creature.
  */
 export function buildCreature(species: Species): Creature {
+  const creature = buildSpecies(species);
+  const redraw = batchMoving(creature.object);
+  return {
+    ...creature,
+    animate(time, pace) {
+      creature.animate(time, pace);
+      redraw();
+    }
+  };
+}
+
+/**
+ * Builds a creature of a species, each of its parts a mesh.
+ *
+ * @param species - The species.
+ * @returns The creature.
+ */
+function buildSpecies(species: Species): Creature {
   switch (species) {
     case 'clown': {
       const fish = buildFish({
@@ -427,7 +450,7 @@ export function buildCreature(species: Species): Creature {
       });
       fish.tail.traverse(part => {
         if (part instanceof THREE.Mesh) {
-          (part.material as THREE.MeshStandardMaterial).color.set(0xfacc15);
+          (part.material as THREE.MeshPhongMaterial).color.set(0xfacc15);
         }
       });
       return swimmer(fish, 1.2, 0.85);
@@ -533,7 +556,7 @@ function buildShark(): Creature {
   const profile: Array<[number, number]> = [
     [0, 0.035], [0.08, 0.06], [0.2, 0.12], [0.4, 0.33], [0.58, 0.42], [0.72, 0.4], [0.84, 0.32], [0.92, 0.22], [0.97, 0.12], [1, 0]
   ];
-  const geometry = new THREE.LatheGeometry(profile.map(([t, radius]) => new THREE.Vector2(radius, t * length - half)), 18);
+  const geometry = new THREE.LatheGeometry(profile.map(([t, radius]) => new THREE.Vector2(radius, t * length - half)), detail(10, 18));
   geometry.rotateZ(-Math.PI / 2);
   // Grey back, white belly, the border between them ragged
   const grey = new THREE.Color(0x5f6b7a);
@@ -550,7 +573,7 @@ function buildShark(): Creature {
 
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const group = new THREE.Group();
-  const trunk = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, flatShading: true }));
+  const trunk = new THREE.Mesh(geometry, phong({ vertexColors: true, roughness: 0.5, flatShading: true }));
   trunk.scale.z = 0.85;
   group.add(trunk);
   const finColor = 0x56616f;
@@ -596,7 +619,7 @@ function buildShark(): Creature {
   const eye = material(0x020617, { roughness: 0.1, emissive: 0x450a0a, emissiveIntensity: 0.5 });
   const dark = material(0x1f2937);
   for (const side of [1, -1]) {
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), eye);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.055, detail(6, 10), detail(4, 8)), eye);
     ball.position.set(x(0.88), 0.08, 0.215 * side);
     group.add(ball);
     const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.035, 0.05), dark);
@@ -614,7 +637,7 @@ function buildShark(): Creature {
   // The mouth under the snout: red inside, teeth above, the lower jaw opening
   const gums = material(0x7f1d1d, { roughness: 0.4 });
   const tooth = material(0xf8fafc, { roughness: 0.3 });
-  const inside = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), gums);
+  const inside = new THREE.Mesh(new THREE.SphereGeometry(1, detail(8, 12), detail(6, 8)), gums);
   inside.scale.set(0.3, 0.1, 0.24);
   inside.position.set(x(0.86), -0.15, 0);
   group.add(inside);
@@ -636,7 +659,7 @@ function buildShark(): Creature {
 
   const jaw = new THREE.Group();
   jaw.position.set(x(0.74), -0.2, 0);
-  const chin = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), material(0xe5e7eb));
+  const chin = new THREE.Mesh(new THREE.SphereGeometry(1, detail(8, 12), detail(6, 8)), material(0xe5e7eb));
   chin.scale.set(0.36, 0.06, 0.25);
   chin.position.x = 0.3;
   jaw.add(chin);
@@ -696,7 +719,8 @@ function buildSardines(): Creature {
         }
       }
     });
-    (fish.group.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>).material.metalness = 0.5;
+    // Silvery: a bright highlight
+    (fish.group.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>).material.specular.setScalar(0.35);
     fish.group.position.set(x!, y!, z!);
     group.add(fish.group);
     fishes.push(fish);
@@ -733,7 +757,7 @@ function buildSole(): Creature {
   };
   group.add(body(0.8, 0.11, 0.5, skin));
 
-  const fringe = new THREE.Mesh(new THREE.CircleGeometry(1, 28), material(0xc4a57a, { side: DOUBLE }));
+  const fringe = new THREE.Mesh(new THREE.CircleGeometry(1, detail(14, 28)), material(0xc4a57a, { side: DOUBLE }));
   fringe.rotation.x = -Math.PI / 2;
   fringe.scale.set(0.9, 0.6, 1);
   fringe.position.set(-0.02, -0.01, 0);
@@ -785,7 +809,7 @@ function buildOctopus(): Creature {
   };
   const flesh = material(0xea580c);
 
-  const mantle = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), new THREE.MeshStandardMaterial({ map: texture(skin), roughness: 0.5, flatShading: true }));
+  const mantle = new THREE.Mesh(new THREE.SphereGeometry(1, detail(10, 18), detail(8, 14)), phong({ map: texture(skin), roughness: 0.5, flatShading: true }));
   mantle.scale.set(0.42, 0.55, 0.42);
   mantle.position.set(-0.08, 0.45, 0);
   mantle.rotation.z = 0.35;
@@ -859,7 +883,7 @@ export function buildChest(): { object: THREE.Group; glow: THREE.PointLight } {
   }
 
   const coins = new THREE.Group();
-  const coin = new THREE.CylinderGeometry(0.08, 0.08, 0.02, 10);
+  const coin = new THREE.CylinderGeometry(0.08, 0.08, 0.02, detail(6, 10));
   for (let i = 0; i < 26; i++) {
     const piece = new THREE.Mesh(coin, gold);
     piece.position.set((Math.random() - 0.5) * 1.15, 0.76 + Math.random() * 0.12, (Math.random() - 0.5) * 0.65);
@@ -873,12 +897,12 @@ export function buildChest(): { object: THREE.Group; glow: THREE.PointLight } {
   const hinge = new THREE.Group();
   hinge.position.set(0, 0.75, -0.45);
   // Seen from both sides: open, its inside shows
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.4, 12, 1, false, 0, Math.PI), material(0x7c4a21, { side: DOUBLE }));
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.4, detail(8, 12), 1, false, 0, Math.PI), material(0x7c4a21, { side: DOUBLE }));
   lid.rotation.z = Math.PI / 2;
   lid.position.z = 0.45;
   hinge.add(lid);
   for (const x of [-0.55, 0.55]) {
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.08, 12, 1, true, 0, Math.PI), material(0xfacc15, { metalness: 0.8, roughness: 0.25, side: DOUBLE }));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.08, detail(8, 12), 1, true, 0, Math.PI), material(0xfacc15, { metalness: 0.8, roughness: 0.25, side: DOUBLE }));
     band.rotation.z = Math.PI / 2;
     band.position.set(x, 0, 0.45);
     hinge.add(band);
@@ -969,36 +993,83 @@ export function buildShipwreck(): THREE.Group {
 }
 
 /**
- * A seaweed: a chain of leaves that sways.
- *
- * @param height - How tall.
- * @param color - Its colour.
- * @param width - Width of its leaves at the bottom.
- * @returns The seaweed, and its segments, to sway.
+ * Leaves of a seaweed.
  */
-export function buildSeaweed(height: number, color: number, width = 0.22): { object: THREE.Group; segments: THREE.Object3D[] } {
-  const group = new THREE.Group();
-  const leaf = material(color, { side: DOUBLE });
-  const count = 8;
-  const length = height / count;
-  const segments: THREE.Object3D[] = [];
-  let parent: THREE.Object3D = group;
-  for (let i = 0; i < count; i++) {
-    const segment = new THREE.Group();
-    if (i > 0) {
-      segment.position.y = length;
+const LEAVES = 8;
+
+/**
+ * Seaweeds, each a chain of leaves that sways; all of them drawn at once (instancing), a leaf an instance.
+ */
+export interface SeaweedBed {
+  object: InstancedMesh2;
+  /**
+   * Plants a seaweed.
+   *
+   * @param position - Where it grows, in the space of the bed.
+   * @param height - How tall.
+   * @param color - Its colour.
+   * @param width - Width of its leaves at the bottom.
+   */
+  plant(position: THREE.Vector3, height: number, color: number, width?: number): void;
+  /**
+   * Sways the seaweeds.
+   *
+   * @param time - Seconds since the start.
+   */
+  animate(time: number): void;
+}
+
+/**
+ * Builds an empty bed of seaweeds.
+ *
+ * @param renderer - What draws it: without it, its buffers are made at the first frame, which draws none of it (a still
+ *   scene draws only that one).
+ * @returns The bed.
+ */
+export function buildSeaweedBed(renderer: THREE.WebGLRenderer): SeaweedBed {
+  // One leaf, its foot at its origin, a bit longer than its segment to cover the joint: each instance stretches it
+  const leaf = new THREE.PlaneGeometry(1, 1.1).translate(0, 0.5, 0);
+  const mesh = new InstancedMesh2(leaf, material(0xffffff, { side: DOUBLE }), { renderer });
+  // The leaves move: each one is culled on its own, against where it is now
+  mesh.frustumCulled = false;
+  const weeds: Array<{ position: THREE.Vector3; length: number; width: number; phase: number; first: number }> = [];
+  const chain = new THREE.Matrix4();
+  const step = new THREE.Matrix4();
+  const blade = new THREE.Matrix4();
+  const bend = new THREE.Euler();
+  const size = new THREE.Vector3();
+
+  // Each segment bends on the one below it; its leaf turns around the stem, narrower going up
+  const sway = (weed: (typeof weeds)[number], time: number): void => {
+    chain.makeTranslation(weed.position);
+    for (let i = 0; i < LEAVES; i++) {
+      if (i > 0) {
+        chain.multiply(step.makeTranslation(0, weed.length, 0));
+      }
+
+      bend.set(Math.cos(time * 0.7 + weed.phase + i * 0.3) * 0.05, 0, Math.sin(time * 0.9 + weed.phase + i * 0.35) * 0.09);
+      chain.multiply(step.makeRotationFromEuler(bend));
+      blade.makeRotationY(i * 0.6).scale(size.set(weed.width * (1 - i / (LEAVES + 2)), weed.length, 1));
+      mesh.setMatrixAt(weed.first + i, step.multiplyMatrices(chain, blade));
     }
+  };
 
-    const blade = new THREE.Mesh(new THREE.PlaneGeometry(width * (1 - i / (count + 2)), length * 1.1), leaf);
-    blade.position.y = length / 2;
-    blade.rotation.y = i * 0.6;
-    segment.add(blade);
-    parent.add(segment);
-    segments.push(segment);
-    parent = segment;
-  }
-
-  return { object: group, segments };
+  return {
+    object: mesh,
+    plant(position, height, color, width = 0.22) {
+      const weed = { position, length: height / LEAVES, width, phase: Math.random() * 10, first: mesh.instancesCount };
+      mesh.addInstances(LEAVES, instance => {
+        instance.color = color;
+      });
+      weeds.push(weed);
+      sway(weed, 0);
+    },
+    animate(time) {
+      for (const weed of weeds) {
+        sway(weed, time);
+      }
+    }
+  };
 }
 
 /**

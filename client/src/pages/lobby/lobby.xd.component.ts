@@ -28,6 +28,31 @@ import { BOARD_LINES } from '../../ui/match-board/match-board.xd.component';
 const JOIN_COOLDOWN_SECONDS = 10;
 
 /**
+ * Where the panels over the scene remember being collapsed, on this device.
+ */
+const COLLAPSED_STORAGE_KEY = 'biliardino-collapsed';
+
+/**
+ * The panels over the scene that collapse to their first line.
+ */
+type Collapsible = 'lobby' | 'match';
+
+/**
+ * Reads which panels were left collapsed on this device.
+ *
+ * @returns The collapsed panels.
+ */
+function readCollapsed(): Collapsible[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? '[]');
+    return Array.isArray(stored) ? stored.filter((panel): panel is Collapsible => panel === 'lobby' || panel === 'match') : [];
+  } catch {
+    // Storage unavailable or corrupted: all panels open
+    return [];
+  }
+}
+
+/**
  * The 3D world, filling the page under the top bar: the home page, the lobby page and the rules page are places of it.
  *
  * The home page (`#/`) is the hall of fame, on the sea floor: a sunken temple with the first three of the leaderboard
@@ -80,9 +105,9 @@ export class LobbyPage extends CustomElement {
    */
   public readonly joined = computed(() => this.lobby()?.players.some(player => player.id === user()?.playerId) ?? false);
   /**
-   * Probability that the white team (the red one of the match) wins, 0 to 100.
+   * Probability that the brown team (the red one of the match) wins, 0 to 100.
    */
-  public readonly whiteChance = computed(() => Math.round((this.running()?.redWinProbability ?? 0.5) * 100));
+  public readonly brownChance = computed(() => Math.round((this.running()?.redWinProbability ?? 0.5) * 100));
   /**
    * What the scene shows: the aquarium, or the foosball table in the lounge.
    */
@@ -139,6 +164,10 @@ export class LobbyPage extends CustomElement {
    * Whether the roles of the logged user can't change now: they change once a day, the super admin's whenever.
    */
   public readonly rolesLocked = computed(() => !user()?.isAdmin && (this.roles()?.locked ?? false));
+  /**
+   * The panels collapsed to their first line, to leave the scene in sight.
+   */
+  public readonly collapsed = signal<Collapsible[]>(readCollapsed());
 
   /**
    * The id of the last match to play seen: a new one takes the camera to the table.
@@ -251,6 +280,21 @@ export class LobbyPage extends CustomElement {
         this._cooldownTimer = null;
       }
     }, 1000);
+  }
+
+  /**
+   * Collapses a panel to its first line, or opens it again; this device remembers it.
+   *
+   * @param panel - The panel.
+   */
+  public toggleCollapsed(panel: Collapsible): void {
+    const collapsed = this.collapsed().includes(panel) ? this.collapsed().filter(other => other !== panel) : [...this.collapsed(), panel];
+    this.collapsed.set(collapsed);
+    try {
+      localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(collapsed));
+    } catch {
+      // It stays collapsed until the page is reloaded
+    }
   }
 
   /**
@@ -497,23 +541,23 @@ export class LobbyPage extends CustomElement {
    * another one.
    *
    * @param event - The submission of the form.
-   * @param whiteScore - Goals of the white team (the red one of the match).
-   * @param brownScore - Goals of the brown team (the blue one of the match).
+   * @param brownScore - Goals of the brown team (the red one of the match).
+   * @param whiteScore - Goals of the white team (the blue one of the match).
    */
-  public async save(event: SubmitEvent, whiteScore: number, brownScore: number): Promise<void> {
+  public async save(event: SubmitEvent, brownScore: number, whiteScore: number): Promise<void> {
     event.preventDefault();
     const running = this.running();
     if (!running) {
       return;
     }
 
-    if (!this._isScore(whiteScore) || !this._isScore(brownScore)) {
+    if (!this._isScore(brownScore) || !this._isScore(whiteScore)) {
       this.error.set('Inserisci i goal di entrambe le squadre, da 0 a 8');
       return;
     }
 
     // The match ends when a team scores 8: one team has exactly 8 and the other fewer, so 7-1 or 8-8 are not results
-    if (Math.max(whiteScore, brownScore) !== 8 || whiteScore === brownScore) {
+    if (Math.max(brownScore, whiteScore) !== 8 || brownScore === whiteScore) {
       this.error.set("Si vince a 8: una squadra deve fare 8 e l'altra meno (ad esempio 8-5)");
       return;
     }
@@ -525,8 +569,8 @@ export class LobbyPage extends CustomElement {
           running.id,
           { attack: running.red.attack.id, defense: running.red.defense.id },
           { attack: running.blue.attack.id, defense: running.blue.defense.id },
-          whiteScore,
-          brownScore
+          brownScore,
+          whiteScore
         );
       } catch (error) {
         // Somebody else saved or deleted it first: the page shows the match to play now

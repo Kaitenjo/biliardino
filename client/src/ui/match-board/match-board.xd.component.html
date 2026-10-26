@@ -1,32 +1,31 @@
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
-<div class="board" role="img" aria-label="{`Tabellone delle partite, pagina ${page()} di ${pageCount()}`}">
+<div class="board" role="img" aria-label="{`Lavagna delle partite, pagina ${page()} di ${pageCount()}`}">
   <div class="head" aria-hidden="true">
-    <span class="date">Data</span>
-    <span class="team">Bianchi <small>dif · att</small></span>
-    <span class="score">Ris.</span>
-    <span class="team">Marroni <small>dif · att</small></span>
+    <span>Data</span>
+    <span class="team brown">Marroni</span>
+    <span>Ris.</span>
+    <span class="team white">Bianchi</span>
     <span class="delta">Elo</span>
   </div>
 
-  @for (line of shown(); track $index()) {
-    <div class="line">
-      @for (segment of line(); track $index()) {
-        <span class="{`segment ${segment().tone}`}">
-          @if (segment().tone.startsWith('name')) {
-            <span class="face">
-              @if (segment().player) {
-                <player-avatar icon="{segment().player?.icon ?? ''}" label="{segment().player?.name ?? ''}" />
-              }
-            </span>
-          }
-          @for (letter of letters(segment().text); track $index()) {
-            <span class="flap">{ letter() }</span>
-          }
+  <div class="lines">
+    @for (match of games(); track match().id) {
+      <div class="line">
+        <span class="date">{ formatDay(match().playedAt) }</span>
+        <span class="team brown" [class.lost]="{match().winner !== 'red'}">
+          <player-avatar icon="{match().red.defense.icon}" label="{match().red.defense.name}" />
+          <player-avatar icon="{match().red.attack.icon}" label="{match().red.attack.name}" />
         </span>
-      }
-    </div>
-  }
+        <span class="score">{ match().redScore } – { match().blueScore }</span>
+        <span class="team white" [class.lost]="{match().winner === 'red'}">
+          <player-avatar icon="{match().blue.defense.icon}" label="{match().blue.defense.name}" />
+          <player-avatar icon="{match().blue.attack.icon}" label="{match().blue.attack.name}" />
+        </span>
+        <span class="delta">{ formatDelta(match()) }</span>
+      </div>
+    }
+  </div>
 
   <div class="foot">
     <span>Pagina { page() } di { pageCount() }</span>

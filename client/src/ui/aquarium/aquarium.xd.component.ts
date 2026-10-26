@@ -2,6 +2,7 @@ import { CustomElement, Property, Query, WebComponent } from '@xaendar/core';
 import { computed, signal, untracked } from '@xaendar/core/signals';
 import type { InputSignal, QuerySignal } from '@xaendar/core/signals';
 import type { LeaderboardEntry, LobbyPlayer, MatchPlayer, PlayerDetail, RankingMode, RunningMatch } from '../../core/api/api.models';
+import { quality } from '../../core/settings/quality';
 import type { SeatKey } from './foosball3d';
 import { loadFonts } from './fonts';
 import type { AquariumScene, ChartHover, View, Wall } from './scene';
@@ -12,7 +13,7 @@ import type { AquariumScene, ChartHover, View, Wall } from './scene';
 interface Seat {
   key: SeatKey;
   /**
-   * Its team: white is the red one of the match, brown the blue one.
+   * Its team: brown is the red one of the match, white the blue one.
    */
   side: 'white' | 'brown';
   role: string;
@@ -99,11 +100,6 @@ export class AquariumComponent extends CustomElement {
   @Query.required('.water')
   public accessor water!: QuerySignal<HTMLElement>;
   /**
-   * Where the scene is drawn.
-   */
-  @Query.required('canvas')
-  public accessor canvas!: QuerySignal<HTMLCanvasElement>;
-  /**
    * The layer of the names, over the canvas.
    */
   @Query.required('.labels')
@@ -140,6 +136,14 @@ export class AquariumComponent extends CustomElement {
    * Whether the scene left the page, maybe while three.js was downloading.
    */
   private _destroyed = false;
+  /**
+   * The class of the scene, once three.js is downloaded: to create it again when the quality changes.
+   */
+  private _sceneClass: typeof AquariumScene | null = null;
+  /**
+   * Whether the box is on the screen: a scene created again draws only then.
+   */
+  private _visible = false;
 
   /**
    * Keeps the scene in step with the players, the view and the icons of the match.
@@ -166,10 +170,19 @@ export class AquariumComponent extends CustomElement {
       const elements = this.podiumElements();
       untracked(() => this._scene?.setPodium(elements));
     });
+    // Another quality: the scene is built again, with or without what only decorates it
+    this.effect(() => {
+      quality();
+      untracked(() => {
+        if (this._scene) {
+          this._createScene();
+        }
+      });
+    });
   }
 
   /**
-   * Creates the scene once the canvas exists, and follows the size and the visibility of the box.
+   * Creates the scene once its box exists, and follows the size and the visibility of the box.
    */
   public async afterRender(): Promise<void> {
     try {
@@ -179,14 +192,32 @@ export class AquariumComponent extends CustomElement {
       if (this._destroyed) {
         return;
       }
-      
-      this._scene = new AquariumScene(this.canvas(), this.labels(), matchMedia('(prefers-reduced-motion: reduce)').matches);
-      this._scene.onChartHover = hover => this.chartHover.set(hover ? [hover] : []);
+
+      this._sceneClass = AquariumScene;
+      this._createScene();
     } catch {
       this.failed.set(true);
       return;
     }
 
+    const water = this.water();
+    this._resizeObserver = new ResizeObserver(([entry]) => this._scene?.resize(entry!.contentRect.width, entry!.contentRect.height));
+    this._resizeObserver.observe(water);
+    this._visibilityObserver = new IntersectionObserver(([entry]) => {
+      this._visible = entry!.isIntersecting;
+      this._scene?.setVisible(this._visible);
+    });
+    this._visibilityObserver.observe(water);
+  }
+
+  /**
+   * Creates the scene, at the quality chosen on this device, in place of the one there is, and gives it all it shows.
+   */
+  private _createScene(): void {
+    this._scene?.dispose();
+    // Its canvas goes first in the box, under the names
+    this._scene = this._sceneClass!.create(this.water(), this.labels(), matchMedia('(prefers-reduced-motion: reduce)').matches, untracked(quality));
+    this._scene.onChartHover = hover => this.chartHover.set(hover ? [hover] : []);
     const water = this.water();
     this._scene.resize(water.clientWidth, water.clientHeight);
     untracked(() => {
@@ -197,10 +228,7 @@ export class AquariumComponent extends CustomElement {
       this.placeWalls();
       this._scene!.setPlayer(this.profile(), this.profileScope());
     });
-    this._resizeObserver = new ResizeObserver(([entry]) => this._scene?.resize(entry!.contentRect.width, entry!.contentRect.height));
-    this._resizeObserver.observe(water);
-    this._visibilityObserver = new IntersectionObserver(([entry]) => this._scene?.setVisible(entry!.isIntersecting));
-    this._visibilityObserver.observe(water);
+    this._scene.setVisible(this._visible);
   }
 
   /**
@@ -265,10 +293,10 @@ export class AquariumComponent extends CustomElement {
     }
 
     return [
-      { key: 'white-defense', side: 'white', role: 'Difesa', player: match.red.defense },
-      { key: 'white-attack', side: 'white', role: 'Attacco', player: match.red.attack },
-      { key: 'brown-attack', side: 'brown', role: 'Attacco', player: match.blue.attack },
-      { key: 'brown-defense', side: 'brown', role: 'Difesa', player: match.blue.defense }
+      { key: 'brown-defense', side: 'brown', role: 'Difesa', player: match.red.defense },
+      { key: 'brown-attack', side: 'brown', role: 'Attacco', player: match.red.attack },
+      { key: 'white-attack', side: 'white', role: 'Attacco', player: match.blue.attack },
+      { key: 'white-defense', side: 'white', role: 'Difesa', player: match.blue.defense }
     ];
   }
 }

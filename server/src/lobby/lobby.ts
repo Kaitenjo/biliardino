@@ -299,8 +299,8 @@ async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?
   }
 
   await notify([match.red.attack.id, match.red.defense.id, match.blue.attack.id, match.blue.defense.id], {
-    title: 'Tocca a te: si gioca!',
-    body: `Rossi: ${match.red.attack.name} (attacco) e ${match.red.defense.name} (difesa). Blu: ${match.blue.attack.name} (attacco) e ${match.blue.defense.name} (difesa).`,
+    title: 'Coglione, tocca a te, muoviti!',
+    body: `Bianchi: ${match.red.attack.name} (attacco) e ${match.red.defense.name} (difesa). Marroni: ${match.blue.attack.name} (attacco) e ${match.blue.defense.name} (difesa).`,
     url: '/#/lobby'
   });
   return match;
