@@ -105,9 +105,9 @@ export class LobbyPage extends CustomElement {
    */
   public readonly joined = computed(() => this.lobby()?.players.some(player => player.id === user()?.playerId) ?? false);
   /**
-   * Probability that the brown team (the red one of the match) wins, 0 to 100.
+   * Probability that the brown team wins, 0 to 100.
    */
-  public readonly brownChance = computed(() => Math.round((this.running()?.redWinProbability ?? 0.5) * 100));
+  public readonly brownChance = computed(() => Math.round((this.running()?.brownWinProbability ?? 0.5) * 100));
   /**
    * What the scene shows: the aquarium, or the foosball table in the lounge.
    */
@@ -541,8 +541,8 @@ export class LobbyPage extends CustomElement {
    * another one.
    *
    * @param event - The submission of the form.
-   * @param brownScore - Goals of the brown team (the red one of the match).
-   * @param whiteScore - Goals of the white team (the blue one of the match).
+   * @param brownScore - Goals of the brown team.
+   * @param whiteScore - Goals of the white team.
    */
   public async save(event: SubmitEvent, brownScore: number, whiteScore: number): Promise<void> {
     event.preventDefault();
@@ -567,8 +567,8 @@ export class LobbyPage extends CustomElement {
       try {
         saved = await saveMatch(
           running.id,
-          { attack: running.red.attack.id, defense: running.red.defense.id },
-          { attack: running.blue.attack.id, defense: running.blue.defense.id },
+          { attack: running.brown.attack.id, defense: running.brown.defense.id },
+          { attack: running.white.attack.id, defense: running.white.defense.id },
           brownScore,
           whiteScore
         );

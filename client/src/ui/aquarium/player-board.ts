@@ -7,7 +7,7 @@ import { phong } from './materials';
 /*
   The board of a player, on the wall in front of the foosball table, between the rules and the matches: its name and
   its rank on a medal that turns slowly, its figures painted on the slate, and the trend of its ELO as tubes of light
-  standing out of the board (red in attack, blue in defence), with its teammates and opponents beside them.
+  standing out of the board (brown in attack, white in defence), with its teammates and opponents beside them.
 */
 
 /**

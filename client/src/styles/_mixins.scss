@@ -118,7 +118,7 @@
   font-weight: 600;
 }
 
-// The table of matches: the red team, the score, the blue team, then the date and the changes of ELO. Shared by the
+// The table of matches: the brown team, the score, the white team, then the date and the changes of ELO. Shared by the
 // list of matches and the history of a player, so that the two look the same
 @mixin match-table {
   table {
@@ -137,12 +137,12 @@
     text-align: center;
     text-transform: uppercase;
 
-    &.red {
-      color: var(--red);
+    &.brown {
+      color: var(--brown);
     }
 
-    &.blue {
-      color: var(--blue);
+    &.white {
+      color: var(--white);
     }
 
     app-icon {
@@ -163,14 +163,14 @@
 
   // The winning team glows towards the score, in the middle of the row, and fades out on the outer side
   .player-cell {
-    &.red.won {
+    &.brown.won {
       border-radius: 0 4px 4px 0;
-      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--red) 32%, transparent));
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brown) 32%, transparent));
     }
 
-    &.blue.won {
+    &.white.won {
       border-radius: 4px 0 0 4px;
-      background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--blue) 32%, transparent));
+      background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--white) 32%, transparent));
     }
   }
 
@@ -204,29 +204,29 @@
     color: var(--text-muted);
     font-weight: 800;
 
-    .red,
-    .blue {
+    .brown,
+    .white {
       min-width: 1.6rem;
       padding: 0.15rem 0.4rem;
       border-radius: 7px;
       text-align: center;
     }
 
-    .red {
-      color: var(--red);
+    .brown {
+      color: var(--brown);
     }
 
-    .blue {
-      color: var(--blue);
+    .white {
+      color: var(--white);
     }
 
-    .red.won {
-      background: var(--red);
+    .brown.won {
+      background: var(--brown);
       color: var(--on-primary);
     }
 
-    .blue.won {
-      background: var(--blue);
+    .white.won {
+      background: var(--white);
       color: var(--on-primary);
     }
   }

@@ -13,14 +13,14 @@
     @for (match of games(); track match().id) {
       <div class="line">
         <span class="date">{ formatDay(match().playedAt) }</span>
-        <span class="team brown" [class.lost]="{match().winner !== 'red'}">
-          <player-avatar icon="{match().red.defense.icon}" label="{match().red.defense.name}" />
-          <player-avatar icon="{match().red.attack.icon}" label="{match().red.attack.name}" />
+        <span class="team brown" [class.lost]="{match().winner !== 'brown'}">
+          <player-avatar icon="{match().brown.defense.icon}" label="{match().brown.defense.name}" />
+          <player-avatar icon="{match().brown.attack.icon}" label="{match().brown.attack.name}" />
         </span>
-        <span class="score">{ match().redScore } – { match().blueScore }</span>
-        <span class="team white" [class.lost]="{match().winner === 'red'}">
-          <player-avatar icon="{match().blue.defense.icon}" label="{match().blue.defense.name}" />
-          <player-avatar icon="{match().blue.attack.icon}" label="{match().blue.attack.name}" />
+        <span class="score">{ match().brownScore } – { match().whiteScore }</span>
+        <span class="team white" [class.lost]="{match().winner === 'brown'}">
+          <player-avatar icon="{match().white.defense.icon}" label="{match().white.defense.name}" />
+          <player-avatar icon="{match().white.attack.icon}" label="{match().white.attack.name}" />
         </span>
         <span class="delta">{ formatDelta(match()) }</span>
       </div>

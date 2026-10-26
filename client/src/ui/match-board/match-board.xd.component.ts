@@ -51,7 +51,7 @@ export class MatchBoardComponent extends CustomElement {
    * @returns The text, e.g. `+12`.
    */
   public formatDelta(match: MatchSummary): string {
-    const delta = match.winner === 'red' ? match.redDelta : match.blueDelta;
+    const delta = match.winner === 'brown' ? match.brownDelta : match.whiteDelta;
     return delta > 0 ? `+${delta}` : String(delta);
   }
 }

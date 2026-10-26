@@ -60,13 +60,13 @@ export interface FormEntry {
    */
   role: Role;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * ELO of the player in its role after the match, rounded.
    */
@@ -153,25 +153,25 @@ export interface PlayerMatch {
    */
   playedAt: string;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<PlayerRef>;
+  brown: Lineup<PlayerRef>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<PlayerRef>;
+  white: Lineup<PlayerRef>;
   /**
    * The team of the player.
    */
@@ -350,21 +350,21 @@ interface MatchRow {
    */
   playedAt: string;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * Expected score of the red team.
+   * Expected score of the brown team.
    */
-  redExpected: number;
+  brownExpected: number;
   /**
    * Id of the player.
    */
@@ -486,8 +486,8 @@ async function loadForms(by: RankingMode): Promise<Map<number, FormEntry[]>> {
     team: Team;
     role: Role;
     delta: number;
-    redScore: number;
-    blueScore: number;
+    brownScore: number;
+    whiteScore: number;
   }>(
     `WITH last AS (
        SELECT mp.match_id, mp.player_id,
@@ -496,7 +496,7 @@ async function loadForms(by: RankingMode): Promise<Map<number, FormEntry[]>> {
        ${by === 'best' ? '' : 'WHERE mp.role = ?'}
      )
      SELECT l.match_id AS matchId, l.player_id AS owner, mp.player_id AS playerId, p.name, p.icon, mp.role_elo + mp.elo_delta AS eloAfter, mp.team, mp.role,
-       mp.elo_delta AS delta, m.red_score AS redScore, m.blue_score AS blueScore
+       mp.elo_delta AS delta, m.brown_score AS brownScore, m.white_score AS whiteScore
      FROM last l
      JOIN match_players mp ON mp.match_id = l.match_id
      JOIN players p ON p.id = mp.player_id
@@ -512,7 +512,7 @@ async function loadForms(by: RankingMode): Promise<Map<number, FormEntry[]>> {
     const key = `${row.owner}-${row.matchId}`;
     let entry = current.get(key);
     if (!entry) {
-      entry = { won: false, delta: 0, elo: 0, role: 'attack', redScore: row.redScore, blueScore: row.blueScore, players: [] };
+      entry = { won: false, delta: 0, elo: 0, role: 'attack', brownScore: row.brownScore, whiteScore: row.whiteScore, players: [] };
       current.set(key, entry);
       const form = forms.get(row.owner);
       if (form) {
@@ -527,7 +527,7 @@ async function loadForms(by: RankingMode): Promise<Map<number, FormEntry[]>> {
       entry.role = row.role;
       entry.delta = Math.round(row.delta);
       entry.elo = Math.round(row.eloAfter);
-      entry.won = (row.team === 'red') === row.redScore > row.blueScore;
+      entry.won = (row.team === 'brown') === row.brownScore > row.whiteScore;
     }
   }
 
@@ -698,8 +698,8 @@ function computeStats(playerId: number, elo: number, rank: number | null, histor
     stats.bestWinStreak = Math.max(stats.bestWinStreak, streak);
     stats.worstLossStreak = Math.max(stats.worstLossStreak, -streak);
 
-    const ownTeam = match.team === 'red' ? match.red : match.blue;
-    const otherTeam = match.team === 'red' ? match.blue : match.red;
+    const ownTeam = match.team === 'brown' ? match.brown : match.white;
+    const otherTeam = match.team === 'brown' ? match.white : match.brown;
     const teammate = match.role === 'attack' ? ownTeam.defense : ownTeam.attack;
     const together = teammates.get(teammate.id);
     if (together) {
@@ -712,7 +712,7 @@ function computeStats(playerId: number, elo: number, rank: number | null, histor
     opponents.set(otherTeam.attack.id, (opponents.get(otherTeam.attack.id) ?? 0) + delta);
     opponents.set(otherTeam.defense.id, (opponents.get(otherTeam.defense.id) ?? 0) + delta);
 
-    const scoreDiff = Math.abs(match.redScore - match.blueScore);
+    const scoreDiff = Math.abs(match.brownScore - match.whiteScore);
     if (won) {
       if (delta >= bestVictoryElo) {
         stats.bestVictoryByElo = match;
@@ -735,7 +735,7 @@ function computeStats(playerId: number, elo: number, rank: number | null, histor
       }
     }
 
-    const [goalsFor, goalsAgainst] = match.team === 'red' ? [match.redScore, match.blueScore] : [match.blueScore, match.redScore];
+    const [goalsFor, goalsAgainst] = match.team === 'brown' ? [match.brownScore, match.whiteScore] : [match.whiteScore, match.brownScore];
     stats.goalsFor += goalsFor;
     stats.goalsAgainst += goalsAgainst;
   }
@@ -789,7 +789,7 @@ function pickBest<TValue>(values: Map<number, TValue>, score: (value: TValue) =>
  * @returns The match.
  */
 function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<number, PlayerRef>): PlayerMatch {
-  const lineup = { red: {} as Lineup<PlayerRef>, blue: {} as Lineup<PlayerRef> };
+  const lineup = { brown: {} as Lineup<PlayerRef>, white: {} as Lineup<PlayerRef> };
   for (let i = 0; i < matchRows.length; i++) {
     const row = matchRows[i]!;
     lineup[row.team][row.role] = refs.get(row.playerId) ?? { id: row.playerId, name: '?', icon: '' };
@@ -798,14 +798,14 @@ function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<
   return {
     id: own.matchId,
     playedAt: own.playedAt,
-    redScore: own.redScore,
-    blueScore: own.blueScore,
+    brownScore: own.brownScore,
+    whiteScore: own.whiteScore,
     winner: own.winner,
-    red: lineup.red,
-    blue: lineup.blue,
+    brown: lineup.brown,
+    white: lineup.white,
     team: own.team,
     role: own.role,
-    expected: own.team === 'red' ? own.redExpected : 1 - own.redExpected,
+    expected: own.team === 'brown' ? own.brownExpected : 1 - own.brownExpected,
     eloBefore: Math.round(own.eloBefore),
     roleElo: Math.round(own.roleElo),
     eloDelta: Math.round(own.eloDelta)
@@ -821,8 +821,8 @@ function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<
  */
 function loadMatchRows(playerId: number): Promise<MatchRow[]> {
   return all(
-    `SELECT m.id AS matchId, m.played_at AS playedAt, m.red_score AS redScore, m.blue_score AS blueScore, m.winner,
-       m.red_expected AS redExpected, mp.player_id AS playerId, mp.team, mp.role,
+    `SELECT m.id AS matchId, m.played_at AS playedAt, m.brown_score AS brownScore, m.white_score AS whiteScore, m.winner,
+       m.brown_expected AS brownExpected, mp.player_id AS playerId, mp.team, mp.role,
        mp.elo_before AS eloBefore, mp.role_elo AS roleElo, mp.elo_delta AS eloDelta
      FROM match_players mp JOIN matches m ON m.id = mp.match_id
      WHERE mp.match_id IN (SELECT match_id FROM match_players WHERE player_id = ?)

@@ -96,8 +96,8 @@ Schema in [server/migrations/](server/migrations):
 | `lobby_players` | chi è in ogni lobby |
 | `push_subscriptions` | i browser in cui un utente ha attivato le notifiche push |
 | `elo_settings` | le variabili del calcolo dell'ELO (una riga), modificabili dalla pagina ELO |
-| `matches` | punteggio bianchi/marroni (0–8), vincitore, probabilità attesa dei bianchi (derivata), chi l'ha registrata, data |
-| `match_players` | i 4 giocatori di ogni partita: squadra, ruolo (`attack`/`defense`); derivati: ELO prima, ELO nel ruolo, variazione |
+| `matches` | punteggio marroni/bianchi (`brown_score`, `white_score`, 0–8), vincitore (`brown`/`white`), probabilità attesa dei marroni (`brown_expected`, derivata), chi l'ha registrata, data |
+| `match_players` | i 4 giocatori di ogni partita: squadra (`brown`/`white`), ruolo (`attack`/`defense`); derivati: ELO prima, ELO nel ruolo, variazione |
 | `player_stats` | derivata: partite, vittorie, goal e forma (ultime 5) di ogni giocatore, in tutto (`all`) e per ruolo |
 | `player_pairs` | derivata: quante volte due giocatori hanno giocato insieme e contro, per il matchmaking |
 
@@ -198,7 +198,7 @@ giocatore (streak, compagni e avversari, partite migliori e peggiori, goal) sono
 | POST / DELETE | `/api/push/subscriptions` | ✔ | attiva (`PushSubscription.toJSON()`) o disattiva (`{ endpoint }`) le notifiche di questo browser |
 | DELETE | `/api/matches/running` | ✔ | elimina la partita in corso |
 | PUT | `/api/availability/:playerId` | ✔ | `{ available: boolean }`: se il giocatore è disponibile oggi (si azzera ogni giorno); solo il proprio, il super admin quello di tutti |
-| POST | `/api/matches` | ✔ | `{ red: { attack, defense }, blue: {…}, redScore, blueScore }` (0–8, niente pareggi) → `{ id, redDelta, blueDelta, players }` (`players` come `/api/players`); 409 se nel frattempo è stata salvata un'altra partita |
+| POST | `/api/matches` | ✔ | `{ brown: { attack, defense }, white: {…}, brownScore, whiteScore }` (0–8, niente pareggi; marroni e bianchi come gli omini) → `{ id, brownDelta, whiteDelta, players }` (`players` come `/api/players`); 409 se nel frattempo è stata salvata un'altra partita |
 | PUT | `/api/admin/roles/:playerId` | admin | `{ attack, defense }`, senza il limite di un cambio al giorno |
 | POST | `/api/admin/recompute` | admin | ricostruisce ELO e statistiche da tutte le partite |
 | POST | `/api/admin/lobby/tick` | admin | porta le lobby in pari con l'orologio, ora o a `{ at }` (per le prove) |

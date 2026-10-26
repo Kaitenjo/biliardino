@@ -122,7 +122,7 @@
       @render team('Marroni', 'brown', item().entry)
     </div>
     <div class="preview-score">
-      <span class="result" [class.won]="{item().entry.won}">{ item().entry.redScore }-{ item().entry.blueScore }</span>
+      <span class="result" [class.won]="{item().entry.won}">{ item().entry.brownScore }-{ item().entry.whiteScore }</span>
     </div>
   </div>
 }
@@ -130,7 +130,7 @@
 <template team(label: string, color: string, entry: FormEntry)>
   <div class="{`team ${color()}`}">
     <span class="team-label">{ label() }</span>
-    @for (member of teamOf(entry(), color() === 'red' ? 'red' : 'blue'); track member().id) {
+    @for (member of teamOf(entry(), color() === 'brown' ? 'brown' : 'white'); track member().id) {
       <span>
         <app-icon class="{member().role}" name="{member().role}" />
         <player-avatar icon="{member().icon}" label="{member().name}" />

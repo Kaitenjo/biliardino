@@ -9,8 +9,8 @@ import type { Look } from './materials';
   The foosball table in the lounge, low poly, after the classic Italian table: a light oak cabinet whose long sides are
   trapezoids (the ends lean out), white inner walls and a dark green field, black splayed legs joined by an arch at each
   end, chrome rods through black bushings with black handles, a slot with the balls and a bead score counter for each
-  team. Seen from the camera, behind the goal of the brown team (the red one of the match), the brown team stands on the
-  right side and the white one (the blue team) on the left.
+  team. Seen from the camera, behind the goal of the brown team, the brown team stands on the
+  right side and the white one on the left.
 */
 
 /**

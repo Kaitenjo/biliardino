@@ -23,25 +23,25 @@ export interface MatchView {
    */
   id: number;
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<MatchPlayer>;
+  brown: Lineup<MatchPlayer>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<MatchPlayer>;
+  white: Lineup<MatchPlayer>;
   /**
-   * ELO of the red team: the average of its players in their roles.
+   * ELO of the brown team: the average of its players in their roles.
    */
-  redElo: number;
+  brownElo: number;
   /**
-   * ELO of the blue team.
+   * ELO of the white team.
    */
-  blueElo: number;
+  whiteElo: number;
   /**
-   * Probability that the red team wins.
+   * Probability that the brown team wins.
    */
-  redWinProbability: number;
+  brownWinProbability: number;
   /**
    * When the match was generated (UTC, `YYYY-MM-DD HH:MM:SS`).
    */
@@ -62,21 +62,21 @@ export interface MatchView {
  */
 export interface MatchOutcome {
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
-   * Change of ELO of each red player, rounded.
+   * Change of ELO of each brown player, rounded.
    */
-  redDelta: number;
+  brownDelta: number;
   /**
-   * Change of ELO of each blue player, rounded.
+   * Change of ELO of each white player, rounded.
    */
-  blueDelta: number;
+  whiteDelta: number;
 }
 
 /**
@@ -106,21 +106,21 @@ interface RunningRow {
    */
   id: number;
   /**
-   * Id of the red attacker.
+   * Id of the brown attacker.
    */
-  redAttack: number;
+  brownAttack: number;
   /**
-   * Id of the red defender.
+   * Id of the brown defender.
    */
-  redDefense: number;
+  brownDefense: number;
   /**
-   * Id of the blue attacker.
+   * Id of the white attacker.
    */
-  blueAttack: number;
+  whiteAttack: number;
   /**
-   * Id of the blue defender.
+   * Id of the white defender.
    */
-  blueDefense: number;
+  whiteDefense: number;
   /**
    * When it was generated.
    */
@@ -138,8 +138,8 @@ interface RunningRow {
  */
 export async function getRunningMatch(): Promise<MatchView | null> {
   const row = await get<RunningRow>(
-    `SELECT r.id, r.red_attack AS redAttack, r.red_defense AS redDefense, r.blue_attack AS blueAttack,
-       r.blue_defense AS blueDefense, r.created_at AS createdAt, p.name AS generatedBy
+    `SELECT r.id, r.brown_attack AS brownAttack, r.brown_defense AS brownDefense, r.white_attack AS whiteAttack,
+       r.white_defense AS whiteDefense, r.created_at AS createdAt, p.name AS generatedBy
      FROM running_match r
      LEFT JOIN users u ON u.id = r.created_by
      LEFT JOIN players p ON p.id = u.player_id`
@@ -150,19 +150,19 @@ export async function getRunningMatch(): Promise<MatchView | null> {
 /**
  * Stores a generated match as the match to play. The caller checks there is none.
  *
- * @param red - The ids of the red players.
- * @param blue - The ids of the blue players.
+ * @param brown - The ids of the brown players.
+ * @param white - The ids of the white players.
  * @param userId - The user who generated it, `null` for the automatic match of a lobby.
  * @returns The new match to play, `null` when somebody else stored one in the meantime (the table holds only one).
  */
-export async function setRunningMatch(red: Lineup<number>, blue: Lineup<number>, userId: number | null): Promise<MatchView | null> {
+export async function setRunningMatch(brown: Lineup<number>, white: Lineup<number>, userId: number | null): Promise<MatchView | null> {
   try {
     await run(
-      'INSERT INTO running_match (red_attack, red_defense, blue_attack, blue_defense, created_by) VALUES (?, ?, ?, ?, ?)',
-      red.attack,
-      red.defense,
-      blue.attack,
-      blue.defense,
+      'INSERT INTO running_match (brown_attack, brown_defense, white_attack, white_defense, created_by) VALUES (?, ?, ?, ?, ?)',
+      brown.attack,
+      brown.defense,
+      white.attack,
+      white.defense,
       userId
     );
   } catch {
@@ -187,34 +187,34 @@ export async function clearRunningMatch(): Promise<void> {
  * @returns The view, `null` when one of its players doesn't exist anymore.
  */
 async function viewOf(row: RunningRow): Promise<MatchView | null> {
-  const [redAttack, redDefense, blueAttack, blueDefense, config] = await Promise.all([
-    findRatedPlayer(row.redAttack, 'attack'),
-    findRatedPlayer(row.redDefense, 'defense'),
-    findRatedPlayer(row.blueAttack, 'attack'),
-    findRatedPlayer(row.blueDefense, 'defense'),
+  const [brownAttack, brownDefense, whiteAttack, whiteDefense, config] = await Promise.all([
+    findRatedPlayer(row.brownAttack, 'attack'),
+    findRatedPlayer(row.brownDefense, 'defense'),
+    findRatedPlayer(row.whiteAttack, 'attack'),
+    findRatedPlayer(row.whiteDefense, 'defense'),
     loadEloConfig()
   ]);
-  if (!redAttack || !redDefense || !blueAttack || !blueDefense) {
+  if (!brownAttack || !brownDefense || !whiteAttack || !whiteDefense) {
     return null;
   }
 
-  const red = { attack: redAttack, defense: redDefense };
-  const blue = { attack: blueAttack, defense: blueDefense };
-  const redElo = (red.attack.eloAttack + red.defense.eloDefense) / 2;
-  const blueElo = (blue.attack.eloAttack + blue.defense.eloDefense) / 2;
-  const redPlayers = { attack: toEloPlayer(red.attack, 'attack'), defense: toEloPlayer(red.defense, 'defense') };
-  const bluePlayers = { attack: toEloPlayer(blue.attack, 'attack'), defense: toEloPlayer(blue.defense, 'defense') };
-  const outcomes = ([[8, 0], [8, 7], [0, 8], [7, 8]] as const).map(([redScore, blueScore]) => {
-    const result = computeMatchElo(redPlayers, bluePlayers, redScore, blueScore, config);
-    return { redScore, blueScore, redDelta: roundAwayFromZero(result.redDelta), blueDelta: roundAwayFromZero(result.blueDelta) };
+  const brown = { attack: brownAttack, defense: brownDefense };
+  const white = { attack: whiteAttack, defense: whiteDefense };
+  const brownElo = (brown.attack.eloAttack + brown.defense.eloDefense) / 2;
+  const whiteElo = (white.attack.eloAttack + white.defense.eloDefense) / 2;
+  const brownPlayers = { attack: toEloPlayer(brown.attack, 'attack'), defense: toEloPlayer(brown.defense, 'defense') };
+  const whitePlayers = { attack: toEloPlayer(white.attack, 'attack'), defense: toEloPlayer(white.defense, 'defense') };
+  const outcomes = ([[8, 0], [8, 7], [0, 8], [7, 8]] as const).map(([brownScore, whiteScore]) => {
+    const result = computeMatchElo(brownPlayers, whitePlayers, brownScore, whiteScore, config);
+    return { brownScore, whiteScore, brownDelta: roundAwayFromZero(result.brownDelta), whiteDelta: roundAwayFromZero(result.whiteDelta) };
   });
   return {
     id: row.id,
-    red: { attack: toMatchPlayer(red.attack, 'attack'), defense: toMatchPlayer(red.defense, 'defense') },
-    blue: { attack: toMatchPlayer(blue.attack, 'attack'), defense: toMatchPlayer(blue.defense, 'defense') },
-    redElo: Math.round(redElo),
-    blueElo: Math.round(blueElo),
-    redWinProbability: expectedScore(redElo, blueElo, config),
+    brown: { attack: toMatchPlayer(brown.attack, 'attack'), defense: toMatchPlayer(brown.defense, 'defense') },
+    white: { attack: toMatchPlayer(white.attack, 'attack'), defense: toMatchPlayer(white.defense, 'defense') },
+    brownElo: Math.round(brownElo),
+    whiteElo: Math.round(whiteElo),
+    brownWinProbability: expectedScore(brownElo, whiteElo, config),
     createdAt: row.createdAt,
     generatedBy: row.generatedBy,
     outcomes

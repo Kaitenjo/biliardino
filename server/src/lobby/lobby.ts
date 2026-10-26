@@ -227,8 +227,8 @@ export async function replaceRunningMatch(userId: number): Promise<MatchView | n
 
   const avoid = deleted
     ? {
-        red: { attack: deleted.red.attack.id, defense: deleted.red.defense.id },
-        blue: { attack: deleted.blue.attack.id, defense: deleted.blue.defense.id }
+        brown: { attack: deleted.brown.attack.id, defense: deleted.brown.defense.id },
+        white: { attack: deleted.white.attack.id, defense: deleted.white.defense.id }
       }
     : undefined;
   const result = await generateLobbyMatch(lobby.id, userId, avoid);
@@ -273,7 +273,7 @@ async function generateDueMatch(lobbyId: number, time: string): Promise<void> {
  * @param avoid - A match not to generate again (the one just deleted); none to leave out none.
  * @returns The match, or why there is none.
  */
-async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?: { red: Lineup<number>; blue: Lineup<number> }): Promise<MatchView | LobbyMatchFailure> {
+async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?: { brown: Lineup<number>; white: Lineup<number> }): Promise<MatchView | LobbyMatchFailure> {
   const ids = (await lobbyPlayers(lobbyId)).map(player => player.id);
   if (ids.length < 4) {
     return 'not-enough';
@@ -290,17 +290,17 @@ async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?
   }
 
   const match = await setRunningMatch(
-    { attack: proposal.red.attack.id, defense: proposal.red.defense.id },
-    { attack: proposal.blue.attack.id, defense: proposal.blue.defense.id },
+    { attack: proposal.brown.attack.id, defense: proposal.brown.defense.id },
+    { attack: proposal.white.attack.id, defense: proposal.white.defense.id },
     userId
   );
   if (!match) {
     return 'running';
   }
 
-  await notify([match.red.attack.id, match.red.defense.id, match.blue.attack.id, match.blue.defense.id], {
+  await notify([match.brown.attack.id, match.brown.defense.id, match.white.attack.id, match.white.defense.id], {
     title: 'Coglione, tocca a te, muoviti!',
-    body: `Bianchi: ${match.red.attack.name} (attacco) e ${match.red.defense.name} (difesa). Marroni: ${match.blue.attack.name} (attacco) e ${match.blue.defense.name} (difesa).`,
+    body: `Bianchi: ${match.brown.attack.name} (attacco) e ${match.brown.defense.name} (difesa). Marroni: ${match.white.attack.name} (attacco) e ${match.white.defense.name} (difesa).`,
     url: '/#/lobby'
   });
   return match;

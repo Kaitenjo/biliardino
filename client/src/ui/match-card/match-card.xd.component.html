@@ -3,17 +3,17 @@
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
 <div class="teams">
-  @render team('Bianchi', 'white', match().red, match().redElo)
+  @render team('Bianchi', 'white', match().brown, match().brownElo)
   <div class="vs" aria-hidden="true">VS</div>
-  @render team('Marroni', 'brown', match().blue, match().blueElo)
+  @render team('Marroni', 'brown', match().white, match().whiteElo)
 </div>
 <div class="odds" title="Probabilità di vittoria secondo l'ELO">
-  <div class="odds-red" style="{`flex-basis: ${redChance()}%`}">{ redChance() }%</div>
-  <div class="odds-blue">{ 100 - redChance() }%</div>
+  <div class="odds-brown" style="{`flex-basis: ${brownChance()}%`}">{ brownChance() }%</div>
+  <div class="odds-white">{ 100 - brownChance() }%</div>
 </div>
 <div class="outcomes" aria-label="Punti ELO guadagnati da ogni giocatore della squadra che vince, a seconda del risultato: gli avversari perdono lo stesso valore">
-  @render outcomes('Se vincono i Bianchi', 'white', redWins())
-  @render outcomes('Se vincono i Marroni', 'brown', blueWins())
+  @render outcomes('Se vincono i Bianchi', 'white', brownWins())
+  @render outcomes('Se vincono i Marroni', 'brown', whiteWins())
 </div>
 <p class="outcomes-note">Punti ELO a testa: chi perde ne cede altrettanti.</p>
 <slot />
@@ -21,9 +21,9 @@
 <template outcomes(title: string, color: string, results: MatchOutcome[])>
   <div class="{`outcome-group ${color()}`}">
     <span class="outcome-title">{ title() }</span>
-    @for (result of results(); track result().redScore) {
+    @for (result of results(); track result().brownScore) {
       <div class="outcome">
-        <strong class="outcome-score">{ result().redScore }-{ result().blueScore }</strong>
+        <strong class="outcome-score">{ result().brownScore }-{ result().whiteScore }</strong>
         <b class="outcome-gain">{ formatDelta(gain(result())) }</b>
       </div>
     }

@@ -1,7 +1,7 @@
 /**
  * A team of a match.
  */
-export type Team = 'red' | 'blue';
+export type Team = 'brown' | 'white';
 
 /**
  * The role of a player in a match.
@@ -53,13 +53,13 @@ export interface FormEntry {
    */
   role: Role;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * ELO of the player in its role after the match.
    */
@@ -165,25 +165,25 @@ export interface PlayerMatch {
    */
   playedAt: string;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<PlayerRef>;
+  brown: Lineup<PlayerRef>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<PlayerRef>;
+  white: Lineup<PlayerRef>;
   /**
    * The team of the player.
    */
@@ -223,33 +223,33 @@ export interface MatchSummary {
    */
   playedAt: string;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<PlayerRef>;
+  brown: Lineup<PlayerRef>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<PlayerRef>;
+  white: Lineup<PlayerRef>;
   /**
-   * Change of ELO of each red player.
+   * Change of ELO of each brown player.
    */
-  redDelta: number;
+  brownDelta: number;
   /**
-   * Change of ELO of each blue player.
+   * Change of ELO of each white player.
    */
-  blueDelta: number;
+  whiteDelta: number;
 }
 
 /**
@@ -433,25 +433,25 @@ export interface RunningMatch {
    */
   id: number;
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<MatchPlayer>;
+  brown: Lineup<MatchPlayer>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<MatchPlayer>;
+  white: Lineup<MatchPlayer>;
   /**
-   * ELO of the red team: the average of its players in their roles.
+   * ELO of the brown team: the average of its players in their roles.
    */
-  redElo: number;
+  brownElo: number;
   /**
-   * ELO of the blue team.
+   * ELO of the white team.
    */
-  blueElo: number;
+  whiteElo: number;
   /**
-   * Probability that the red team wins.
+   * Probability that the brown team wins.
    */
-  redWinProbability: number;
+  brownWinProbability: number;
   /**
    * When it was generated (UTC, `YYYY-MM-DD HH:MM:SS`).
    */
@@ -471,21 +471,21 @@ export interface RunningMatch {
  */
 export interface MatchOutcome {
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
-   * Change of ELO of each red player.
+   * Change of ELO of each brown player.
    */
-  redDelta: number;
+  brownDelta: number;
   /**
-   * Change of ELO of each blue player.
+   * Change of ELO of each white player.
    */
-  blueDelta: number;
+  whiteDelta: number;
 }
 
 /**
@@ -497,13 +497,13 @@ export interface SavedMatch {
    */
   id: number;
   /**
-   * Change of ELO of each red player.
+   * Change of ELO of each brown player.
    */
-  redDelta: number;
+  brownDelta: number;
   /**
-   * Change of ELO of each blue player.
+   * Change of ELO of each white player.
    */
-  blueDelta: number;
+  whiteDelta: number;
   /**
    * Every player with its new ELO, as `fetchLeaderboard` gives them.
    */

@@ -20,17 +20,17 @@ export class MatchCardComponent extends CustomElement {
   @Property.required()
   public accessor match!: InputSignal<RunningMatch>;
   /**
-   * Probability that the red team wins, 0 to 100.
+   * Probability that the brown team wins, 0 to 100.
    */
-  public readonly redChance = computed(() => this._computeRedChance());
+  public readonly brownChance = computed(() => this._computeBrownChance());
   /**
-   * The results the red team wins, 8-0 and 8-7.
+   * The results the brown team wins, 8-0 and 8-7.
    */
-  public readonly redWins = computed(() => this._computeOutcomes(true));
+  public readonly brownWins = computed(() => this._computeOutcomes(true));
   /**
-   * The results the blue team wins, 0-8 and 7-8.
+   * The results the white team wins, 0-8 and 7-8.
    */
-  public readonly blueWins = computed(() => this._computeOutcomes(false));
+  public readonly whiteWins = computed(() => this._computeOutcomes(false));
 
   /**
    * Formats a change of ELO with its sign.
@@ -49,25 +49,25 @@ export class MatchCardComponent extends CustomElement {
    * @returns The change of the winning team, positive.
    */
   public gain(outcome: MatchOutcome): number {
-    return Math.max(outcome.redDelta, outcome.blueDelta);
+    return Math.max(outcome.brownDelta, outcome.whiteDelta);
   }
 
   /**
-   * Computes the value of `redWins` and `blueWins`.
+   * Computes the value of `brownWins` and `whiteWins`.
    *
-   * @param redWon - Whether the red team is the winner.
+   * @param brownWon - Whether the brown team is the winner.
    * @returns The two results won by the team, the wider first.
    */
-  private _computeOutcomes(redWon: boolean): MatchOutcome[] {
-    return this.match().outcomes.filter(outcome => (outcome.redScore > outcome.blueScore) === redWon);
+  private _computeOutcomes(brownWon: boolean): MatchOutcome[] {
+    return this.match().outcomes.filter(outcome => (outcome.brownScore > outcome.whiteScore) === brownWon);
   }
 
   /**
-   * Computes the value of `redChance`.
+   * Computes the value of `brownChance`.
    *
    * @returns The percentage, rounded.
    */
-  private _computeRedChance(): number {
-    return Math.round(this.match().redWinProbability * 100);
+  private _computeBrownChance(): number {
+    return Math.round(this.match().brownWinProbability * 100);
   }
 }

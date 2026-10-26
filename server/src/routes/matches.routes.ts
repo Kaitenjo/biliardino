@@ -44,20 +44,20 @@ matchesRouter.delete('/running', requireAuth, async c => {
 });
 
 matchesRouter.post('/', requireAuth, async c => {
-  const { runningId, red, blue, redScore, blueScore } = await readBody(c);
+  const { runningId, brown, white, brownScore, whiteScore } = await readBody(c);
   if (!Number.isInteger(runningId)) {
     return c.json({ error: 'Partita da salvare non indicata' }, 400);
   }
 
-  if (!isLineup(red) || !isLineup(blue) || new Set([red.attack, red.defense, blue.attack, blue.defense]).size !== 4) {
+  if (!isLineup(brown) || !isLineup(white) || new Set([brown.attack, brown.defense, white.attack, white.defense]).size !== 4) {
     return c.json({ error: 'Formazioni non valide' }, 400);
   }
 
-  if (!isScore(redScore) || !isScore(blueScore) || Math.max(redScore, blueScore) !== WINNING_SCORE || redScore === blueScore) {
+  if (!isScore(brownScore) || !isScore(whiteScore) || Math.max(brownScore, whiteScore) !== WINNING_SCORE || brownScore === whiteScore) {
     return c.json({ error: `Si vince a ${WINNING_SCORE}: una squadra deve fare ${WINNING_SCORE} e l'altra meno (ad esempio 8-5)` }, 400);
   }
 
-  const saved = await recordMatch(runningId as number, red, blue, redScore, blueScore, c.get('user').id);
+  const saved = await recordMatch(runningId as number, brown, white, brownScore, whiteScore, c.get('user').id);
   if (saved === 'unknown-player') {
     return c.json({ error: 'Giocatore non trovato' }, 400);
   }

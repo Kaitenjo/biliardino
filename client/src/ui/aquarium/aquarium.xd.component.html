@@ -31,11 +31,11 @@
         <strong class="preview-delta" [class.up]="{hover().match.eloDelta >= 0}">{ formatDelta(hover().match.eloDelta) }</strong>
       </div>
       <div class="preview-teams">
-        @render team('Marroni', 'brown', hover().match.red, hover().match.team === 'red')
-        @render team('Bianchi', 'white', hover().match.blue, hover().match.team === 'blue')
+        @render team('Marroni', 'brown', hover().match.brown, hover().match.team === 'brown')
+        @render team('Bianchi', 'white', hover().match.white, hover().match.team === 'white')
       </div>
       <div class="preview-foot">
-        <span class="result" [class.won]="{hover().match.team === hover().match.winner}">{ hover().match.redScore } - { hover().match.blueScore }</span>
+        <span class="result" [class.won]="{hover().match.team === hover().match.winner}">{ hover().match.brownScore } - { hover().match.whiteScore }</span>
         <small>{ formatDate(hover().match.playedAt) }</small>
       </div>
     </div>

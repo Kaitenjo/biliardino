@@ -56,17 +56,17 @@ export interface MatchmakingContext {
 }
 
 /**
- * The match chosen by the matchmaking: team A of the previous project is the red one.
+ * The match chosen by the matchmaking: team A of the previous project is the brown one.
  */
 export interface MatchProposal {
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<MatchmakingPlayer>;
+  brown: Lineup<MatchmakingPlayer>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<MatchmakingPlayer>;
+  white: Lineup<MatchmakingPlayer>;
 }
 
 /**
@@ -121,7 +121,7 @@ export function findBestMatch(
   context: MatchmakingContext,
   availableIds: readonly number[],
   priorityIds: readonly number[],
-  avoid?: { red: Lineup<number>; blue: Lineup<number> }
+  avoid?: { brown: Lineup<number>; white: Lineup<number> }
 ): MatchProposal | null {
   if (availableIds.length < 4) {
     return null;
@@ -162,7 +162,7 @@ export function findBestMatch(
           const score = scoreMatch(context, defA, attA, defB, attB, maxEloDiff, maxMatches, maxDiversity);
           if (score > bestScore) {
             bestScore = score;
-            best = { red: { defense: defA, attack: attA }, blue: { defense: defB, attack: attB } };
+            best = { brown: { defense: defA, attack: attA }, white: { defense: defB, attack: attB } };
           }
         }
       }
@@ -182,13 +182,13 @@ export function findBestMatch(
  * @param attB - Its attacker.
  * @returns Whether it is the same.
  */
-function isSame(match: { red: Lineup<number>; blue: Lineup<number> } | undefined, defA: MatchmakingPlayer, attA: MatchmakingPlayer, defB: MatchmakingPlayer, attB: MatchmakingPlayer): boolean {
+function isSame(match: { brown: Lineup<number>; white: Lineup<number> } | undefined, defA: MatchmakingPlayer, attA: MatchmakingPlayer, defB: MatchmakingPlayer, attB: MatchmakingPlayer): boolean {
   if (!match) {
     return false;
   }
 
   const team = (lineup: Lineup<number>, defense: MatchmakingPlayer, attack: MatchmakingPlayer): boolean => lineup.defense === defense.id && lineup.attack === attack.id;
-  return (team(match.red, defA, attA) && team(match.blue, defB, attB)) || (team(match.red, defB, attB) && team(match.blue, defA, attA));
+  return (team(match.brown, defA, attA) && team(match.white, defB, attB)) || (team(match.brown, defB, attB) && team(match.white, defA, attA));
 }
 
 /**

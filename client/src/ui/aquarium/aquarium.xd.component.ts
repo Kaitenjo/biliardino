@@ -13,7 +13,7 @@ import type { AquariumScene, ChartHover, View, Wall } from './scene';
 interface Seat {
   key: SeatKey;
   /**
-   * Its team: brown is the red one of the match, white the blue one.
+   * Its team.
    */
   side: 'white' | 'brown';
   role: string;
@@ -293,10 +293,10 @@ export class AquariumComponent extends CustomElement {
     }
 
     return [
-      { key: 'brown-defense', side: 'brown', role: 'Difesa', player: match.red.defense },
-      { key: 'brown-attack', side: 'brown', role: 'Attacco', player: match.red.attack },
-      { key: 'white-attack', side: 'white', role: 'Attacco', player: match.blue.attack },
-      { key: 'white-defense', side: 'white', role: 'Difesa', player: match.blue.defense }
+      { key: 'brown-defense', side: 'brown', role: 'Difesa', player: match.brown.defense },
+      { key: 'brown-attack', side: 'brown', role: 'Attacco', player: match.brown.attack },
+      { key: 'white-attack', side: 'white', role: 'Attacco', player: match.white.attack },
+      { key: 'white-defense', side: 'white', role: 'Difesa', player: match.white.defense }
     ];
   }
 }

@@ -15,33 +15,33 @@ export interface MatchSummary {
    */
   playedAt: string;
   /**
-   * Goals of the red team.
+   * Goals of the brown team.
    */
-  redScore: number;
+  brownScore: number;
   /**
-   * Goals of the blue team.
+   * Goals of the white team.
    */
-  blueScore: number;
+  whiteScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The red team.
+   * The brown team.
    */
-  red: Lineup<PlayerRef>;
+  brown: Lineup<PlayerRef>;
   /**
-   * The blue team.
+   * The white team.
    */
-  blue: Lineup<PlayerRef>;
+  white: Lineup<PlayerRef>;
   /**
-   * Change of ELO of each red player, rounded.
+   * Change of ELO of each brown player, rounded.
    */
-  redDelta: number;
+  brownDelta: number;
   /**
-   * Change of ELO of each blue player, rounded.
+   * Change of ELO of each white player, rounded.
    */
-  blueDelta: number;
+  whiteDelta: number;
 }
 
 /**
@@ -72,23 +72,23 @@ export interface MatchPage {
 interface MatchSummaryRow {
   id: number;
   playedAt: string;
-  redScore: number;
-  blueScore: number;
+  brownScore: number;
+  whiteScore: number;
   winner: Team;
-  redAttackId: number;
-  redAttackName: string | null;
-  redAttackIcon: string | null;
-  redDefenseId: number;
-  redDefenseName: string | null;
-  redDefenseIcon: string | null;
-  blueAttackId: number;
-  blueAttackName: string | null;
-  blueAttackIcon: string | null;
-  blueDefenseId: number;
-  blueDefenseName: string | null;
-  blueDefenseIcon: string | null;
-  redDelta: number;
-  blueDelta: number;
+  brownAttackId: number;
+  brownAttackName: string | null;
+  brownAttackIcon: string | null;
+  brownDefenseId: number;
+  brownDefenseName: string | null;
+  brownDefenseIcon: string | null;
+  whiteAttackId: number;
+  whiteAttackName: string | null;
+  whiteAttackIcon: string | null;
+  whiteDefenseId: number;
+  whiteDefenseName: string | null;
+  whiteDefenseIcon: string | null;
+  brownDelta: number;
+  whiteDelta: number;
 }
 
 /**
@@ -104,17 +104,17 @@ export async function listMatches(page: number, pageSize: number): Promise<Match
      LEFT JOIN players ${alias}p ON ${alias}p.id = ${alias}.player_id`;
   const [rows, count] = await Promise.all([
     all<MatchSummaryRow>(
-      `SELECT m.id, m.played_at AS playedAt, m.red_score AS redScore, m.blue_score AS blueScore, m.winner,
-         ra.player_id AS redAttackId, rap.name AS redAttackName, rap.icon AS redAttackIcon,
-         rd.player_id AS redDefenseId, rdp.name AS redDefenseName, rdp.icon AS redDefenseIcon,
-         ba.player_id AS blueAttackId, bap.name AS blueAttackName, bap.icon AS blueAttackIcon,
-         bd.player_id AS blueDefenseId, bdp.name AS blueDefenseName, bdp.icon AS blueDefenseIcon,
-         rd.elo_delta AS redDelta, bd.elo_delta AS blueDelta
+      `SELECT m.id, m.played_at AS playedAt, m.brown_score AS brownScore, m.white_score AS whiteScore, m.winner,
+         ra.player_id AS brownAttackId, rap.name AS brownAttackName, rap.icon AS brownAttackIcon,
+         rd.player_id AS brownDefenseId, rdp.name AS brownDefenseName, rdp.icon AS brownDefenseIcon,
+         ba.player_id AS whiteAttackId, bap.name AS whiteAttackName, bap.icon AS whiteAttackIcon,
+         bd.player_id AS whiteDefenseId, bdp.name AS whiteDefenseName, bdp.icon AS whiteDefenseIcon,
+         rd.elo_delta AS brownDelta, bd.elo_delta AS whiteDelta
        FROM matches m
-       ${slot('ra', 'red', 'attack')}
-       ${slot('rd', 'red', 'defense')}
-       ${slot('ba', 'blue', 'attack')}
-       ${slot('bd', 'blue', 'defense')}
+       ${slot('ra', 'brown', 'attack')}
+       ${slot('rd', 'brown', 'defense')}
+       ${slot('ba', 'white', 'attack')}
+       ${slot('bd', 'white', 'defense')}
        ORDER BY m.played_at DESC, m.id DESC
        LIMIT ? OFFSET ?`,
       pageSize,
@@ -126,19 +126,19 @@ export async function listMatches(page: number, pageSize: number): Promise<Match
   const matches = rows.map(row => ({
     id: row.id,
     playedAt: row.playedAt,
-    redScore: row.redScore,
-    blueScore: row.blueScore,
+    brownScore: row.brownScore,
+    whiteScore: row.whiteScore,
     winner: row.winner,
-    red: {
-      attack: toRef(row.redAttackId, row.redAttackName, row.redAttackIcon),
-      defense: toRef(row.redDefenseId, row.redDefenseName, row.redDefenseIcon)
+    brown: {
+      attack: toRef(row.brownAttackId, row.brownAttackName, row.brownAttackIcon),
+      defense: toRef(row.brownDefenseId, row.brownDefenseName, row.brownDefenseIcon)
     },
-    blue: {
-      attack: toRef(row.blueAttackId, row.blueAttackName, row.blueAttackIcon),
-      defense: toRef(row.blueDefenseId, row.blueDefenseName, row.blueDefenseIcon)
+    white: {
+      attack: toRef(row.whiteAttackId, row.whiteAttackName, row.whiteAttackIcon),
+      defense: toRef(row.whiteDefenseId, row.whiteDefenseName, row.whiteDefenseIcon)
     },
-    redDelta: Math.round(row.redDelta),
-    blueDelta: Math.round(row.blueDelta)
+    brownDelta: Math.round(row.brownDelta),
+    whiteDelta: Math.round(row.whiteDelta)
   }));
 
   return { matches, page, pageSize, total: count?.total ?? 0 };

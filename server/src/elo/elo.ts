@@ -95,25 +95,25 @@ export interface EloPlayer {
  */
 export interface MatchElo {
   /**
-   * ELO of the red team: the average of its players in their roles.
+   * ELO of the brown team: the average of its players in their roles.
    */
-  redElo: number;
+  brownElo: number;
   /**
-   * ELO of the blue team.
+   * ELO of the white team.
    */
-  blueElo: number;
+  whiteElo: number;
   /**
-   * Expected score of the red team (its probability of winning); the blue team has the complement.
+   * Expected score of the brown team (its probability of winning); the white team has the complement.
    */
-  redExpected: number;
+  brownExpected: number;
   /**
-   * Change of the ELO in the role of each red player.
+   * Change of the ELO in the role of each brown player.
    */
-  redDelta: number;
+  brownDelta: number;
   /**
-   * Change of the ELO in the role of each blue player: the opposite of the red one.
+   * Change of the ELO in the role of each white player: the opposite of the brown one.
    */
-  blueDelta: number;
+  whiteDelta: number;
 }
 
 /**
@@ -142,39 +142,39 @@ export function teamElo(team: Lineup<number>): number {
 /**
  * Computes the changes of ELO of a match.
  *
- * @param red - The red players in their roles, before the match.
- * @param blue - The blue players in their roles, before the match.
- * @param redScore - Goals of the red team.
- * @param blueScore - Goals of the blue team.
+ * @param brown - The brown players in their roles, before the match.
+ * @param white - The white players in their roles, before the match.
+ * @param brownScore - Goals of the brown team.
+ * @param whiteScore - Goals of the white team.
  * @param config - The variables of the system.
  * @returns The ELOs of the teams, the expected score and the changes.
  */
-export function computeMatchElo(red: Lineup<EloPlayer>, blue: Lineup<EloPlayer>, redScore: number, blueScore: number, config: EloConfig): MatchElo {
-  const redElo = teamElo({ attack: red.attack.elo, defense: red.defense.elo });
-  const blueElo = teamElo({ attack: blue.attack.elo, defense: blue.defense.elo });
+export function computeMatchElo(brown: Lineup<EloPlayer>, white: Lineup<EloPlayer>, brownScore: number, whiteScore: number, config: EloConfig): MatchElo {
+  const brownElo = teamElo({ attack: brown.attack.elo, defense: brown.defense.elo });
+  const whiteElo = teamElo({ attack: white.attack.elo, defense: white.defense.elo });
 
-  const redExpected = expectedScore(redElo, blueElo, config);
-  const blueExpected = 1 - redExpected;
+  const brownExpected = expectedScore(brownElo, whiteElo, config);
+  const whiteExpected = 1 - brownExpected;
 
-  const goalMultiplier = marginMultiplier(redScore, blueScore, config);
-  const winnerExpected = redScore > blueScore ? redExpected : blueExpected;
+  const goalMultiplier = marginMultiplier(brownScore, whiteScore, config);
+  const winnerExpected = brownScore > whiteScore ? brownExpected : whiteExpected;
   const winnerSign = winnerExpected > 0.5 ? -1 : 1;
   // Never negative: with a huge favourite the factor would turn the sign of the change
   const surpriseFactor = Math.max(0, 1 + config.surpriseWeight * Math.abs(0.5 - winnerExpected) ** config.surpriseExponent * winnerSign);
 
-  const redResult = redScore > blueScore ? 1 : redScore === blueScore ? 0.5 : 0;
+  const brownResult = brownScore > whiteScore ? 1 : brownScore === whiteScore ? 0.5 : 0;
 
   // Zero sum: what a team earns the other loses. The K factor is the average of the two teams, so that it is the same
   // for both (it is, when the two have the same experience)
-  const k = (teamK(red, config) + teamK(blue, config)) / 2;
-  let redDelta = k * goalMultiplier * (redResult - redExpected) * surpriseFactor;
-  if (redResult === 1) {
-    redDelta = Math.max(redDelta, config.minWinDelta);
-  } else if (redResult === 0) {
-    redDelta = Math.min(redDelta, -config.minWinDelta);
+  const k = (teamK(brown, config) + teamK(white, config)) / 2;
+  let brownDelta = k * goalMultiplier * (brownResult - brownExpected) * surpriseFactor;
+  if (brownResult === 1) {
+    brownDelta = Math.max(brownDelta, config.minWinDelta);
+  } else if (brownResult === 0) {
+    brownDelta = Math.min(brownDelta, -config.minWinDelta);
   }
 
-  return { redElo, blueElo, redExpected, redDelta, blueDelta: -redDelta };
+  return { brownElo, whiteElo, brownExpected, brownDelta, whiteDelta: -brownDelta };
 }
 
 /**
