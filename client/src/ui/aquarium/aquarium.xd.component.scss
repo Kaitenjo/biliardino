@@ -170,6 +170,8 @@ canvas {
 // The match of the chart of the player under the pointer, over its point: smoked glass with gold edges, as the panels
 .chart-preview {
   position: absolute;
+  // Over the match, but never out of the screen: on a phone the chart is as wide as the screen
+  left: clamp(9.75rem, var(--x), calc(100% - 9.75rem));
   z-index: 3;
   display: grid;
   gap: 0.5rem;

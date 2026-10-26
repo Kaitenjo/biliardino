@@ -80,7 +80,13 @@
 }
 
 @media (max-width: 560px) {
-  .name {
+  // Only the avatar, round as the other buttons of the header
+  .trigger {
+    padding: 0.15rem;
+  }
+
+  .name,
+  .caret {
     display: none;
   }
 }

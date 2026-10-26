@@ -9,20 +9,91 @@ import type { PlayerDetail, PlayerMatch, PlayerResult, PlayerStats, RankingMode,
 */
 
 /**
- * Size of the canvas the slate is painted on, in pixels: as wide as tall as the face of the board.
+ * Where everything is painted on the slate, in pixels: the size of the canvas (as wide as tall as the face of the
+ * board), the medal, the name, the gold rules between the parts, the rows of figures, the chart and the teammates and
+ * the opponents; and the sizes of the writings.
  */
-const CANVAS_WIDTH = 1600;
-const CANVAS_HEIGHT = 1000;
+interface Layout {
+  width: number;
+  height: number;
+  margin: number;
+  medal: { x: number; y: number; radius: number };
+  name: { x: number; y: number; size: number; roles: number };
+  elo: { scopeY: number; y: number; size: number; scope: number; label: number };
+  rules: Array<[number, number, number, number]>;
+  /**
+   * The rows of figures: which ones (the headline or the summary), from which to which, and where they stand.
+   */
+  rows: Array<{ figures: 'headline' | 'summary'; from: number; to: number; labelY: number; valueY: number; size: number }>;
+  label: number;
+  chart: { left: number; right: number; top: number; bottom: number };
+  axis: number;
+  title: number;
+  /**
+   * The mentions fill their columns row by row; a name stands `nameY` under its label.
+   */
+  mentions: { columns: number[]; width: number; titleY: number; top: number; step: number; nameY: number; label: number; name: number; value: number };
+}
 
 /**
- * Where the chart is on the canvas, in pixels.
+ * The wide board, on a wide screen: the chart and the mentions side by side.
  */
-const CHART = { left: 140, right: 990, top: 610, bottom: 950 };
+const WIDE: Layout = {
+  width: 1600,
+  height: 1000,
+  margin: 60,
+  medal: { x: 150, y: 128, radius: 92 },
+  name: { x: 290, y: 135, size: 92, roles: 36 },
+  elo: { scopeY: 100, y: 190, size: 88, scope: 30, label: 26 },
+  rules: [
+    [60, 250, 1540, 250],
+    [60, 540, 1540, 540],
+    [1040, 560, 1040, 950]
+  ],
+  rows: [
+    { figures: 'headline', from: 0, to: 4, labelY: 310, valueY: 380, size: 64 },
+    { figures: 'summary', from: 0, to: 5, labelY: 440, valueY: 500, size: 38 }
+  ],
+  label: 24,
+  chart: { left: 140, right: 990, top: 610, bottom: 950 },
+  axis: 22,
+  title: 26,
+  mentions: { columns: [1080], width: 460, titleY: 578, top: 606, step: 76, nameY: 33, label: 26, name: 32, value: 30 }
+};
 
 /**
- * Where the medal is on the canvas: its centre and its radius, in pixels.
+ * The tall board, on a phone held upright: one part under the other, and bigger, to be read on a small screen.
  */
-const MEDAL = { x: 150, y: 128, radius: 92 };
+const TALL: Layout = {
+  width: 1000,
+  height: 1680,
+  margin: 50,
+  medal: { x: 130, y: 135, radius: 95 },
+  name: { x: 260, y: 140, size: 92, roles: 40 },
+  elo: { scopeY: 95, y: 195, size: 92, scope: 34, label: 32 },
+  rules: [
+    [50, 260, 950, 260],
+    [50, 885, 950, 885],
+    [50, 1305, 950, 1305]
+  ],
+  rows: [
+    { figures: 'headline', from: 0, to: 2, labelY: 320, valueY: 390, size: 64 },
+    { figures: 'headline', from: 2, to: 4, labelY: 445, valueY: 515, size: 64 },
+    { figures: 'summary', from: 0, to: 2, labelY: 575, valueY: 630, size: 46 },
+    { figures: 'summary', from: 2, to: 4, labelY: 690, valueY: 745, size: 46 },
+    { figures: 'summary', from: 4, to: 5, labelY: 805, valueY: 860, size: 46 }
+  ],
+  label: 32,
+  chart: { left: 130, right: 950, top: 980, bottom: 1265 },
+  axis: 30,
+  title: 34,
+  mentions: { columns: [50, 520], width: 430, titleY: 1360, top: 1410, step: 96, nameY: 44, label: 32, name: 42, value: 38 }
+};
+
+/**
+ * The size of the face of the tall board: as wide as tall as its canvas.
+ */
+export const TALL_BOARD_SIZE = { width: 3.4, height: (3.4 * TALL.height) / TALL.width };
 
 /**
  * The colours of the medal by rank, and of the lines of the roles.
@@ -132,6 +203,10 @@ export class PlayerBoard {
 
   private readonly _width: number;
   private readonly _height: number;
+  /**
+   * Where everything is painted: tall when the board is taller than wide.
+   */
+  private readonly _layout: Layout;
   private readonly _canvas = document.createElement('canvas');
   private readonly _texture: THREE.CanvasTexture;
   private readonly _medalCanvas = document.createElement('canvas');
@@ -160,8 +235,10 @@ export class PlayerBoard {
   constructor(width: number, height: number) {
     this._width = width;
     this._height = height;
-    this._canvas.width = CANVAS_WIDTH;
-    this._canvas.height = CANVAS_HEIGHT;
+    this._layout = height > width ? TALL : WIDE;
+    const { chart, medal } = this._layout;
+    this._canvas.width = this._layout.width;
+    this._canvas.height = this._layout.height;
     this._texture = new THREE.CanvasTexture(this._canvas);
     this._texture.colorSpace = THREE.SRGBColorSpace;
     this._texture.anisotropy = 8;
@@ -170,8 +247,8 @@ export class PlayerBoard {
     this.object.add(this.slate);
 
     const light = new THREE.MeshBasicMaterial({ color: 0xf6dc7a, transparent: true, opacity: 0.55 });
-    this._guide = new THREE.Mesh(new THREE.BoxGeometry(0.01, ((CHART.bottom - CHART.top) / CANVAS_HEIGHT) * height, 0.01), light);
-    this._guide.position.set(0, this._y((CHART.top + CHART.bottom) / 2), 0.05);
+    this._guide = new THREE.Mesh(new THREE.BoxGeometry(0.01, ((chart.bottom - chart.top) / this._layout.height) * height, 0.01), light);
+    this._guide.position.set(0, this._y((chart.top + chart.bottom) / 2), 0.05);
     this._marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
     this._guide.visible = false;
     this._marker.visible = false;
@@ -183,7 +260,7 @@ export class PlayerBoard {
     this._medalTexture = new THREE.CanvasTexture(this._medalCanvas);
     this._medalTexture.colorSpace = THREE.SRGBColorSpace;
     this._medalMetal = new THREE.MeshStandardMaterial({ color: 0xf5c542, metalness: 0.75, roughness: 0.3 });
-    const radius = (MEDAL.radius / CANVAS_WIDTH) * width;
+    const radius = (medal.radius / this._layout.width) * width;
     this._medal = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.07, 48), [
       this._medalMetal,
       new THREE.MeshStandardMaterial({ map: this._medalTexture, metalness: 0.5, roughness: 0.35 }),
@@ -196,7 +273,7 @@ export class PlayerBoard {
     this._medalTexture.center.set(0.5, 0.5);
     this._medalTexture.rotation = Math.PI / 2;
     // Far enough out of the slate that its edge never sinks into it while it turns
-    this._medal.position.set(this._x(MEDAL.x), this._y(MEDAL.y), 0.3);
+    this._medal.position.set(this._x(medal.x), this._y(medal.y), 0.3);
     this.object.add(this._medal, this._chart);
     this.show(null, 'best');
   }
@@ -209,12 +286,13 @@ export class PlayerBoard {
    */
   public show(detail: PlayerDetail | null, scope: RankingMode): void {
     const ctx = this._canvas.getContext('2d')!;
+    const { chart, margin } = this._layout;
     this._paintSlate(ctx);
     if (!detail) {
       ctx.fillStyle = MUTED;
       ctx.font = `italic 500 60px ${TEXT}`;
       ctx.textAlign = 'center';
-      ctx.fillText('Scegli un giocatore…', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+      ctx.fillText('Scegli un giocatore…', this._layout.width / 2, this._layout.height / 2);
       this._medal.visible = false;
       this._buildChart([], 0, 1);
       this._texture.needsUpdate = true;
@@ -231,13 +309,13 @@ export class PlayerBoard {
     // The chart: the axis painted, the lines as tubes
     const { matches, series } = trend(detail, scope);
     ctx.fillStyle = GOLD;
-    ctx.font = `700 26px ${DISPLAY}`;
+    ctx.font = `700 ${this._layout.title}px ${DISPLAY}`;
     ctx.textAlign = 'left';
-    ctx.fillText('ANDAMENTO ELO', 60, CHART.top - 32);
+    ctx.fillText('ANDAMENTO ELO', margin, chart.top - 32);
     if (!series.length) {
       ctx.fillStyle = MUTED;
       ctx.font = `italic 500 40px ${TEXT}`;
-      ctx.fillText('Ancora nessuna partita in questo ruolo', CHART.left, (CHART.top + CHART.bottom) / 2);
+      ctx.fillText('Ancora nessuna partita in questo ruolo', chart.left, (chart.top + chart.bottom) / 2);
       this._buildChart([], 0, 1);
     } else {
       const all = series.flatMap(line => line.elos);
@@ -266,13 +344,14 @@ export class PlayerBoard {
    * @returns The match marked, `null` when the point is not over the chart.
    */
   public hover(point: THREE.Vector3 | null): ChartPoint | null {
+    const { chart } = this._layout;
     const inside =
       point &&
       this._points.length &&
-      point.x >= this._x(CHART.left) - 0.1 &&
-      point.x <= this._x(CHART.right) + 0.1 &&
-      point.y <= this._y(CHART.top) + 0.1 &&
-      point.y >= this._y(CHART.bottom) - 0.1;
+      point.x >= this._x(chart.left) - 0.1 &&
+      point.x <= this._x(chart.right) + 0.1 &&
+      point.y <= this._y(chart.top) + 0.1 &&
+      point.y >= this._y(chart.bottom) - 0.1;
     if (!inside) {
       this._guide.visible = false;
       this._marker.visible = false;
@@ -310,24 +389,20 @@ export class PlayerBoard {
    * @param ctx - The canvas.
    */
   private _paintSlate(ctx: CanvasRenderingContext2D): void {
-    const slate = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 100, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.7);
+    const { width, height, rules } = this._layout;
+    const slate = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, Math.max(width, height) * 0.7);
     slate.addColorStop(0, '#1b1f26');
     slate.addColorStop(1, '#0b0d11');
     ctx.fillStyle = slate;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillRect(0, 0, width, height);
     ctx.strokeStyle = 'rgba(201, 162, 39, 0.35)';
     ctx.lineWidth = 2;
-    for (const y of [250, 540]) {
+    for (const [fromX, fromY, toX, toY] of rules) {
       ctx.beginPath();
-      ctx.moveTo(60, y);
-      ctx.lineTo(CANVAS_WIDTH - 60, y);
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
       ctx.stroke();
     }
-
-    ctx.beginPath();
-    ctx.moveTo(1040, 560);
-    ctx.lineTo(1040, 950);
-    ctx.stroke();
   }
 
   /**
@@ -339,27 +414,38 @@ export class PlayerBoard {
    */
   private _paintHead(ctx: CanvasRenderingContext2D, detail: PlayerDetail, scope: RankingMode): void {
     const { player } = detail;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = INK;
-    ctx.font = `700 92px ${NAME}`;
-    ctx.fillText(player.name, 290, 135);
-    ctx.fillStyle = MUTED;
-    ctx.font = `italic 500 36px ${TEXT}`;
-    const roles = player.playsAttack && player.playsDefense ? 'Attacco e difesa' : player.playsAttack ? 'Solo attacco' : 'Solo difesa';
-    ctx.fillText(roles, 294, 192);
-
+    const { name, elo: eloAt } = this._layout;
+    const right = this._layout.width - this._layout.margin;
     ctx.textAlign = 'right';
     ctx.fillStyle = GOLD;
-    ctx.font = `700 30px ${DISPLAY}`;
-    ctx.fillText(SCOPES[scope].toUpperCase(), CANVAS_WIDTH - 60, 100);
+    ctx.font = `700 ${eloAt.scope}px ${DISPLAY}`;
+    ctx.fillText(SCOPES[scope].toUpperCase(), right, eloAt.scopeY);
     const elo = String(detail.stats[scope].elo);
     ctx.fillStyle = INK;
-    ctx.font = `600 88px ${FIGURES}`;
-    ctx.fillText(elo, CANVAS_WIDTH - 60, 190);
+    ctx.font = `600 ${eloAt.size}px ${FIGURES}`;
+    ctx.fillText(elo, right, eloAt.y);
     const eloWidth = ctx.measureText(elo).width;
     ctx.fillStyle = MUTED;
-    ctx.font = `500 26px ${FIGURES}`;
-    ctx.fillText('ELO', CANVAS_WIDTH - 60 - eloWidth - 14, 190);
+    ctx.font = `500 ${eloAt.label}px ${FIGURES}`;
+    ctx.fillText('ELO', right - eloWidth - 14, eloAt.y);
+    const eloLeft = right - eloWidth - 14 - ctx.measureText('ELO').width;
+
+    // The name as big as it fits before the ELO
+    ctx.textAlign = 'left';
+    ctx.fillStyle = INK;
+    let size = name.size;
+    ctx.font = `700 ${size}px ${NAME}`;
+    const room = eloLeft - 30 - name.x;
+    if (ctx.measureText(player.name).width > room) {
+      size = Math.max(40, Math.floor((size * room) / ctx.measureText(player.name).width));
+      ctx.font = `700 ${size}px ${NAME}`;
+    }
+
+    ctx.fillText(player.name, name.x, name.y);
+    ctx.fillStyle = MUTED;
+    ctx.font = `italic 500 ${name.roles}px ${TEXT}`;
+    const roles = player.playsAttack && player.playsDefense ? 'Attacco e difesa' : player.playsAttack ? 'Solo attacco' : 'Solo difesa';
+    ctx.fillText(roles, name.x + 4, name.y + name.roles * 1.6);
   }
 
   /**
@@ -393,8 +479,9 @@ export class PlayerBoard {
       { label: 'Goal F / S', value: `${stats.goalsFor} / ${stats.goalsAgainst}`, detail: stats.goalsAgainst ? ratio.toFixed(2) : '', color: ratio >= 1 ? GOOD : BAD },
       { label: 'Media goal F / S', value: `${average(stats.goalsFor, stats.matches)} / ${average(stats.goalsAgainst, stats.matches)}` }
     ];
-    this._paintRow(ctx, headline, 310, 380, 64);
-    this._paintRow(ctx, summary, 440, 500, 38);
+    for (const row of this._layout.rows) {
+      this._paintRow(ctx, (row.figures === 'headline' ? headline : summary).slice(row.from, row.to), row.labelY, row.valueY, row.size);
+    }
   }
 
   /**
@@ -407,12 +494,13 @@ export class PlayerBoard {
    * @param size - The size of the values, in pixels.
    */
   private _paintRow(ctx: CanvasRenderingContext2D, figures: Figure[], labelY: number, valueY: number, size: number): void {
-    const width = (CANVAS_WIDTH - 120) / figures.length;
+    const { margin, label } = this._layout;
+    const width = (this._layout.width - margin * 2) / figures.length;
     figures.forEach((figure, i) => {
-      const x = 60 + i * width;
+      const x = margin + i * width;
       ctx.textAlign = 'left';
       ctx.fillStyle = MUTED;
-      ctx.font = `500 24px ${FIGURES}`;
+      ctx.font = `500 ${label}px ${FIGURES}`;
       ctx.fillText(figure.label.toUpperCase(), x, labelY);
       ctx.fillStyle = figure.color ?? INK;
       ctx.font = `600 ${size}px ${FIGURES}`;
@@ -420,7 +508,7 @@ export class PlayerBoard {
       if (figure.detail) {
         const end = x + ctx.measureText(figure.value).width + 12;
         ctx.fillStyle = MUTED;
-        ctx.font = `500 24px ${FIGURES}`;
+        ctx.font = `500 ${label}px ${FIGURES}`;
         ctx.fillText(figure.detail, end, valueY);
       }
     });
@@ -440,30 +528,28 @@ export class PlayerBoard {
       ['Best Enemy', stats.strongestOpponent, true],
       ['Free Elo', stats.weakestOpponent, true]
     ];
+    const layout = this._layout.mentions;
     ctx.textAlign = 'left';
     ctx.fillStyle = GOLD;
-    ctx.font = `700 26px ${DISPLAY}`;
-    ctx.fillText('COMPAGNI E AVVERSARI', 1080, CHART.top - 32);
-    let y = CHART.top - 4;
-    for (const [label, result, isDelta] of mentions) {
-      if (!result) {
-        continue;
-      }
-
+    ctx.font = `700 ${this._layout.title}px ${DISPLAY}`;
+    ctx.fillText('COMPAGNI E AVVERSARI', layout.columns[0]!, layout.titleY);
+    const shown = mentions.filter(([, result]) => result);
+    shown.forEach(([label, result, isDelta], i) => {
+      // Row by row across the columns; a wider gap between a mention and the next than between a label and its name
+      const x = layout.columns[i % layout.columns.length]!;
+      const y = layout.top + Math.floor(i / layout.columns.length) * layout.step;
       ctx.textAlign = 'left';
       ctx.fillStyle = MUTED;
-      ctx.font = `italic 500 26px ${TEXT}`;
-      ctx.fillText(label, 1080, y);
+      ctx.font = `italic 500 ${layout.label}px ${TEXT}`;
+      ctx.fillText(label, x, y);
       ctx.fillStyle = INK;
-      ctx.font = `700 32px ${NAME}`;
-      ctx.fillText(result.player.name, 1080, y + 33);
+      ctx.font = `700 ${layout.name}px ${NAME}`;
+      ctx.fillText(result!.player.name, x, y + layout.nameY);
       ctx.textAlign = 'right';
-      ctx.fillStyle = isDelta ? (result.value >= 0 ? GOOD : BAD) : INK;
-      ctx.font = `600 30px ${FIGURES}`;
-      ctx.fillText(isDelta ? `${signed(result.value)} ELO` : `${result.value} partite`, CANVAS_WIDTH - 60, y + 33);
-      // A wider gap between a mention and the next than between a label and its name
-      y += 76;
-    }
+      ctx.fillStyle = isDelta ? (result!.value >= 0 ? GOOD : BAD) : INK;
+      ctx.font = `600 ${layout.value}px ${FIGURES}`;
+      ctx.fillText(isDelta ? `${signed(result!.value)} ELO` : `${result!.value} partite`, x + layout.width, y + layout.nameY);
+    });
   }
 
   /**
@@ -474,18 +560,19 @@ export class PlayerBoard {
    * @param high - The highest.
    */
   private _paintAxis(ctx: CanvasRenderingContext2D, low: number, high: number): void {
+    const { chart } = this._layout;
     ctx.textAlign = 'right';
-    ctx.font = `500 22px ${FIGURES}`;
+    ctx.font = `500 ${this._layout.axis}px ${FIGURES}`;
     for (let i = 0; i < 4; i++) {
       const value = Math.round(high - ((high - low) * i) / 3);
-      const y = CHART.top + ((CHART.bottom - CHART.top) * i) / 3;
+      const y = chart.top + ((chart.bottom - chart.top) * i) / 3;
       ctx.fillStyle = MUTED;
-      ctx.fillText(String(value), CHART.left - 14, y + 8);
+      ctx.fillText(String(value), chart.left - 14, y + 8);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(CHART.left, y);
-      ctx.lineTo(CHART.right, y);
+      ctx.moveTo(chart.left, y);
+      ctx.lineTo(chart.right, y);
       ctx.stroke();
     }
   }
@@ -563,8 +650,9 @@ export class PlayerBoard {
    * @returns The point, in the space of the board.
    */
   private _chartPoint(index: number, count: number, elo: number, low: number, high: number): THREE.Vector3 {
-    const x = CHART.left + ((CHART.right - CHART.left) * index) / (count - 1);
-    const y = CHART.bottom - ((elo - low) / (high - low)) * (CHART.bottom - CHART.top);
+    const { chart } = this._layout;
+    const x = chart.left + ((chart.right - chart.left) * index) / (count - 1);
+    const y = chart.bottom - ((elo - low) / (high - low)) * (chart.bottom - chart.top);
     return new THREE.Vector3(this._x(x), this._y(y), 0.07);
   }
 
@@ -575,7 +663,7 @@ export class PlayerBoard {
    * @returns The position on the board, from its centre.
    */
   private _x(x: number): number {
-    return (x / CANVAS_WIDTH - 0.5) * this._width;
+    return (x / this._layout.width - 0.5) * this._width;
   }
 
   /**
@@ -585,6 +673,6 @@ export class PlayerBoard {
    * @returns The position on the board, from its centre.
    */
   private _y(y: number): number {
-    return (0.5 - y / CANVAS_HEIGHT) * this._height;
+    return (0.5 - y / this._layout.height) * this._height;
   }
 }

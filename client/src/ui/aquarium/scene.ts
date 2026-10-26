@@ -20,10 +20,10 @@ import type { SeatKey } from './foosball3d';
 import { RULES } from '../../core/rules/rules';
 import { buildHallOfFame } from './hall-of-fame';
 import type { HallOfFame } from './hall-of-fame';
-import { buildLounge, LOUNGE_FLOOR, MATCH_BOARD, MATCH_BOARD_SIZE, RULES_BOARD, STATS_BOARD, STATS_BOARD_SIZE, TABLE_POSITION, WALL_Z } from './lounge';
-import { PlayerBoard } from './player-board';
+import { buildLounge, LOUNGE_FLOOR, MATCH_BOARD, MATCH_BOARD_SIZE, RULES_BOARD, STATS_BOARD, STATS_BOARD_SIZE, TABLE_POSITION, WALL_Z, wallBoard } from './lounge';
+import { PlayerBoard, TALL_BOARD_SIZE } from './player-board';
 import type { PlayerDetail, PlayerMatch, RankingMode } from '../../core/api/api.models';
-import { buildRulesBoard } from './rules-board';
+import { BOARD_HEIGHT as RULES_BOARD_HEIGHT, BOARD_WIDTH as RULES_BOARD_WIDTH, buildRulesBoard } from './rules-board';
 
 /**
  * The match of the chart of the player under the pointer: the match, the ELO of the player after it, and where its
@@ -104,22 +104,59 @@ interface WallBoard {
   view: View;
   corners: THREE.Vector3[];
   layoutWidth: number | null;
+  /**
+   * Whether the element only stands under the middle of the face, at its own size, instead of over it.
+   */
+  under?: boolean;
 }
 
 /**
- * The boards on the walls drawn by the page: the matches.
+ * The boards on the walls drawn by the page: the matches, and its pages under it.
  */
-export type Wall = 'matches';
+export type Wall = 'matches' | 'matchesFoot';
 
-const WALL_BOARDS: Record<Wall, WallBoard> = {
-  matches: {
-    view: 'matches',
-    corners: [-1, 1].flatMap(z =>
-      [-1, 1].map(y => new THREE.Vector3(MATCH_BOARD.x, MATCH_BOARD.y + (y * MATCH_BOARD_SIZE.height) / 2, MATCH_BOARD.z + (z * MATCH_BOARD_SIZE.width) / 2))
-    ),
-    layoutWidth: null
-  }
-};
+/**
+ * The boards on the walls drawn by the page, as the board of the matches hangs.
+ *
+ * @param center - The centre of the face of the board of the matches.
+ * @param size - The size of its face.
+ * @returns The board, and its pages under its case.
+ */
+function wallBoards(center: THREE.Vector3, size: BoardSize): Record<Wall, WallBoard> {
+  const corners = [-1, 1].flatMap(z => [-1, 1].map(y => new THREE.Vector3(center.x, center.y + (y * size.height) / 2, center.z + (z * size.width) / 2)));
+  const below = center.y - size.height / 2 - 0.3;
+  return {
+    matches: { view: 'matches', corners, layoutWidth: null },
+    matchesFoot: { view: 'matches', corners: corners.map(corner => corner.clone().setY(below)), layoutWidth: null, under: true }
+  };
+}
+
+/**
+ * The size of the face of a board.
+ */
+interface BoardSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * The board of the matches on a screen held upright: tall, a match on three lines; lower than the wide one, to keep
+ * its plate under the ceiling.
+ */
+const TALL_MATCH_BOARD_SIZE: BoardSize = { width: 3.4, height: 5.7 };
+const TALL_MATCH_BOARD = MATCH_BOARD.clone().setY(STATS_BOARD.y);
+
+/**
+ * Pixels at the top of the screen under the header, and at the bottom under the arrows on a small screen (on a big
+ * one, they stand at the sides: only the one going back down to the table is at the bottom): the boards on the walls
+ * are framed between them. Under the board of the matches there are its pages too; over the one of the player, on a
+ * small screen, its scopes.
+ */
+const HEADER_SPACE = 60;
+const ARROWS_SPACE = 70;
+const BIG_ARROW_SPACE = 80;
+const PAGES_SPACE = 60;
+const SCOPES_SPACE = 44;
 
 /**
  * Where the hall of fame stands: on the sand, far to the left of the aquarium.
@@ -398,9 +435,21 @@ export class AquariumScene {
   private _travelled = 0;
   private readonly _aside = new THREE.Vector3();
   /**
-   * The board of the player, in the middle of the wall in front of the table.
+   * The board of the player, in the middle of the wall in front of the table, in its case: tall on a screen held
+   * upright; and who it shows.
    */
-  private readonly _playerBoard: PlayerBoard;
+  private _playerBoard!: PlayerBoard;
+  private _statsBoard: THREE.Group | null = null;
+  private _statsSize: BoardSize = STATS_BOARD_SIZE;
+  /**
+   * The board of the matches, in its case: tall on a screen held upright too; where it hangs, and the boards on the
+   * walls drawn by the page as it hangs.
+   */
+  private _matchBoard: THREE.Group | null = null;
+  private _matchSize: BoardSize = MATCH_BOARD_SIZE;
+  private _matchCenter = MATCH_BOARD;
+  private _walls = wallBoards(MATCH_BOARD, MATCH_BOARD_SIZE);
+  private _shown: { detail: PlayerDetail | null; scope: RankingMode } = { detail: null, scope: 'best' };
   /**
    * Called with the match of the chart under the pointer, `null` when there is none anymore.
    */
@@ -444,9 +493,15 @@ export class AquariumScene {
     this._drawIfStill();
   };
   /**
-   * Unmarks the match when the pointer leaves the canvas.
+   * Unmarks the match when the pointer leaves the canvas; not when a finger is lifted: the match tapped stays marked.
+   *
+   * @param event - The leave.
    */
-  private readonly _onPointerLeave = (): void => this._clearHover();
+  private readonly _onPointerLeave = (event: PointerEvent): void => {
+    if (event.pointerType !== 'touch') {
+      this._clearHover();
+    }
+  };
   private readonly _lookAt = new THREE.Vector3();
   /**
    * The light of the water: full in the aquarium, dimmed in the lounge, so that the lamps cast clear shadows there.
@@ -536,11 +591,11 @@ export class AquariumScene {
     board.rotation.y = -Math.PI / 2;
     this._scene.add(board);
     // The board of the player, between the rules and the matches
-    this._playerBoard = new PlayerBoard(STATS_BOARD_SIZE.width, STATS_BOARD_SIZE.height);
-    this._playerBoard.object.position.copy(STATS_BOARD);
-    this._playerBoard.object.rotation.y = -Math.PI / 2;
-    this._scene.add(this._playerBoard.object);
+    this._hangPlayerBoard(STATS_BOARD_SIZE);
+    this._hangMatchBoard(MATCH_BOARD_SIZE, MATCH_BOARD);
     canvas.addEventListener('pointermove', this._onPointerMove);
+    // A tap marks a match too
+    canvas.addEventListener('pointerdown', this._onPointerMove);
     canvas.addEventListener('pointerleave', this._onPointerLeave);
     // Everything in the lounge receives shadows; only the furniture casts them (not the room itself, nor the chandeliers)
     for (const part of [lounge, table.object]) {
@@ -586,6 +641,7 @@ export class AquariumScene {
    * @param scope - All its matches, or only the ones in a role.
    */
   public setPlayer(detail: PlayerDetail | null, scope: RankingMode): void {
+    this._shown = { detail, scope };
     this._playerBoard.show(detail, scope);
     this._drawIfStill();
   }
@@ -674,7 +730,8 @@ export class AquariumScene {
     // The leaderboard covers the left of a wide screen (up to 42rem, plus its margin): the podium is seen in the middle
     // of the rest. On a narrow one it covers the bottom half, and the podium is seen at the top
     const tangent = Math.tan(THREE.MathUtils.degToRad(this._camera.fov / 2));
-    const wide = this._width > 900;
+    // A phone held sideways is wide too (as the leaderboard knows)
+    const wide = this._width > 900 || this._camera.aspect > 1.3;
     // Far enough to see the whole podium also on a narrow screen
     const distance = Math.max(HALL_DISTANCE, 3.8 / (tangent * this._camera.aspect));
     const covered = (Math.min(42 * 16, this._width * 0.48) + 16) / this._width;
@@ -683,13 +740,97 @@ export class AquariumScene {
     const [hall] = this._path;
     hall!.position.set(HALL.x - aside, CAMERA_PATH[0]!.position.y - down, HALL.z + distance);
     hall!.target.set(HALL.x - aside, CAMERA_PATH[0]!.target.y - down, HALL.z);
-    // The whole boards on the wall, with a margin, also on a narrow screen
-    const fit = (distance: number, width: number): number => Math.max(distance, (width / 2 + 0.5) / (tangent * this._camera.aspect));
-    this._path[this._path.length - 1]!.position.x = STATS_BOARD.x - fit(STATS_BOARD_DISTANCE, STATS_BOARD_SIZE.width);
-    this._sides.rules.position.x = RULES_BOARD.x - fit(RULES_BOARD_DISTANCE, 4.4);
-    this._sides.matches.position.x = MATCH_BOARD.x - fit(MATCH_BOARD_DISTANCE, MATCH_BOARD_SIZE.width);
+    // On a screen held upright the boards of the player and of the matches stand upright too
+    const upright = this._camera.aspect < 0.85;
+    const statsSize = upright ? TALL_BOARD_SIZE : STATS_BOARD_SIZE;
+    if (statsSize !== this._statsSize) {
+      this._hangPlayerBoard(statsSize);
+      this._hangMatchBoard(upright ? TALL_MATCH_BOARD_SIZE : MATCH_BOARD_SIZE, upright ? TALL_MATCH_BOARD : MATCH_BOARD);
+    }
+
+    // The whole boards on the wall, between the header and the arrows, also on a small screen
+    const arrows = this._width <= 640 || this._height <= 500 ? ARROWS_SPACE : 0;
+    // Under the scopes too, at the top of a small screen held upright (held sideways, they stand on the right)
+    this._frameBoard(this._path[this._path.length - 1]!, STATS_BOARD, statsSize, 0.85, STATS_BOARD_DISTANCE, arrows, arrows && this._height > 500 ? HEADER_SPACE + SCOPES_SPACE : HEADER_SPACE);
+    this._frameBoard(this._sides.rules, RULES_BOARD, { width: RULES_BOARD_WIDTH, height: RULES_BOARD_HEIGHT }, 0.15, RULES_BOARD_DISTANCE, arrows);
+    this._frameBoard(this._sides.matches, this._matchCenter, this._matchSize, 0.85, MATCH_BOARD_DISTANCE, (arrows || BIG_ARROW_SPACE) + PAGES_SPACE);
     this._applyCamera();
     this._drawIfStill();
+  }
+
+  /**
+   * Puts the camera straight in front of a board on the wall, far enough to see all of it, its plate too, between the
+   * header and what stands at the bottom of the screen; and at least as far as on a big screen.
+   *
+   * @param step - The place of the camera to set.
+   * @param board - The centre of the face of the board.
+   * @param size - The size of the face.
+   * @param above - How much of the board stands above the face (the case, and the plate with the name).
+   * @param minimum - How far the camera stands at least.
+   * @param bottom - Pixels covered at the bottom of the screen.
+   * @param top - Pixels covered at its top.
+   */
+  private _frameBoard(step: CameraStep, board: THREE.Vector3, size: BoardSize, above: number, minimum: number, bottom: number, top = HEADER_SPACE): void {
+    const tangent = Math.tan(THREE.MathUtils.degToRad(this._camera.fov / 2));
+    const high = board.y + size.height / 2 + above;
+    const low = board.y - size.height / 2 - 0.3;
+    const free = Math.max(0.3, (this._height - top - bottom) / this._height);
+    const distance = Math.max(minimum, ((high - low) / 2 + 0.1) / (tangent * free), (size.width / 2 + 0.4) / (tangent * this._camera.aspect));
+    // The middle of the board in the middle of the screen left free
+    const y = (high + low) / 2 - ((bottom - top) / this._height) * distance * tangent;
+    step.position.set(board.x - distance, y, board.z);
+    step.target.set(board.x, y, board.z);
+  }
+
+  /**
+   * Hangs the board of the player on the wall, in its case, in place of the one hanging there: of a size, wide or tall,
+   * showing who it showed.
+   *
+   * @param size - The size of its face.
+   */
+  private _hangPlayerBoard(size: BoardSize): void {
+    if (this._statsBoard) {
+      this._scene.remove(this._statsBoard);
+      this._dispose(this._statsBoard);
+      this._clearHover();
+    }
+
+    this._statsSize = size;
+    this._playerBoard = new PlayerBoard(size.width, size.height);
+    this._playerBoard.show(this._shown.detail, this._shown.scope);
+    this._statsBoard = wallBoard(size, 'GIOCATORE');
+    this._statsBoard.add(this._playerBoard.object);
+    this._statsBoard.position.copy(STATS_BOARD);
+    this._statsBoard.rotation.y = -Math.PI / 2;
+    this._statsBoard.traverse(object => {
+      object.receiveShadow = true;
+    });
+    this._scene.add(this._statsBoard);
+  }
+
+  /**
+   * Hangs the board of the matches on the wall, in its case, in place of the one hanging there; what the page draws
+   * over it follows it.
+   *
+   * @param size - The size of its face.
+   * @param center - The centre of its face.
+   */
+  private _hangMatchBoard(size: BoardSize, center: THREE.Vector3): void {
+    if (this._matchBoard) {
+      this._scene.remove(this._matchBoard);
+      this._dispose(this._matchBoard);
+    }
+
+    this._matchSize = size;
+    this._matchCenter = center;
+    this._walls = wallBoards(center, size);
+    this._matchBoard = wallBoard(size, 'PARTITE');
+    this._matchBoard.position.copy(center);
+    this._matchBoard.rotation.y = -Math.PI / 2;
+    this._matchBoard.traverse(object => {
+      object.receiveShadow = true;
+    });
+    this._scene.add(this._matchBoard);
   }
 
   /**
@@ -717,6 +858,7 @@ export class AquariumScene {
   public dispose(): void {
     this._running = false;
     this._renderer.domElement.removeEventListener('pointermove', this._onPointerMove);
+    this._renderer.domElement.removeEventListener('pointerdown', this._onPointerMove);
     this._renderer.domElement.removeEventListener('pointerleave', this._onPointerLeave);
     cancelAnimationFrame(this._frame);
     this._dispose(this._scene);
@@ -781,7 +923,7 @@ export class AquariumScene {
     }
 
     for (const [wall, element] of this._wallElements) {
-      this._placeOnWall(WALL_BOARDS[wall], element);
+      this._placeOnWall(this._walls[wall], element);
     }
 
     // The first three appear once the camera reached the hall of fame
@@ -841,6 +983,11 @@ export class AquariumScene {
       right = Math.max(right, x);
       top = Math.min(top, y);
       bottom = Math.max(bottom, y);
+    }
+
+    if (board.under) {
+      element.style.transform = `translate(${((left + right) / 2).toFixed(1)}px, ${bottom.toFixed(1)}px) translateX(-50%)`;
+      return;
     }
 
     // Laid out as big as the face is seen, or at its own width and scaled down to the face

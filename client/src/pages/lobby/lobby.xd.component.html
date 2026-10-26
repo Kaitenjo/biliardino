@@ -15,6 +15,30 @@
 >
   <match-board slot="matches" games="{matchPage()?.matches ?? []}" page="{matchPageNumber()}"
     pageCount="{matchPageCount()}" total="{matchPage()?.total ?? 0}" />
+  <nav slot="matchesFoot" class="pager below" aria-label="Pagine delle partite">
+    <button
+      @if (matchPageNumber() <= 1) {
+        disabled
+      }
+      type="button"
+      class="btn ghost"
+      (click)="goToMatches(matchPageNumber() - 1)"
+    >
+      <app-icon name="arrow-left" />
+      Più recenti
+    </button>
+    <button
+      @if (matchPageNumber() >= matchPageCount()) {
+        disabled
+      }
+      type="button"
+      class="btn ghost"
+      (click)="goToMatches(matchPageNumber() + 1)"
+    >
+      Più vecchie
+      <app-icon name="arrow-right" />
+    </button>
+  </nav>
 </lobby-aquarium>
 
 @if (view() === 'ranking') {
@@ -150,30 +174,6 @@
     <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
       <app-icon name="arrow-down" />
     </button>
-    <nav class="pager below" aria-label="Pagine delle partite">
-      <button
-        @if (matchPageNumber() <= 1) {
-          disabled
-        }
-        type="button"
-        class="btn ghost"
-        (click)="goToMatches(matchPageNumber() - 1)"
-      >
-        <app-icon name="arrow-left" />
-        Più recenti
-      </button>
-      <button
-        @if (matchPageNumber() >= matchPageCount()) {
-          disabled
-        }
-        type="button"
-        class="btn ghost"
-        (click)="goToMatches(matchPageNumber() + 1)"
-      >
-        Più vecchie
-        <app-icon name="arrow-right" />
-      </button>
-    </nav>
   }
   @default {
     <button type="button" class="arrow left" aria-label="Torna all'acquario" title="Torna all'acquario"

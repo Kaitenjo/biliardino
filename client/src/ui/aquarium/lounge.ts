@@ -113,7 +113,7 @@ function texture(width: number, height: number, paint: (ctx: CanvasRenderingCont
  * @param title - The name on its plate.
  * @returns The board, the centre of its face at its origin, facing +z.
  */
-function wallBoard({ width, height }: { width: number; height: number }, title: string): THREE.Group {
+export function wallBoard({ width, height }: { width: number; height: number }, title: string): THREE.Group {
   const board = new THREE.Group();
   const brass = material(0xc9a227, { metalness: 0.85, roughness: 0.3, flatShading: false });
   const caseBox = new THREE.Mesh(new THREE.BoxGeometry(width + 0.5, height + 0.5, 0.3), material(0x3a1d10, { roughness: 0.45 }));
@@ -632,13 +632,7 @@ export function buildLounge(): THREE.Group {
     group.add(armchair);
   }
 
-  // The boards of the player and of the matches on the wall in front of the table, facing it
-  for (const [position, size, title] of [[STATS_BOARD, STATS_BOARD_SIZE, 'GIOCATORE'], [MATCH_BOARD, MATCH_BOARD_SIZE, 'PARTITE']] as const) {
-    const board = wallBoard(size, title);
-    board.position.copy(position);
-    board.rotation.y = -Math.PI / 2;
-    group.add(board);
-  }
+  // The boards of the player and of the matches change their shape with the screen: the scene hangs them
 
   for (const [x, hue] of [[-6, 210], [3, 20], [14, 280]] as const) {
     const frameBox = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 0.1), gilt);

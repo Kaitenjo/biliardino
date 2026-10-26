@@ -17,7 +17,19 @@ export class AppHeaderComponent extends CustomElement {
   @Query.required('nav')
   public accessor navElement!: QuerySignal<HTMLElement>
 
-  private readonly _resizeObserver = new ResizeObserver(entries => this.showLabels.set(entries![0]!.contentRect.width > 386));
+  /**
+   * How wide the links are with their names, measured while they are shown: the names are shown only when they fit.
+   */
+  private _labelledWidth = 0;
+
+  private readonly _resizeObserver = new ResizeObserver(() => {
+    const nav = this.navElement();
+    if (this.showLabels()) {
+      this._labelledWidth = nav.scrollWidth;
+    }
+
+    this.showLabels.set(nav.clientWidth >= this._labelledWidth);
+  });
 
   public afterRender(): void {
     this._resizeObserver.observe(this.navElement());

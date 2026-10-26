@@ -119,7 +119,7 @@ export class AquariumComponent extends CustomElement {
   @Query.all<HTMLElement>('.champion')
   public accessor podiumElements!: QuerySignal<HTMLElement[]>;
   /**
-   * Where the page puts what is drawn over the boards on the walls (`matches`), to keep over their faces.
+   * Where the page puts what is drawn over the boards on the walls (`matches`, and `matchesFoot` under it), to keep over their faces.
    */
   @Query.all<HTMLSlotElement>('slot')
   public accessor wallSlots!: QuerySignal<HTMLSlotElement[]>;

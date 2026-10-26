@@ -6,6 +6,7 @@
   <canvas />
   <div class="labels" aria-hidden="true" />
   <slot name="matches" (slotchange)="placeWalls()" />
+  <slot name="matchesFoot" (slotchange)="placeWalls()" />
 
   @for (seat of seats(); track seat().key) {
     <a class="{`seat ${seat().side}`}" data-key="{seat().key}" href="{`#/players/${seat().player.id}`}">
@@ -24,7 +25,7 @@
   }
 
   @for (hover of chartHover(); track hover().match.id) {
-    <div class="chart-preview" style="{`left: ${hover().x}px; top: ${hover().y}px`}">
+    <div class="chart-preview" style="{`--x: ${hover().x}px; top: ${hover().y}px`}">
       <div class="preview-head">
         <span class="preview-elo">ELO <strong>{ hover().elo }</strong></span>
         <strong class="preview-delta" [class.up]="{hover().match.eloDelta >= 0}">{ formatDelta(hover().match.eloDelta) }</strong>
