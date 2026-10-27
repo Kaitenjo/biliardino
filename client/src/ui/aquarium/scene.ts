@@ -789,7 +789,28 @@ export class AquariumScene {
    */
   public setSeats(elements: Map<SeatKey, HTMLElement>): void {
     this._seatElements = elements;
+    this._scaleSeats();
     this._invalidate();
+  }
+
+  /**
+   * The size of the icons of the players, in proportion to the screen: 0.8 on a big one, smaller down to a floor on a
+   * small one, whichever its orientation (the styles of `.seat` scale with it).
+   *
+   * @returns The scale of the icons.
+   */
+  private _seatScale(): number {
+    return THREE.MathUtils.clamp(Math.min(this._width / 1000, this._height / 750), 0.65, 1) * 0.6;
+  }
+
+  /**
+   * Gives the icons of the players the size for the screen.
+   */
+  private _scaleSeats(): void {
+    const scale = String(this._seatScale().toFixed(3));
+    for (const element of this._seatElements.values()) {
+      element.style.setProperty('--seat-scale', scale);
+    }
   }
 
   /**
@@ -895,6 +916,7 @@ export class AquariumScene {
     // On a phone held sideways the panels collapse to small bars in the middle (the lobby at the top, the match at the
     // bottom), not across the screen: the height is too short to leave them a whole band
     const sideways = this._height <= 500;
+    this._scaleSeats();
     this._frameTable(HEADER_SPACE + (sideways ? 0 : PANEL_BAR_SPACE), arrows + (sideways ? 0 : PANEL_BAR_SPACE), sideways);
     this._applyCamera();
     this._invalidate();
@@ -913,12 +935,10 @@ export class AquariumScene {
   private _frameTable(top: number, bottom: number, bars: boolean): void {
     const base = CAMERA_PATH[TABLE_STEP]!;
     const step = this._path[TABLE_STEP]!;
-    // The label of a player: smaller on a small screen (see the styles of `.seat`)
-    const small = this._width <= 640 || this._height <= 500;
-    const halfWidth = small ? 68 : 90;
-    const height = small ? 110 : 145;
-    // On a small screen the defenders are lowered by this much
-    const defenseDrop = small ? 20 : 0;
+    // The label of a player, in proportion to the screen (see the styles of `.seat`)
+    const scale = this._seatScale();
+    const halfWidth = 90 * scale;
+    const height = 145 * scale;
     const seats = [...this._seatAnchors.entries()];
     const placed = seats.map(() => new THREE.Vector2());
     this._probe.aspect = this._camera.aspect;
@@ -926,10 +946,10 @@ export class AquariumScene {
       this._probe.fov = fov;
       this._probe.updateProjectionMatrix();
       this._probe.updateMatrixWorld();
-      for (const [i, [key, anchor]] of seats.entries()) {
+      for (const [i, [, anchor]] of seats.entries()) {
         this._projected.copy(anchor).project(this._probe);
         const x = ((this._projected.x + 1) / 2) * this._width;
-        const y = ((1 - this._projected.y) / 2) * this._height + (key.endsWith('defense') ? defenseDrop : 0);
+        const y = ((1 - this._projected.y) / 2) * this._height;
         // Under the bar of the lobby, or over the one of the match, in the middle
         const middle = bars && Math.abs(x - this._width / 2) < halfWidth + SMALL_BAR_HALF_WIDTH;
         const over = top + (middle ? SMALL_BAR_SPACE : 0);

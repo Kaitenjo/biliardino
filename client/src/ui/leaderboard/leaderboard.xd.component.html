@@ -1,4 +1,4 @@
-@import { FormEntry } from '../../core/api/api.models.ts'
+@import { FormEntry, Team } from '../../core/api/api.models.ts'
 @import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
@@ -127,10 +127,10 @@
   </div>
 }
 
-<template team(label: string, color: string, entry: FormEntry)>
+<template team(label: string, color: Team, entry: FormEntry)>
   <div class="{`team ${color()}`}">
     <span class="team-label">{ label() }</span>
-    @for (member of teamOf(entry(), color() === 'brown' ? 'brown' : 'white'); track member().id) {
+    @for (member of teamOf(entry(), color()); track member().id) {
       <span>
         <app-icon class="{member().role}" name="{member().role}" />
         <player-avatar icon="{member().icon}" label="{member().name}" />
