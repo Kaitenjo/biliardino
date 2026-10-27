@@ -5,21 +5,21 @@ import { detail, paintedColorSpace } from './detail';
 import { phong } from './materials';
 
 /*
-  The board of a player, on the wall in front of the foosball table, between the rules and the matches: its name and
-  its rank on a medal that turns slowly, its figures painted on the slate, and the trend of its ELO as tubes of light
+  The board of a player, on the wall in front of the foosball table, between the rules and the matches: its icon, its
+  name and rank, its figures painted on the slate, and the trend of its ELO as tubes of light
   standing out of the board (brown in attack, white in defence), with its teammates and opponents beside them.
 */
 
 /**
  * Where everything is painted on the slate, in pixels: the size of the canvas (as wide as tall as the face of the
- * board), the medal, the name, the gold rules between the parts, the rows of figures, the chart and the teammates and
+ * board), the icon, the name, the gold rules between the parts, the rows of figures, the chart and the teammates and
  * the opponents; and the sizes of the writings.
  */
 interface Layout {
   width: number;
   height: number;
   margin: number;
-  medal: { x: number; y: number; radius: number };
+  icon: { x: number; y: number; radius: number };
   name: { x: number; y: number; size: number; roles: number };
   elo: { scopeY: number; y: number; size: number; scope: number; label: number };
   rules: Array<[number, number, number, number]>;
@@ -44,7 +44,7 @@ const WIDE: Layout = {
   width: 1600,
   height: 1000,
   margin: 60,
-  medal: { x: 150, y: 128, radius: 92 },
+  icon: { x: 150, y: 128, radius: 92 },
   name: { x: 290, y: 135, size: 92, roles: 36 },
   elo: { scopeY: 100, y: 190, size: 88, scope: 30, label: 26 },
   rules: [
@@ -70,7 +70,7 @@ const TALL: Layout = {
   width: 1000,
   height: 1680,
   margin: 50,
-  medal: { x: 130, y: 135, radius: 95 },
+  icon: { x: 130, y: 135, radius: 95 },
   name: { x: 260, y: 140, size: 92, roles: 40 },
   elo: { scopeY: 95, y: 195, size: 92, scope: 34, label: 32 },
   rules: [
@@ -98,9 +98,9 @@ const TALL: Layout = {
 export const TALL_BOARD_SIZE = { width: 3.4, height: (3.4 * TALL.height) / TALL.width };
 
 /**
- * The colours of the medal by rank, and of the lines of the roles.
+ * The colours of the rank, by position, and of the lines of the roles.
  */
-const MEDAL_COLORS: Record<number, string> = { 1: '#f5c542', 2: '#d6dbe2', 3: '#d08a4a' };
+const RANK_COLORS: Record<number, string> = { 1: '#f5c542', 2: '#d6dbe2', 3: '#d08a4a' };
 const ROLE_COLORS: Record<Role, number> = { attack: 0xfb7185, defense: 0x60a5fa };
 
 /**
@@ -211,10 +211,12 @@ export class PlayerBoard {
   private readonly _layout: Layout;
   private readonly _canvas = document.createElement('canvas');
   private readonly _texture: THREE.CanvasTexture;
-  private readonly _medalCanvas = document.createElement('canvas');
-  private readonly _medalTexture: THREE.CanvasTexture;
-  private readonly _medal: THREE.Mesh;
-  private readonly _medalMetal: THREE.MeshPhongMaterial;
+  /**
+   * The images of the icons, by URL (`null` while one loads or when it cannot be), and what is shown, to paint it again
+   * when an image arrives.
+   */
+  private readonly _images = new Map<string, HTMLImageElement | null>();
+  private _shown: { detail: PlayerDetail; scope: RankingMode } | null = null;
   /**
    * The tubes of the chart, rebuilt with the player and the scope.
    */
@@ -238,7 +240,7 @@ export class PlayerBoard {
     this._width = width;
     this._height = height;
     this._layout = height > width ? TALL : WIDE;
-    const { chart, medal } = this._layout;
+    const { chart } = this._layout;
     this._canvas.width = this._layout.width;
     this._canvas.height = this._layout.height;
     this._texture = new THREE.CanvasTexture(this._canvas);
@@ -256,27 +258,7 @@ export class PlayerBoard {
     this._marker.visible = false;
     this.object.add(this._guide, this._marker);
 
-    // The medal: a coin of metal with the rank on its face
-    this._medalCanvas.width = 256;
-    this._medalCanvas.height = 256;
-    this._medalTexture = new THREE.CanvasTexture(this._medalCanvas);
-    this._medalTexture.colorSpace = paintedColorSpace();
-    this._medalMetal = phong({ color: 0xf5c542, metalness: 0.75, roughness: 0.3 });
-    const radius = (medal.radius / this._layout.width) * width;
-    this._medal = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.07, detail(24, 48)), [
-      this._medalMetal,
-      phong({ map: this._medalTexture, metalness: 0.5, roughness: 0.35 }),
-      this._medalMetal
-    ]);
-    // Laid flat facing the room, then turned about the vertical
-    this._medal.rotation.order = 'YXZ';
-    this._medal.rotation.x = Math.PI / 2;
-    // The face of a cylinder laid down has its letters sideways: turned back upright
-    this._medalTexture.center.set(0.5, 0.5);
-    this._medalTexture.rotation = Math.PI / 2;
-    // Far enough out of the slate that its edge never sinks into it while it turns
-    this._medal.position.set(this._x(medal.x), this._y(medal.y), 0.3);
-    this.object.add(this._medal, this._chart);
+    this.object.add(this._chart);
     this.show(null, 'best');
   }
 
@@ -291,22 +273,21 @@ export class PlayerBoard {
     const { chart, margin } = this._layout;
     this._paintSlate(ctx);
     if (!detail) {
+      this._shown = null;
       ctx.fillStyle = MUTED;
       ctx.font = `italic 500 60px ${TEXT}`;
       ctx.textAlign = 'center';
       ctx.fillText('Scegli un giocatore…', this._layout.width / 2, this._layout.height / 2);
-      this._medal.visible = false;
       this._buildChart([], 0, 1);
       this._texture.needsUpdate = true;
       return;
     }
 
+    this._shown = { detail, scope };
     const stats = detail.stats[scope];
     this._paintHead(ctx, detail, scope);
     this._paintFigures(ctx, detail, stats, scope);
     this._paintMentions(ctx, stats);
-    this._paintMedal(stats.rank);
-    this._medal.visible = true;
 
     // The chart: the axis painted, the lines as tubes
     const { matches, series } = trend(detail, scope);
@@ -377,15 +358,6 @@ export class PlayerBoard {
   }
 
   /**
-   * Turns the medal a little to and fro, catching the light.
-   *
-   * @param time - Seconds since the start.
-   */
-  public animate(time: number): void {
-    this._medal.rotation.y = Math.sin(time * 0.8) * 0.4;
-  }
-
-  /**
    * The slate: dark, a little lighter in the middle, with thin gold rules between its parts.
    *
    * @param ctx - The canvas.
@@ -447,7 +419,27 @@ export class PlayerBoard {
     ctx.fillStyle = MUTED;
     ctx.font = `italic 500 ${name.roles}px ${TEXT}`;
     const roles = player.playsAttack && player.playsDefense ? 'Attacco e difesa' : player.playsAttack ? 'Solo attacco' : 'Solo difesa';
-    ctx.fillText(roles, name.x + 4, name.y + name.roles * 1.6);
+    const rolesY = name.y + name.roles * 1.6;
+    ctx.fillText(roles, name.x + 4, rolesY);
+
+    // Its position in the ranking of the scope, after the roles
+    const rank = detail.stats[scope].rank;
+    const rankX = name.x + 4 + ctx.measureText(`${roles}     `).width;
+    ctx.fillStyle = (rank && RANK_COLORS[rank]) || INK;
+    // The number in the font of the figures: in the other one a 1 looks like an I. The writing is shortened to what fits
+    // before the ELO
+    const number = rank ? `${rank}°` : '—';
+    ctx.font = `700 ${name.roles}px ${FIGURES}`;
+    ctx.fillText(number, rankX, rolesY);
+    const numberWidth = ctx.measureText(number).width;
+    ctx.font = `700 ${name.roles}px ${DISPLAY}`;
+    const left = eloLeft - 20 - (rankX + numberWidth + 10);
+    const caption = (rank ? ['IN CLASSIFICA', 'POSTO'] : ['NON CLASSIFICATO', 'NON CLASS.']).find(text => ctx.measureText(text).width <= left);
+    if (caption) {
+      ctx.fillText(caption, rankX + numberWidth + 10, rolesY);
+    }
+
+    this._paintIcon(ctx, player.icon, rank);
   }
 
   /**
@@ -580,31 +572,71 @@ export class PlayerBoard {
   }
 
   /**
-   * The rank on the face of the medal, and the metal of its rim: gold, silver, bronze, or steel further down.
+   * The icon of the player in a round frame, ringed with the colour of its rank: its image, its emoji or a silhouette.
    *
+   * @param ctx - The canvas.
+   * @param icon - The URL of an image, an emoji, or `''`.
    * @param rank - The rank, `null` when it never played in the scope.
    */
-  private _paintMedal(rank: number | null): void {
-    const color = (rank && MEDAL_COLORS[rank]) || '#8b95a5';
-    this._medalMetal.color.set(color);
-    const ctx = this._medalCanvas.getContext('2d')!;
-    const face = ctx.createRadialGradient(100, 90, 10, 128, 128, 128);
-    face.addColorStop(0, '#ffffff');
-    face.addColorStop(0.35, color);
-    face.addColorStop(1, '#3a2a0a');
-    ctx.fillStyle = face;
-    ctx.fillRect(0, 0, 256, 256);
-    ctx.strokeStyle = 'rgba(40, 26, 8, 0.6)';
+  private _paintIcon(ctx: CanvasRenderingContext2D, icon: string, rank: number | null): void {
+    const { x, y, radius } = this._layout.icon;
+    const isUrl = /^(https?:|data:|\/)/.test(icon);
+    ctx.save();
+    ctx.fillStyle = '#2a303a';
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.clip();
+    const image = isUrl ? this._image(icon) : null;
+    if (image) {
+      // Covering the frame, from the middle of the image
+      const side = Math.min(image.naturalWidth, image.naturalHeight);
+      ctx.drawImage(image, (image.naturalWidth - side) / 2, (image.naturalHeight - side) / 2, side, side, x - radius, y - radius, radius * 2, radius * 2);
+    } else if (icon && !isUrl) {
+      ctx.fillStyle = INK;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `${radius * 1.1}px ${TEXT}`;
+      ctx.fillText(icon, x, y + radius * 0.06);
+    } else if (!isUrl) {
+      // A silhouette: head and shoulders
+      ctx.fillStyle = MUTED;
+      ctx.beginPath();
+      ctx.arc(x, y - radius * 0.2, radius * 0.34, 0, Math.PI * 2);
+      ctx.ellipse(x, y + radius * 0.95, radius * 0.7, radius * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+    ctx.strokeStyle = (rank && RANK_COLORS[rank]) || '#8b95a5';
     ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.arc(128, 128, 108, 0, Math.PI * 2);
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = '#2a1d04';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = `900 104px ${DISPLAY}`;
-    ctx.fillText(rank ? `${rank}°` : '—', 128, 136);
-    this._medalTexture.needsUpdate = true;
+  }
+
+  /**
+   * The image of an icon: `null` while it loads (the board is painted again when it arrives) or when it cannot be loaded.
+   *
+   * @param url - Its URL.
+   * @returns The image.
+   */
+  private _image(url: string): HTMLImageElement | null {
+    if (this._images.has(url)) {
+      return this._images.get(url)!;
+    }
+
+    this._images.set(url, null);
+    const image = new Image();
+    image.onload = () => {
+      this._images.set(url, image);
+      if (this._shown) {
+        this.show(this._shown.detail, this._shown.scope);
+      }
+    };
+
+    image.src = url;
+    return null;
   }
 
   /**

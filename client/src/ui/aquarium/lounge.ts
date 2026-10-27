@@ -158,8 +158,8 @@ export function wallBoard({ width, height }: { width: number; height: number }, 
         ctx.textBaseline = 'middle';
         ctx.fillText(title, 260, 54);
       }),
-      metalness: 0.6,
-      roughness: 0.35
+      // Matte: a polished plate glares under the lamps, over the title
+      roughness: 1
     })
   );
   plate.position.set(0, height / 2 + 0.6, 0.02);

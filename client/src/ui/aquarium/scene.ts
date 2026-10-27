@@ -1285,7 +1285,6 @@ export class AquariumScene {
     const sea = this._near('aquarium', VIEW_PROGRESS.aquarium) > 0;
     const board = this._near('stats', VIEW_PROGRESS.stats - VIEW_PROGRESS.table) > 0;
     if (board) {
-      this._playerBoard.animate(time);
     }
 
     // Who comes and goes does it anyway, to be gone when the lobby is seen again

@@ -463,8 +463,9 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
       // table, by the near goal, the attackers further along
       'brown-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, WIDTH / 2 + 0.95),
       'brown-attack': seat(3, 5, 1),
-      'white-attack': seat(3, 5, -1),
-      'white-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, -(WIDTH / 2 + 0.95))
+      // The white ones sit the other way round along the table, as seen from the camera they are on the opposite side
+      'white-attack': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, -(WIDTH / 2 + 1.25)),
+      'white-defense': new THREE.Vector3((rodX(3) + rodX(5)) / 2, ROD_Y + 0.35, -(WIDTH / 2 + 0.95))
     }
   };
 }
