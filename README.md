@@ -93,7 +93,7 @@ Schema in [server/migrations/](server/migrations):
 | `player_availability` | non più usata: i giorni della settimana in cui un giocatore c'era di solito (0 = domenica), sostituiti da `players.available_on` |
 | `running_match` | la partita generata e non ancora giocata (una sola per vincolo), mostrata a tutti come "in corso" |
 | `lobbies` | le lobby: giorno, orario di apertura (`slot`), se la partita del suo orario è già stata generata, se è chiusa |
-| `lobby_players` | chi è in ogni lobby |
+| `lobby_players` | chi è in ogni lobby, e se è obbligatorio nella prossima partita (`priority`) |
 | `push_subscriptions` | i browser in cui un utente ha attivato le notifiche push |
 | `elo_settings` | le variabili del calcolo dell'ELO (una riga), modificabili dalla pagina ELO |
 | `matches` | punteggio marroni/bianchi (`brown_score`, `white_score`, 0–8), vincitore (`brown`/`white`), probabilità attesa dei bianchi, la prima squadra (`white_expected`, derivata), chi l'ha registrata, data |
@@ -121,8 +121,12 @@ Le partite nascono dalle **lobby** ([lobby.ts](server/src/lobby/lobby.ts), orari
 - All'orario della partita il matchmaking sceglie la partita migliore tra chi è in lobby, che diventa la partita in corso;
   i 4 giocatori ricevono una notifica. Con meno di 4 persone (o una partita ancora da salvare, o ruoli incompatibili) non
   si genera nulla e chi era in lobby riceve una notifica con il motivo.
-- Finché la lobby è aperta, chi salva un risultato può generare subito un'altra partita con chi è in lobby (i 4 giocatori
-  vengono avvisati).
+- Finché la lobby è aperta, dopo la partita del suo orario e senza una partita in corso, chiunque può generarne un'altra
+  con chi è in lobby (**Genera partita**; i 4 giocatori vengono avvisati).
+- Chiunque può aggiungere o togliere altri giocatori dalla lobby, e renderne qualcuno **obbligatorio** (stella): la
+  prossima partita generata lo comprende per forza, poi torna normale. La pagina non è live (c'è il pulsante per
+  aggiornarla): se nel frattempo qualcun altro ha già aggiunto o tolto quel giocatore, la richiesta viene rifiutata e la
+  pagina mostra la lobby com'è, con un avviso.
 
 Non c'è più la generazione manuale. Lo scheduler è il cron del Worker (`triggers` in `wrangler.jsonc`, ogni mezz'ora,
 orari UTC che coprono ora solare e legale); ogni passo è registrato nel DB, quindi un cron in ritardo o saltato si

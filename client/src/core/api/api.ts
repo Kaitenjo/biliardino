@@ -149,6 +149,35 @@ export function setInLobby(lobbyId: number, inside: boolean): Promise<LobbyState
 }
 
 /**
+ * Puts another player in the open lobby, or takes it out.
+ *
+ * @param lobbyId - The id of the lobby.
+ * @param playerId - The id of the player.
+ * @param inside - Whether it enters.
+ * @param priority - Whether the next match must include it, when it enters.
+ * @returns The state of the lobby page.
+ * @throws {ApiError} With status 409 when the lobby closed in the meantime, or when the player was already in (or
+ * already out): then the state of the lobby page is in `data.state`.
+ */
+export function setPlayerInLobby(lobbyId: number, playerId: number, inside: boolean, priority = false): Promise<LobbyState> {
+  return inside ? request('PUT', `/lobby/${lobbyId}/players/${playerId}`, { priority }) : request('DELETE', `/lobby/${lobbyId}/players/${playerId}`);
+}
+
+/**
+ * Makes a player in the open lobby obligatory for the next match, or not.
+ *
+ * @param lobbyId - The id of the lobby.
+ * @param playerId - The id of the player.
+ * @param priority - Whether the next match must include it.
+ * @returns The state of the lobby page.
+ * @throws {ApiError} With status 409 when the lobby closed in the meantime, or when the player is no longer in it: then
+ * the state of the lobby page is in `data.state`.
+ */
+export function setPlayerPriority(lobbyId: number, playerId: number, priority: boolean): Promise<LobbyState> {
+  return request('PUT', `/lobby/${lobbyId}/players/${playerId}/priority`, { priority });
+}
+
+/**
  * Generates another match with who is in the open lobby, after the one of its time; its players are notified.
  *
  * @param lobbyId - The id of the lobby.

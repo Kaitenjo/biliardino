@@ -3,6 +3,7 @@ import { computed, signal, untracked } from '@xaendar/core/signals';
 import {
   ApiError,
   deleteRunningMatch,
+  fetchLeaderboard,
   fetchLobby,
   fetchMatches,
   fetchPlayer,
@@ -13,9 +14,11 @@ import {
   putAdminRoles,
   putRoles,
   saveMatch,
-  setInLobby
+  setInLobby,
+  setPlayerInLobby,
+  setPlayerPriority
 } from '../../core/api/api';
-import type { LeaderboardEntry, LobbyState, MatchPage, PlayerDetail, RankingMode, Role, RunningMatch, SavedMatch, UserRoles } from '../../core/api/api.models';
+import type { LeaderboardEntry, LobbyPlayer, LobbyState, MatchPage, PlayerDetail, RankingMode, Role, RunningMatch, SavedMatch, UserRoles } from '../../core/api/api.models';
 import { user } from '../../core/auth/session';
 import { navigate, route, routeName } from '../../core/router/router';
 import type { PodiumPlace } from '../../ui/aquarium/aquarium.xd.component';
@@ -33,9 +36,14 @@ const JOIN_COOLDOWN_SECONDS = 10;
 const COLLAPSED_STORAGE_KEY = 'biliardino-collapsed';
 
 /**
- * The panels over the scene that collapse to their first line.
+ * The panels over the scene that collapse to their first line, and the players of the lobby inside its panel.
  */
-type Collapsible = 'lobby' | 'match';
+type Collapsible = 'lobby' | 'match' | 'players';
+
+/**
+ * What waits for the confirmation in the panel of the match: deleting it, or saving its result.
+ */
+type PendingAction = { kind: 'drop' } | { kind: 'save'; brownScore: number; whiteScore: number };
 
 /**
  * Reads which panels were left collapsed on this device.
@@ -44,11 +52,12 @@ type Collapsible = 'lobby' | 'match';
  */
 function readCollapsed(): Collapsible[] {
   try {
-    const stored: unknown = JSON.parse(localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? '[]');
-    return Array.isArray(stored) ? stored.filter((panel): panel is Collapsible => panel === 'lobby' || panel === 'match') : [];
+    // The first time, only the players of the lobby are collapsed
+    const stored: unknown = JSON.parse(localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? '["players"]');
+    return Array.isArray(stored) ? stored.filter((panel): panel is Collapsible => panel === 'lobby' || panel === 'match' || panel === 'players') : ['players'];
   } catch {
-    // Storage unavailable or corrupted: all panels open
-    return [];
+    // Storage unavailable or corrupted: all panels open, but the players of the lobby
+    return ['players'];
   }
 }
 
@@ -60,11 +69,14 @@ function readCollapsed(): Collapsible[] {
  * (`#/lobby`, which needs a login): the ocean seen through the window of a lounge, with a creature for each player in
  * the lobby. From there the arrow on the right takes the camera back into the lounge, to the foosball table where the 4
  * players of the match stand (it goes there by itself when a match is generated), the one on the left back to the
- * hall of fame, the one at the top straight on to the board of the rules (`#/rules`, open to everybody). Over the lobby: the lobby with the button to enter or leave it, and at the table the result to save and,
- * after it, whether to generate another match.
+ * hall of fame, the one at the top straight on to the board of the rules (`#/rules`, open to everybody). Over the lobby: the lobby with the button to enter or leave it and
+ * who is in (anybody can put another player in or take it out), and at the table the result to save and, while the
+ * lobby is open after its match and there is no match to play, the button to generate another one.
  *
  * Nothing is polled: the page reads the server when it opens, after each action, when a push notification arrives (the
- * service worker tells it: a lobby opened, a match was generated) and when the tab is shown again.
+ * service worker tells it: a lobby opened, a match was generated), when the tab is shown again and on the buttons that
+ * read it again. Since what the page shows may be old, putting a player in or out is refused when somebody else did it
+ * first: the page then shows the lobby as it is, with a warning.
  */
 @WebComponent({
   selector: 'page-lobby',
@@ -85,10 +97,6 @@ export class LobbyPage extends CustomElement {
    */
   public readonly saved = signal<SavedMatch | null>(null);
   /**
-   * Whether to ask, after a saved match, if another one should be generated with who is in the lobby.
-   */
-  public readonly offerNext = signal(false);
-  /**
    * Whether a request is in flight.
    */
   public readonly busy = signal(false);
@@ -97,6 +105,20 @@ export class LobbyPage extends CustomElement {
    */
   public readonly error = signal('');
   /**
+   * The warning to show over the players of the lobby (what was asked was already done by somebody else), `''` when
+   * there is none.
+   */
+  public readonly warning = signal('');
+  /**
+   * What waits for the confirmation in the panel of the match: deleting it, or saving its result; `null` when nothing
+   * does.
+   */
+  public readonly pendingAction = signal<PendingAction | null>(null);
+  /**
+   * The result waiting for the confirmation, 0-0 when none does.
+   */
+  public readonly pendingResult = computed(() => this._computePendingResult());
+  /**
    * The open lobby, `null` when there is none.
    */
   public readonly lobby = computed(() => this.state()?.lobby ?? null);
@@ -104,6 +126,19 @@ export class LobbyPage extends CustomElement {
    * Whether the logged user is in the lobby.
    */
   public readonly joined = computed(() => this.lobby()?.players.some(player => player.id === user()?.playerId) ?? false);
+  /**
+   * Whether another match can be generated with who is in the lobby: it is open after its match, and there is no match
+   * to play.
+   */
+  public readonly canGenerate = computed(() => this._computeCanGenerate());
+  /**
+   * Every player, to put one in the lobby; `null` until loaded.
+   */
+  public readonly everybody = signal<LeaderboardEntry[] | null>(null);
+  /**
+   * The players not in the lobby, by name.
+   */
+  public readonly candidates = computed(() => this._computeCandidates());
   /**
    * Probability that the white team wins, 0 to 100.
    */
@@ -247,12 +282,26 @@ export class LobbyPage extends CustomElement {
           navigate('/match');
         }
 
+        // What waited for the confirmation was about the match that is gone
+        if (id !== this._seenMatch) {
+          this.pendingAction.set(null);
+        }
+
         this._seenMatch = id;
       });
     });
     this.effect(() => {
       user();
       untracked(() => this._run(() => this._refresh()));
+    });
+    // Every player, the first time the players of the lobby are shown
+    this.effect(() => {
+      const shown = this.lobby() !== null && !this.collapsed().includes('lobby') && !this.collapsed().includes('players');
+      untracked(() => {
+        if (shown && this.everybody() === null) {
+          this._loadEverybody().catch(error => this.error.set((error as Error).message));
+        }
+      });
     });
     document.addEventListener('visibilitychange', this._onVisibility);
     navigator.serviceWorker?.addEventListener('message', this._onWorkerMessage);
@@ -503,7 +552,52 @@ export class LobbyPage extends CustomElement {
   }
 
   /**
-   * Generates another match with who is in the lobby, after a saved one.
+   * Puts the player chosen in the list in the lobby, and empties the choice.
+   *
+   * @param choice - The list of the players not in the lobby.
+   * @param priority - Whether the next match must include it.
+   */
+  public async addPlayer(choice: HTMLSelectElement, priority: boolean): Promise<void> {
+    const playerId = Number(choice.value);
+    if (choice.value === '' || !Number.isInteger(playerId)) {
+      return;
+    }
+
+    choice.value = '';
+    await this._changeLobby(lobbyId => setPlayerInLobby(lobbyId, playerId, true, priority));
+  }
+
+  /**
+   * Takes a player out of the lobby.
+   *
+   * @param player - The player.
+   */
+  public async removePlayer(player: LobbyPlayer): Promise<void> {
+    await this._changeLobby(lobbyId => setPlayerInLobby(lobbyId, player.id, false));
+  }
+
+  /**
+   * Makes a player in the lobby obligatory for the next match, or not.
+   *
+   * @param player - The player.
+   */
+  public async togglePriority(player: LobbyPlayer): Promise<void> {
+    await this._changeLobby(lobbyId => setPlayerPriority(lobbyId, player.id, !player.priority));
+  }
+
+  /**
+   * Reads the lobby and the match to play again (with the rest of the page), since nothing is live: the match is
+   * replaced only when it changed, so that the score being typed stays.
+   */
+  public async reload(): Promise<void> {
+    await this._run(async () => {
+      const players = this.everybody() === null ? null : this._loadEverybody();
+      await Promise.all([this._refresh(), players]);
+    });
+  }
+
+  /**
+   * Generates another match with who is in the lobby, after the one of its time.
    */
   public async generateNext(): Promise<void> {
     const lobby = this.lobby();
@@ -515,7 +609,6 @@ export class LobbyPage extends CustomElement {
       try {
         this.running.set(await generateLobbyMatch(lobby.id));
         this.saved.set(null);
-        this.offerNext.set(false);
       } catch (error) {
         await this._refresh();
         throw error;
@@ -524,38 +617,23 @@ export class LobbyPage extends CustomElement {
   }
 
   /**
-   * Doesn't generate another match.
+   * Asks, in the panel, to confirm deleting the match to play.
    */
-  public declineNext(): void {
-    this.offerNext.set(false);
+  public drop(): void {
+    this.error.set('');
+    this.pendingAction.set({ kind: 'drop' });
   }
 
   /**
-   * Deletes the match to play.
-   */
-  public async drop(): Promise<void> {
-    if (!confirm("Eliminare la partita? Non verrà salvata, e se la lobby è aperta se ne genera subito un'altra.")) {
-      return;
-    }
-
-    await this._run(async () => {
-      // The match generated in its place, if any: its players are told by the server
-      this.running.set(await deleteRunningMatch());
-    });
-  }
-
-  /**
-   * Saves the result of the match to play; then, while the lobby is open after its match, asks whether to generate
-   * another one.
+   * Asks, in the panel, to confirm the result of the match to play.
    *
    * @param event - The submission of the form.
    * @param brownScore - Goals of the brown team.
    * @param whiteScore - Goals of the white team.
    */
-  public async save(event: SubmitEvent, brownScore: number, whiteScore: number): Promise<void> {
+  public save(event: SubmitEvent, brownScore: number, whiteScore: number): void {
     event.preventDefault();
-    const running = this.running();
-    if (!running) {
+    if (!this.running()) {
       return;
     }
 
@@ -567,6 +645,51 @@ export class LobbyPage extends CustomElement {
     // The match ends when a team scores 8: one team has exactly 8 and the other fewer, so 7-1 or 8-8 are not results
     if (Math.max(brownScore, whiteScore) !== 8 || brownScore === whiteScore) {
       this.error.set("Si vince a 8: una squadra deve fare 8 e l'altra meno (ad esempio 8-5)");
+      return;
+    }
+
+    this.error.set('');
+    this.pendingAction.set({ kind: 'save', brownScore, whiteScore });
+  }
+
+  /**
+   * Does what waits for the confirmation in the panel: deletes the match to play, or saves its result.
+   */
+  public async confirmAction(): Promise<void> {
+    const action = this.pendingAction();
+    this.pendingAction.set(null);
+    switch (action?.kind) {
+      case 'drop':
+        await this._run(async () => {
+          // The match generated in its place, if any: its players are told by the server
+          this.running.set(await deleteRunningMatch());
+        });
+        break;
+      case 'save':
+        await this._save(action.brownScore, action.whiteScore);
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * Leaves the match as it is.
+   */
+  public cancelAction(): void {
+    this.pendingAction.set(null);
+  }
+
+  /**
+   * Saves the result of the match to play; then, while the lobby is open after its match, the button to generate
+   * another one shows.
+   *
+   * @param brownScore - Goals of the brown team.
+   * @param whiteScore - Goals of the white team.
+   */
+  private async _save(brownScore: number, whiteScore: number): Promise<void> {
+    const running = this.running();
+    if (!running) {
       return;
     }
 
@@ -594,7 +717,6 @@ export class LobbyPage extends CustomElement {
       this.running.set(null);
       this.state.set(await fetchLobby());
       await Promise.all([this._loadRanking(), this._loadMatches(), this._reloadProfile()]);
-      this.offerNext.set(this.lobby()?.matched ?? false);
     });
   }
 
@@ -676,6 +798,43 @@ export class LobbyPage extends CustomElement {
   }
 
   /**
+   * Loads every player, to put one in the lobby.
+   */
+  private async _loadEverybody(): Promise<void> {
+    this.everybody.set(await fetchLeaderboard());
+  }
+
+  /**
+   * Changes who is in the lobby, or who is obligatory. When somebody else did it first, the lobby as it is now is shown
+   * with a warning.
+   *
+   * @param change - The request, given the id of the lobby.
+   */
+  private async _changeLobby(change: (lobbyId: number) => Promise<LobbyState>): Promise<void> {
+    const lobby = this.lobby();
+    if (!lobby) {
+      return;
+    }
+
+    await this._run(async () => {
+      try {
+        this.state.set(await change(lobby.id));
+      } catch (error) {
+        const state = error instanceof ApiError && error.status === 409 ? (error.data as { state?: LobbyState } | undefined)?.state : undefined;
+        if (state) {
+          this.state.set(state);
+          this.warning.set((error as Error).message);
+          return;
+        }
+
+        // Closed in the meantime: the page shows the next one
+        await this._refresh();
+        throw error;
+      }
+    });
+  }
+
+  /**
    * Loads the page of the board of the matches, aborting the previous request.
    */
   private async _loadMatches(): Promise<void> {
@@ -746,6 +905,40 @@ export class LobbyPage extends CustomElement {
   }
 
   /**
+   * Computes the value of `pendingResult`.
+   *
+   * @returns The goals of the two teams of the result waiting for the confirmation, 0-0 when none does.
+   */
+  private _computePendingResult(): { brownScore: number; whiteScore: number } {
+    const action = this.pendingAction();
+    return action?.kind === 'save' ? { brownScore: action.brownScore, whiteScore: action.whiteScore } : { brownScore: 0, whiteScore: 0 };
+  }
+
+  /**
+   * Computes the value of `canGenerate`.
+   *
+   * @returns Whether the lobby is open after its match, with no match to play.
+   */
+  private _computeCanGenerate(): boolean {
+    return (this.lobby()?.matched ?? false) && this.running() === null;
+  }
+
+  /**
+   * Computes the value of `candidates`.
+   *
+   * @returns The players not in the lobby, by name; none until every player is loaded.
+   */
+  private _computeCandidates(): LeaderboardEntry[] {
+    const everybody = this.everybody();
+    if (!everybody?.length) {
+      return [];
+    }
+
+    const inside = new Set(this.lobby()?.players.map(player => player.id));
+    return everybody.filter(player => !inside.has(player.id)).toSorted((first, second) => first.name.localeCompare(second.name));
+  }
+
+  /**
    * Computes the value of `matchPageCount`.
    *
    * @returns How many pages hold every match, at least 1.
@@ -798,6 +991,7 @@ export class LobbyPage extends CustomElement {
   private async _run(work: () => Promise<void>): Promise<void> {
     this.busy.set(true);
     this.error.set('');
+    this.warning.set('');
     try {
       await work();
     } catch (error) {

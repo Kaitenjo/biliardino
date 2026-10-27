@@ -5,6 +5,7 @@
 @import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
 @import { LeaderboardComponent } from '../../ui/leaderboard/leaderboard.xd.component.ts'
 @import { MatchBoardComponent } from '../../ui/match-board/match-board.xd.component.ts'
+@import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
 
 <lobby-aquarium
   players="{lobby()?.players ?? []}"
@@ -65,6 +66,7 @@
     >
       <app-icon name="{collapsed().includes('lobby') ? 'chevron-down' : 'chevron-up'}" />
     </button>
+    @render reloadButton('Aggiorna la lobby')
     <div class="lobby-head">
       @if (lobby()) {
         <div class="lobby-text">
@@ -85,6 +87,9 @@
           <app-icon name="{joined() ? 'logout' : 'play'}" />
           { joined() ? 'Esci dalla lobby' : 'Entra in lobby' }{ cooldown() ? ` (${cooldown()}s)` : '' }
         </button>
+        @if (canGenerate() && view() === 'aquarium') {
+          @render generateButton()
+        }
       } @else if (state()) {
         <div class="lobby-text">
           <h1>Nessuna lobby aperta</h1>
@@ -99,6 +104,99 @@
         <p class="muted">Caricamento…</p>
       }
     </div>
+
+    @if (lobby() && !collapsed().includes('lobby')) {
+      <div class="players">
+        <button
+          type="button"
+          class="players-toggle"
+          aria-expanded="{String(!collapsed().includes('players'))}"
+          (click)="toggleCollapsed('players')"
+        >
+          <app-icon name="users" />
+          <span class="roles-label">In lobby: { lobby()?.players?.length ?? 0 }</span>
+          <app-icon name="{collapsed().includes('players') ? 'chevron-down' : 'chevron-up'}" />
+        </button>
+        @if (!collapsed().includes('players')) {
+          @if (warning()) {
+            <p class="notice" role="status">
+              <app-icon class="warning" name="alert" />
+              { warning() }
+            </p>
+          }
+          @if (lobby()?.players?.length) {
+            <ul class="roster">
+              @for (player of lobby()?.players ?? []; track player().id) {
+                <li>
+                  <player-avatar icon="{player().icon}" label="{player().name}" size="sm" />
+                  <span class="roster-name">{ player().name }</span>
+                  <button
+                    @if (busy()) {
+                      disabled
+                    }
+                    type="button"
+                    class="btn ghost icon tiny priority"
+                    [class.on]="{player().priority}"
+                    aria-pressed="{String(player().priority)}"
+                    aria-label="{`${player().name} obbligatorio nella prossima partita`}"
+                    title="{player().priority ? 'Obbligatorio nella prossima partita: tocca per togliere' : 'Rendi obbligatorio nella prossima partita'}"
+                    (click)="togglePriority(player())"
+                  >
+                    <app-icon name="star" />
+                  </button>
+                  <button
+                    @if (busy()) {
+                      disabled
+                    }
+                    type="button"
+                    class="btn danger icon tiny"
+                    aria-label="{`Togli ${player().name} dalla lobby`}"
+                    title="Togli dalla lobby"
+                    (click)="removePlayer(player())"
+                  >
+                    <app-icon name="close" />
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="muted">Nessuno in lobby.</p>
+          }
+          <div class="add">
+            <select #choice aria-label="Giocatore da aggiungere alla lobby">
+              <option value="">{ everybody() === null ? 'Caricamento…' : 'Aggiungi un giocatore…' }</option>
+              @for (candidate of candidates(); track candidate().id) {
+                <option value="{String(candidate().id)}">{ candidate().name }</option>
+              }
+            </select>
+            <button
+              @if (busy()) {
+                disabled
+              }
+              type="button"
+              class="btn gold icon tiny"
+              aria-label="Aggiungi alla lobby"
+              title="Aggiungi alla lobby"
+              (click)="addPlayer(choice, false)"
+            >
+              <app-icon name="plus" />
+            </button>
+            <button
+              @if (busy()) {
+                disabled
+              }
+              type="button"
+              class="btn ghost icon tiny priority on"
+              aria-label="Aggiungi alla lobby, obbligatorio nella prossima partita"
+              title="Aggiungi come obbligatorio nella prossima partita"
+              (click)="addPlayer(choice, true)"
+            >
+              <app-icon name="star" />
+            </button>
+          </div>
+        }
+      </div>
+    }
 
     @if (roles() && !collapsed().includes('lobby')) {
       <div class="roles">
@@ -214,6 +312,7 @@
       >
         <app-icon name="{collapsed().includes('match') ? 'chevron-up' : 'chevron-down'}" />
       </button>
+      @render reloadButton('Aggiorna la partita')
       @if (collapsed().includes('match')) {
         <p class="summary">
           @if (running()) {
@@ -262,31 +361,82 @@
                 }
               </div>
             </div>
-            <div class="score-actions">
-              <button
-                @if (busy()) {
-                  disabled
-                }
-                type="button"
-                class="btn danger icon"
-                aria-label="Elimina la partita"
-                title="Elimina la partita"
-                (click)="drop()"
-              >
-                <app-icon name="close" />
-              </button>
-              <button
-                @if (busy()) {
-                  disabled
-                }
-                type="submit"
-                class="btn gold icon"
-                aria-label="Salva la partita"
-                title="Salva la partita"
-              >
-                <app-icon name="save" />
-              </button>
-            </div>
+            @switch (pendingAction()?.kind) {
+              @case ('drop') {
+                <div class="confirm action" role="alert">
+                  <app-icon class="warning" name="alert" />
+                  <p>
+                    Eliminare la partita? Non verrà salvata, e se la lobby è aperta se ne genera subito un'altra con chi
+                    è in lobby: i 4 giocatori riceveranno una notifica.
+                  </p>
+                  <div class="confirm-actions">
+                    <button type="button" class="btn ghost small" (click)="cancelAction()">Annulla</button>
+                    <button
+                      @if (busy()) {
+                        disabled
+                      }
+                      type="button"
+                      class="btn danger small"
+                      (click)="confirmAction()"
+                    >
+                      <app-icon name="close" />
+                      Elimina
+                    </button>
+                  </div>
+                </div>
+              }
+              @case ('save') {
+                <div class="confirm action" role="alert">
+                  <app-icon class="warning" name="alert" />
+                  <p>
+                    Salvare il risultato Bianchi { pendingResult().whiteScore } – Marroni { pendingResult().brownScore }?
+                    Gli ELO si aggiornano subito e la partita non si potrà più modificare. Se la lobby è aperta, dopo si
+                    potrà generare un'altra partita con chi è in lobby.
+                  </p>
+                  <div class="confirm-actions">
+                    <button type="button" class="btn ghost small" (click)="cancelAction()">Annulla</button>
+                    <button
+                      @if (busy()) {
+                        disabled
+                      }
+                      type="button"
+                      class="btn gold small"
+                      (click)="confirmAction()"
+                    >
+                      <app-icon name="save" />
+                      Salva
+                    </button>
+                  </div>
+                </div>
+              }
+              @default {
+                <div class="score-actions">
+                  <button
+                    @if (busy()) {
+                      disabled
+                    }
+                    type="button"
+                    class="btn danger icon"
+                    aria-label="Elimina la partita"
+                    title="Elimina la partita"
+                    (click)="drop()"
+                  >
+                    <app-icon name="close" />
+                  </button>
+                  <button
+                    @if (busy()) {
+                      disabled
+                    }
+                    type="submit"
+                    class="btn gold icon"
+                    aria-label="Salva la partita"
+                    title="Salva la partita"
+                  >
+                    <app-icon name="save" />
+                  </button>
+                </div>
+              }
+            }
           </form>
         }
       } @else if (saved()) {
@@ -299,25 +449,21 @@
               <span class="team brown">Marroni { formatDelta(saved()?.brownDelta ?? 0) }</span>
               punti ELO a testa.
             </p>
-            @if (offerNext()) {
+            @if (canGenerate()) {
               <div class="next-match">
                 <p>Generare un'altra partita con chi è in lobby? I 4 giocatori riceveranno una notifica.</p>
                 <div class="next-actions">
-                  <button
-                    @if (busy()) {
-                      disabled
-                    }
-                    type="button"
-                    class="btn gold"
-                    (click)="generateNext()"
-                  >
-                    <app-icon name="zap" />
-                    Genera partita
-                  </button>
-                  <button type="button" class="btn ghost" (click)="declineNext()">No, grazie</button>
+                  @render generateButton()
                 </div>
               </div>
             }
+          </div>
+        </div>
+      } @else if (canGenerate()) {
+        <div class="next-match first">
+          <p>Nessuna partita in corso. Generarne una con chi è in lobby? I 4 giocatori riceveranno una notifica.</p>
+          <div class="next-actions">
+            @render generateButton()
           </div>
         </div>
       } @else {
@@ -326,6 +472,35 @@
     </section>
   }
 }
+
+<template reloadButton(label: string)>
+  <button
+    @if (busy()) {
+      disabled
+    }
+    type="button"
+    class="collapse reload"
+    aria-label="{label()}"
+    title="{label()}"
+    (click)="reload()"
+  >
+    <app-icon name="refresh" />
+  </button>
+</template>
+
+<template generateButton()>
+  <button
+    @if (busy()) {
+      disabled
+    }
+    type="button"
+    class="btn gold"
+    (click)="generateNext()"
+  >
+    <app-icon name="zap" />
+    Genera partita
+  </button>
+</template>
 
 <template roleSwitch(role: Role, label: string)>
   <button

@@ -34,7 +34,7 @@ lobby-aquarium {
   position: absolute;
   z-index: 2;
   box-sizing: border-box;
-  padding: 1rem 1.2rem;
+  padding: 0.6rem 1.2rem;
   border: 1px solid rgb(245 197 66 / 28%);
   border-radius: 20px;
   background:
@@ -74,8 +74,19 @@ lobby-aquarium {
   }
 }
 
-.panel:has(> .collapse) {
-  padding-right: 3rem;
+// The button reading the lobby and the match again, beside the one collapsing the panel
+.collapse.reload {
+  right: 2.9rem;
+
+  &[disabled] {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+
+// Only the first line keeps clear of the two buttons in the corner: the rest of the panel uses its whole width
+.panel > .reload + * {
+  padding-right: 4rem;
 }
 
 // Collapsed: just its first line, tighter
@@ -198,6 +209,28 @@ h1 {
     padding: 0.4rem 0.9rem;
     font-size: 0.85rem;
   }
+
+  &.icon.tiny {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.85rem;
+  }
+
+  // Obligatory in the next match: a dim star, gold when on
+  &.priority {
+    color: var(--ink-muted);
+    opacity: 0.6;
+
+    &.on {
+      border-color: var(--gold);
+      color: var(--gold);
+      opacity: 1;
+    }
+
+    &[disabled] {
+      opacity: 0.35;
+    }
+  }
 }
 
 // The lobby, at the top left
@@ -263,6 +296,108 @@ h1 {
 
   strong {
     color: var(--ink);
+  }
+}
+
+// Who is in the lobby, collapsed to its first line by default: anybody can take a player out or put one in
+
+.players {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.players-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+
+  app-icon:last-child {
+    margin-left: auto;
+  }
+
+  &:focus-visible {
+    border-radius: 6px;
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(251 191 36 / 45%);
+  border-radius: 12px;
+  background: rgb(120 53 15 / 30%);
+  color: #fde68a;
+  font-size: 0.85rem;
+}
+
+.roster {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 12rem;
+  margin: 0;
+  // Room between the buttons and the scrollbar
+  padding: 0 0.75rem 0 0;
+  overflow-y: auto;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+}
+
+.roster-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  // Its own chevron, away from the rounded edge
+  select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.45rem 2.4rem 0.45rem 0.9rem;
+    border: 1px solid var(--brass);
+    border-radius: 999px;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f6dc7a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+        no-repeat right 0.95rem center / 0.9rem,
+      rgb(15 10 5 / 45%);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.9rem;
+    appearance: none;
+
+    &:focus-visible {
+      border-color: var(--gold);
+      outline: none;
+    }
+
+    option {
+      background: #0a192f;
+    }
   }
 }
 
@@ -388,6 +523,11 @@ h1 {
   font-size: 1.2rem;
 }
 
+// The confirmation of deleting or saving the match, in place of its buttons
+.confirm.action {
+  margin-top: 1rem;
+}
+
 .confirm-actions {
   display: flex;
   grid-column: 1 / -1;
@@ -461,6 +601,20 @@ h1 {
   &.down {
     top: auto;
     bottom: 1.5rem;
+  }
+}
+
+// Under the lobby the side arrows go to the bottom, off its panel (on a phone they are always there)
+@media (min-width: 641px) and (min-height: 501px) {
+  .lobby ~ .arrow.left,
+  .lobby ~ .arrow.right {
+    top: auto;
+    bottom: 1.5rem;
+    transform: none;
+
+    &:hover {
+      transform: scale(1.08);
+    }
   }
 }
 
@@ -680,6 +834,18 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+// No match saved before it: nothing above to keep apart from
+.next-match.first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+
+  p {
+    margin: 0;
+    color: var(--ink-muted);
+  }
 }
 
 .waiting {
@@ -940,6 +1106,33 @@ league-leaderboard ~ .arrow.left {
     width: 1.6rem;
     height: 1.6rem;
     font-size: 0.8rem;
+  }
+
+  .collapse.reload {
+    right: 2.2rem;
+  }
+
+  // Sideways the panels are one line, all of it beside the buttons
+  .lobby:has(> .reload),
+  .match:has(> .reload) {
+    padding-right: 4.3rem;
+  }
+
+  .panel > .reload + * {
+    padding-right: 0;
+  }
+
+  // Sideways the lobby is one line: who is in stays in its own column, on the right
+  .players {
+    gap: 0.3rem;
+    padding: 0 0 0 1rem;
+    border-top: none;
+    border-left: 1px solid var(--line);
+    font-size: 0.75rem;
+  }
+
+  .roster {
+    max-height: 6rem;
   }
 
   .arrow.up {
