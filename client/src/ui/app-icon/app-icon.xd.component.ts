@@ -6,7 +6,7 @@ import type { InputSignal } from '@xaendar/core/signals';
  *
  * Names: `trophy`, `play`, `calendar`, `defense`, `attack`, `balanced`, `medal`, `goal`, `star`, `zap`, `book`,
  * `close`, `save`, `dice`, `arrow-left`, `arrow-right`, `trend`, `users`, `award`, `history`, `flame`, `ball`, `user`,
- * `logout`, `check`, `check-circle`.
+ * `logout`, `check`, `check-circle`, `hd`.
  */
 @WebComponent({
   selector: 'app-icon',

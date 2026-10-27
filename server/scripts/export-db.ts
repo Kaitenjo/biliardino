@@ -33,7 +33,7 @@ const TABLES: ReadonlyArray<readonly [table: string, columns: readonly Column[]]
   ['users', ['id', 'player_id', 'password_hash']],
   ['player_availability', ['player_id', 'weekday']],
   ['sessions', ['token', 'user_id', 'created_at']],
-  ['matches', ['id', ['brown_score', 'red_score'], ['white_score', 'blue_score'], ['winner', TEAM('winner')], ['brown_expected', 'red_expected'], 'created_by', 'played_at']],
+  ['matches', ['id', ['brown_score', 'red_score'], ['white_score', 'blue_score'], ['winner', TEAM('winner')], ['white_expected', '1 - red_expected'], 'created_by', 'played_at']],
   ['match_players', ['match_id', 'player_id', ['team', TEAM('team')], 'role', 'elo_before', 'role_elo', 'elo_delta']],
   ['running_match', ['id', ['brown_attack', 'red_attack'], ['brown_defense', 'red_defense'], ['white_attack', 'blue_attack'], ['white_defense', 'blue_defense'], 'created_by', 'created_at']]
 ];

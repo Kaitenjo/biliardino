@@ -103,9 +103,9 @@ export interface MatchElo {
    */
   whiteElo: number;
   /**
-   * Expected score of the brown team (its probability of winning); the white team has the complement.
+   * Expected score of the white team (its probability of winning); the brown team has the complement.
    */
-  brownExpected: number;
+  whiteExpected: number;
   /**
    * Change of the ELO in the role of each brown player.
    */
@@ -153,8 +153,8 @@ export function computeMatchElo(brown: Lineup<EloPlayer>, white: Lineup<EloPlaye
   const brownElo = teamElo({ attack: brown.attack.elo, defense: brown.defense.elo });
   const whiteElo = teamElo({ attack: white.attack.elo, defense: white.defense.elo });
 
-  const brownExpected = expectedScore(brownElo, whiteElo, config);
-  const whiteExpected = 1 - brownExpected;
+  const whiteExpected = expectedScore(whiteElo, brownElo, config);
+  const brownExpected = 1 - whiteExpected;
 
   const goalMultiplier = marginMultiplier(brownScore, whiteScore, config);
   const winnerExpected = brownScore > whiteScore ? brownExpected : whiteExpected;
@@ -174,7 +174,7 @@ export function computeMatchElo(brown: Lineup<EloPlayer>, white: Lineup<EloPlaye
     brownDelta = Math.min(brownDelta, -config.minWinDelta);
   }
 
-  return { brownElo, whiteElo, brownExpected, brownDelta, whiteDelta: -brownDelta };
+  return { brownElo, whiteElo, whiteExpected, brownDelta, whiteDelta: -brownDelta };
 }
 
 /**

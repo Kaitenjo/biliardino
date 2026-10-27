@@ -217,8 +217,8 @@
       @if (collapsed().includes('match')) {
         <p class="summary">
           @if (running()) {
-            <span class="team brown">Marroni { brownChance() }%</span>
-            <span class="team white">Bianchi { 100 - brownChance() }%</span>
+            <span class="team white">Bianchi { whiteChance() }%</span>
+            <span class="team brown">Marroni { 100 - whiteChance() }%</span>
           } @else if (saved()) {
             Partita salvata!
           } @else {
@@ -228,20 +228,40 @@
       } @else if (running()) {
         <p class="odds">
           Probabilità di vittoria
-          <span class="team brown">Marroni { brownChance() }%</span>
-          <span class="team white">Bianchi { 100 - brownChance() }%</span>
+          <span class="team white">Bianchi { whiteChance() }%</span>
+          <span class="team brown">Marroni { 100 - whiteChance() }%</span>
         </p>
         @if (user()) {
-          <form class="score" novalidate (submit)="save($event, brownScore.valueAsNumber, whiteScore.valueAsNumber)">
-            <label class="goal brown">
-              <span>Marroni</span>
-              <input #brownScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
-            </label>
-            <span class="dash">–</span>
-            <label class="goal white">
-              <span>Bianchi</span>
-              <input #whiteScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
-            </label>
+          <form novalidate (submit)="save($event, brownScore.valueAsNumber, whiteScore.valueAsNumber)">
+            <div class="score">
+              <div class="gains white" title="Punti ELO a testa se vincono i Bianchi">
+                @for (outcome of whiteWins(); track outcome().brownScore) {
+                  <span class="gain">
+                    <span class="gain-score">{ outcome().whiteScore }-{ outcome().brownScore }</span>
+                    <b>{ formatDelta(outcome().whiteDelta) }</b>
+                  </span>
+                }
+              </div>
+              <div class="goals">
+                <label class="goal white">
+                  <span>Bianchi</span>
+                  <input #whiteScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+                </label>
+                <span class="dash">–</span>
+                <label class="goal brown">
+                  <span>Marroni</span>
+                  <input #brownScore type="number" min="0" max="8" inputmode="numeric" placeholder="0" />
+                </label>
+              </div>
+              <div class="gains brown" title="Punti ELO a testa se vincono i Marroni">
+                @for (outcome of brownWins(); track outcome().whiteScore) {
+                  <span class="gain">
+                    <span class="gain-score">{ outcome().brownScore }-{ outcome().whiteScore }</span>
+                    <b>{ formatDelta(outcome().brownDelta) }</b>
+                  </span>
+                }
+              </div>
+            </div>
             <div class="score-actions">
               <button
                 @if (busy()) {
@@ -260,10 +280,11 @@
                   disabled
                 }
                 type="submit"
-                class="btn gold"
+                class="btn gold icon"
+                aria-label="Salva la partita"
+                title="Salva la partita"
               >
                 <app-icon name="save" />
-                Salva
               </button>
             </div>
           </form>
@@ -274,8 +295,8 @@
           <div class="saved-body">
             <strong>Partita salvata!</strong>
             <p>
-              <span class="team brown">Marroni { formatDelta(saved()?.brownDelta ?? 0) }</span>
               <span class="team white">Bianchi { formatDelta(saved()?.whiteDelta ?? 0) }</span>
+              <span class="team brown">Marroni { formatDelta(saved()?.brownDelta ?? 0) }</span>
               punti ELO a testa.
             </p>
             @if (offerNext()) {

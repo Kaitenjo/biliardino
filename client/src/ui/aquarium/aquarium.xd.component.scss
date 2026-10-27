@@ -105,8 +105,8 @@ canvas {
     color: #3b2416;
   }
 
-  // Smaller on a phone, to fit the four of them (the scene frames them at this size)
-  @media (max-width: 640px) {
+  // Smaller on a phone, upright or sideways, to fit the four of them (the scene frames them at this size)
+  @media (max-width: 640px), (max-height: 500px) {
     player-avatar {
       --avatar-size: 3.4rem;
 
@@ -120,6 +120,11 @@ canvas {
 
     .role {
       font-size: 0.7rem;
+    }
+
+    // The defenders a bit lower, away from the attackers above them (the scene counts this too)
+    &[data-key$='defense'] {
+      top: 1.25rem;
     }
   }
 }

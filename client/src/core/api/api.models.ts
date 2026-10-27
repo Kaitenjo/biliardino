@@ -449,9 +449,9 @@ export interface RunningMatch {
    */
   whiteElo: number;
   /**
-   * Probability that the brown team wins.
+   * Probability that the white team wins.
    */
-  brownWinProbability: number;
+  whiteWinProbability: number;
   /**
    * When it was generated (UTC, `YYYY-MM-DD HH:MM:SS`).
    */

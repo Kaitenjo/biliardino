@@ -362,9 +362,9 @@ interface MatchRow {
    */
   winner: Team;
   /**
-   * Expected score of the brown team.
+   * Expected score of the white team.
    */
-  brownExpected: number;
+  whiteExpected: number;
   /**
    * Id of the player.
    */
@@ -805,7 +805,7 @@ function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<
     white: lineup.white,
     team: own.team,
     role: own.role,
-    expected: own.team === 'brown' ? own.brownExpected : 1 - own.brownExpected,
+    expected: own.team === 'white' ? own.whiteExpected : 1 - own.whiteExpected,
     eloBefore: Math.round(own.eloBefore),
     roleElo: Math.round(own.roleElo),
     eloDelta: Math.round(own.eloDelta)
@@ -822,7 +822,7 @@ function toPlayerMatch(own: MatchRow, matchRows: readonly MatchRow[], refs: Map<
 function loadMatchRows(playerId: number): Promise<MatchRow[]> {
   return all(
     `SELECT m.id AS matchId, m.played_at AS playedAt, m.brown_score AS brownScore, m.white_score AS whiteScore, m.winner,
-       m.brown_expected AS brownExpected, mp.player_id AS playerId, mp.team, mp.role,
+       m.white_expected AS whiteExpected, mp.player_id AS playerId, mp.team, mp.role,
        mp.elo_before AS eloBefore, mp.role_elo AS roleElo, mp.elo_delta AS eloDelta
      FROM match_players mp JOIN matches m ON m.id = mp.match_id
      WHERE mp.match_id IN (SELECT match_id FROM match_players WHERE player_id = ?)

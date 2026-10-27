@@ -39,9 +39,9 @@ export interface MatchView {
    */
   whiteElo: number;
   /**
-   * Probability that the brown team wins.
+   * Probability that the white team wins.
    */
-  brownWinProbability: number;
+  whiteWinProbability: number;
   /**
    * When the match was generated (UTC, `YYYY-MM-DD HH:MM:SS`).
    */
@@ -214,7 +214,7 @@ async function viewOf(row: RunningRow): Promise<MatchView | null> {
     white: { attack: toMatchPlayer(white.attack, 'attack'), defense: toMatchPlayer(white.defense, 'defense') },
     brownElo: Math.round(brownElo),
     whiteElo: Math.round(whiteElo),
-    brownWinProbability: expectedScore(brownElo, whiteElo, config),
+    whiteWinProbability: expectedScore(whiteElo, brownElo, config),
     createdAt: row.createdAt,
     generatedBy: row.generatedBy,
     outcomes

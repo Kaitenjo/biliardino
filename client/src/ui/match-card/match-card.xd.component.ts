@@ -20,9 +20,9 @@ export class MatchCardComponent extends CustomElement {
   @Property.required()
   public accessor match!: InputSignal<RunningMatch>;
   /**
-   * Probability that the brown team wins, 0 to 100.
+   * Probability that the white team wins, 0 to 100.
    */
-  public readonly brownChance = computed(() => this._computeBrownChance());
+  public readonly whiteChance = computed(() => this._computeWhiteChance());
   /**
    * The results the brown team wins, 8-0 and 8-7.
    */
@@ -63,11 +63,11 @@ export class MatchCardComponent extends CustomElement {
   }
 
   /**
-   * Computes the value of `brownChance`.
+   * Computes the value of `whiteChance`.
    *
    * @returns The percentage, rounded.
    */
-  private _computeBrownChance(): number {
-    return Math.round(this.match().brownWinProbability * 100);
+  private _computeWhiteChance(): number {
+    return Math.round(this.match().whiteWinProbability * 100);
   }
 }

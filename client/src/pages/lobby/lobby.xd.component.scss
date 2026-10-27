@@ -214,7 +214,7 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-evenly;
   gap: 0.75rem 1.25rem;
 }
 
@@ -522,13 +522,53 @@ h1 {
   }
 }
 
-// The result: two goals as big flaps, the buttons beside them
+.goals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+}
+
+// The result: two goals as big flaps in the middle, what each team earns winning 8-0 or 8-7 beside them, the buttons
+// below on the right
 .score {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: center;
+  align-items: end;
+  justify-content: space-evenly;
   gap: 0.75rem;
+}
+
+.gains {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 1.5rem;
+
+  &.white {
+    justify-items: end;
+  }
+
+  &.brown {
+    justify-items: start;
+  }
+}
+
+.gain {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  white-space: nowrap;
+
+  b {
+    color: var(--up);
+    font-weight: 800;
+  }
+}
+
+.gain-score {
+  color: var(--ink-muted);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-weight: 700;
 }
 
 .goal {
@@ -586,17 +626,16 @@ h1 {
 }
 
 .dash {
-  padding-bottom: 0.9rem;
   color: var(--ink-muted);
   font-size: 1.5rem;
 }
 
 .score-actions {
   display: flex;
-  align-items: center;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
   gap: 0.5rem;
-  margin-left: 0.75rem;
-  padding-bottom: 0.4rem;
+  margin-top: 1rem;
 }
 
 .saved {
@@ -865,16 +904,163 @@ league-leaderboard ~ .arrow.left {
 
 // Sideways: the lobby on the left, the match on the right, both low enough to leave the table in sight
 @media (max-height: 500px) {
+  // Both panels in the middle, open or collapsed, small enough not to meet: the lobby under the header, the match at
+  // the bottom, with the arrow up moved to the right of it
+  .lobby,
+  .match {
+    right: auto;
+    left: 50%;
+    width: max-content;
+    max-width: calc(100% - 9rem);
+    padding: 0.45rem 2.6rem 0.45rem 0.9rem;
+    border-radius: 12px;
+    transform: translateX(-50%);
+  }
+
   .lobby {
-    width: min(24rem, 44%);
+    top: calc(var(--header) + 0.3rem);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
   }
 
   .match {
-    right: 1rem;
     bottom: 1rem;
+    gap: 0.35rem;
+  }
+
+  .panel.collapsed {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+  }
+
+  .collapse {
+    top: 0.35rem;
+    right: 0.35rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    font-size: 0.8rem;
+  }
+
+  .arrow.up {
+    right: 1rem;
     left: auto;
-    width: min(24rem, 42%);
     transform: none;
+
+    &:hover {
+      transform: scale(1.08);
+    }
+  }
+
+  .panel h1 {
+    font-size: 0.9rem;
+  }
+
+  .panel .btn {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+
+    &.icon {
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+
+  .summary {
+    min-height: 1.6rem;
+    font-size: 0.75rem;
+  }
+
+  // The lobby on one line: what it is on the left, the roles on the right
+  .status {
+    margin-bottom: 0.1rem;
+    font-size: 0.6rem;
+  }
+
+  .next {
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
+  }
+
+  .roles {
+    gap: 0.3rem;
+    padding: 0 0 0 1rem;
+    border-top: none;
+    border-left: 1px solid var(--line);
+  }
+
+  .roles-label {
+    font-size: 0.55rem;
+  }
+
+  .switches {
+    gap: 0.4rem 1rem;
+  }
+
+  .switch {
+    gap: 0.35rem;
+    font-size: 0.75rem;
+
+    .track {
+      width: 2rem;
+      height: 1.1rem;
+    }
+
+    .knob {
+      width: 0.8rem;
+      height: 0.8rem;
+    }
+
+    &.on .knob {
+      transform: translate(0.95rem, -50%);
+    }
+  }
+
+  .confirm p,
+  .locked {
+    font-size: 0.7rem;
+  }
+
+  // The result, compact
+  .odds {
+    gap: 0.2rem 0.7rem;
+    font-size: 0.6rem;
+
+    .team {
+      font-size: 0.75rem;
+    }
+  }
+
+  .score,
+  .goals {
+    gap: 0.4rem;
+  }
+
+  .gains {
+    gap: 0.15rem;
+    font-size: 0.75rem;
+  }
+
+  .goal {
+    gap: 0.15rem;
+
+    span {
+      font-size: 0.58rem;
+    }
+
+    input {
+      width: 2.6rem;
+      height: 2.2rem;
+      font-size: 1.2rem;
+    }
+  }
+
+  .dash {
+    font-size: 1.1rem;
+  }
+
+  .score-actions {
+    margin-top: 0.2rem;
   }
   // The scopes of the player in a column on the right, beside its board: the height is short
   .pager:not(.below) {
@@ -888,10 +1074,12 @@ league-leaderboard ~ .arrow.left {
 }
 
 @media (max-width: 560px) {
-  .score-actions {
-    justify-content: center;
-    width: 100%;
-    margin-left: 0;
+  .score {
+    gap: 0.5rem;
+  }
+
+  .gains {
+    font-size: 0.75rem;
   }
 }
 

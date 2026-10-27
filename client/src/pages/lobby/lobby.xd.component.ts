@@ -105,9 +105,17 @@ export class LobbyPage extends CustomElement {
    */
   public readonly joined = computed(() => this.lobby()?.players.some(player => player.id === user()?.playerId) ?? false);
   /**
-   * Probability that the brown team wins, 0 to 100.
+   * Probability that the white team wins, 0 to 100.
    */
-  public readonly brownChance = computed(() => Math.round((this.running()?.brownWinProbability ?? 0.5) * 100));
+  public readonly whiteChance = computed(() => Math.round((this.running()?.whiteWinProbability ?? 0.5) * 100));
+  /**
+   * The results the white team wins, 8-0 and 8-7, with the points each of its players earns.
+   */
+  public readonly whiteWins = computed(() => this.running()?.outcomes.filter(outcome => outcome.whiteScore > outcome.brownScore) ?? []);
+  /**
+   * The results the brown team wins, 8-0 and 8-7, with the points each of its players earns.
+   */
+  public readonly brownWins = computed(() => this.running()?.outcomes.filter(outcome => outcome.brownScore > outcome.whiteScore) ?? []);
   /**
    * What the scene shows: the aquarium, or the foosball table in the lounge.
    */

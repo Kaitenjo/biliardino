@@ -120,14 +120,14 @@
   }
 }
 
-.odds-brown {
+.odds-white {
   flex: none;
-  background: var(--brown);
+  background: var(--white);
 }
 
-.odds-white {
+.odds-brown {
   flex: 1;
-  background: var(--white);
+  background: var(--brown);
   text-align: right;
 }
 

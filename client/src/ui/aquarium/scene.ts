@@ -178,6 +178,12 @@ const SCOPES_SPACE = 44;
 const PANEL_BAR_SPACE = 60;
 
 /**
+ * On a phone held sideways the panels collapse to smaller bars in the middle: their height, and half their width.
+ */
+const SMALL_BAR_SPACE = 45;
+const SMALL_BAR_HALF_WIDTH = 170;
+
+/**
  * The field of view of the camera, from top to bottom, in degrees; at the table, on a narrow screen, it widens up to the
  * widest one to show the players (see `_frameTable`).
  */
@@ -195,13 +201,20 @@ const TABLE_STEP = 3;
 const MAX_TABLE_RISE = 3.25;
 
 /**
+ * How much higher than usual the camera looks at the table at most, to lower the players on a short screen (a phone
+ * held sideways), so that their names above them are seen.
+ */
+const MAX_TABLE_LIFT = 3;
+
+/**
  * What the camera looks at, at the table: the higher it is, the lower it looks, down at the table.
  *
  * @param rise - How high it rose.
+ * @param lift - How much higher it looks than that.
  * @returns The point.
  */
-function tableTarget(rise: number): THREE.Vector3 {
-  return CAMERA_PATH[TABLE_STEP]!.target.clone().add(new THREE.Vector3(rise * 0.24, -rise * 0.3, 0));
+function tableTarget(rise: number, lift = 0): THREE.Vector3 {
+  return CAMERA_PATH[TABLE_STEP]!.target.clone().add(new THREE.Vector3(rise * 0.24, lift - rise * 0.3, 0));
 }
 
 /**
@@ -879,7 +892,10 @@ export class AquariumScene {
     this._frameBoard(this._path[this._path.length - 1]!, STATS_BOARD, statsSize, 0.85, STATS_BOARD_DISTANCE, arrows, arrows && this._height > 500 ? HEADER_SPACE + SCOPES_SPACE : HEADER_SPACE);
     this._frameBoard(this._sides.rules, RULES_BOARD, { width: RULES_BOARD_WIDTH, height: RULES_BOARD_HEIGHT }, 0.15, RULES_BOARD_DISTANCE, arrows);
     this._frameBoard(this._sides.matches, this._matchCenter, this._matchSize, 0.85, MATCH_BOARD_DISTANCE, (arrows || BIG_ARROW_SPACE) + PAGES_SPACE);
-    this._frameTable(HEADER_SPACE + PANEL_BAR_SPACE, arrows + PANEL_BAR_SPACE);
+    // On a phone held sideways the panels collapse to small bars in the middle (the lobby at the top, the match at the
+    // bottom), not across the screen: the height is too short to leave them a whole band
+    const sideways = this._height <= 500;
+    this._frameTable(HEADER_SPACE + (sideways ? 0 : PANEL_BAR_SPACE), arrows + (sideways ? 0 : PANEL_BAR_SPACE), sideways);
     this._applyCamera();
     this._invalidate();
   }
@@ -892,14 +908,17 @@ export class AquariumScene {
    *
    * @param top - Pixels covered at the top of the screen.
    * @param bottom - Pixels covered at its bottom.
+   * @param bars - Whether the panels are small bars in the middle instead (see the styles of the lobby held sideways).
    */
-  private _frameTable(top: number, bottom: number): void {
+  private _frameTable(top: number, bottom: number, bars: boolean): void {
     const base = CAMERA_PATH[TABLE_STEP]!;
     const step = this._path[TABLE_STEP]!;
     // The label of a player: smaller on a small screen (see the styles of `.seat`)
-    const small = this._width <= 640;
+    const small = this._width <= 640 || this._height <= 500;
     const halfWidth = small ? 68 : 90;
     const height = small ? 110 : 145;
+    // On a small screen the defenders are lowered by this much
+    const defenseDrop = small ? 20 : 0;
     const seats = [...this._seatAnchors.entries()];
     const placed = seats.map(() => new THREE.Vector2());
     this._probe.aspect = this._camera.aspect;
@@ -907,11 +926,15 @@ export class AquariumScene {
       this._probe.fov = fov;
       this._probe.updateProjectionMatrix();
       this._probe.updateMatrixWorld();
-      for (const [i, [, anchor]] of seats.entries()) {
+      for (const [i, [key, anchor]] of seats.entries()) {
         this._projected.copy(anchor).project(this._probe);
         const x = ((this._projected.x + 1) / 2) * this._width;
-        const y = ((1 - this._projected.y) / 2) * this._height;
-        if (x < halfWidth || x > this._width - halfWidth || y - height < top || y > this._height - bottom) {
+        const y = ((1 - this._projected.y) / 2) * this._height + (key.endsWith('defense') ? defenseDrop : 0);
+        // Under the bar of the lobby, or over the one of the match, in the middle
+        const middle = bars && Math.abs(x - this._width / 2) < halfWidth + SMALL_BAR_HALF_WIDTH;
+        const over = top + (middle ? SMALL_BAR_SPACE : 0);
+        const under = bottom + (middle ? SMALL_BAR_SPACE : 0);
+        if (x < halfWidth || x > this._width - halfWidth || y - height < over || y > this._height - under) {
           return false;
         }
 
@@ -925,37 +948,36 @@ export class AquariumScene {
     };
 
     // From the lowest place (the one of a wide screen) up to under the chandelier, looking lower and lower, down at the
-    // table: the one with the narrowest view that fits them all
-    let best: { rise: number; fov: number } | null = null;
-    for (let rise = 0; rise <= MAX_TABLE_RISE && best?.fov !== FOV; rise += 0.75) {
-      this._probe.position.set(base.position.x - rise * 0.4, base.position.y + rise, base.position.z);
-      this._probe.lookAt(tableTarget(rise));
-      let narrow = FOV;
-      let wide = WIDEST_TABLE_FOV;
-      if (fits(narrow)) {
-        wide = FOV;
-      } else if (!fits(wide)) {
-        continue;
-      } else {
-        for (let i = 0; i < 12; i++) {
-          const middle = (narrow + wide) / 2;
-          if (fits(middle)) {
-            wide = middle;
-          } else {
-            narrow = middle;
+    // table, and on a short screen also a bit higher than that: the one with the narrowest view that fits them all
+    let best: { rise: number; lift: number; fov: number } | null = null;
+    // Nothing narrower than the usual view: no need to look further
+    const found = (): boolean => best?.fov === FOV;
+    const maxLift = this._height <= 500 ? MAX_TABLE_LIFT : 0;
+    for (let rise = 0; rise <= MAX_TABLE_RISE && !found(); rise += 0.75) {
+      for (let lift = 0; lift <= maxLift && !found(); lift += 0.25) {
+        this._probe.position.set(base.position.x - rise * 0.4, base.position.y + rise, base.position.z);
+        this._probe.lookAt(tableTarget(rise, lift));
+        // Degree by degree: a wider view takes all of them in, but brings the two of a team nearer, and on a short
+        // screen one over the other again
+        for (let fov = FOV; fov <= WIDEST_TABLE_FOV && (!best || fov < best.fov); fov++) {
+          if (fits(fov)) {
+            best = { rise, lift, fov };
+            break;
           }
         }
       }
+    }
 
-      if (!best || wide < best.fov) {
-        best = { rise, fov: wide };
-      }
+    // Nothing fits clear of the bars: free of the header and of the arrows at least
+    if (!best && bars) {
+      this._frameTable(top, bottom, false);
+      return;
     }
 
     // Nothing fits (a tiny screen): from the highest place, as wide as it gets
-    const { rise, fov } = best ?? { rise: MAX_TABLE_RISE, fov: WIDEST_TABLE_FOV };
+    const { rise, lift, fov } = best ?? { rise: MAX_TABLE_RISE, lift: 0, fov: WIDEST_TABLE_FOV };
     step.position.set(base.position.x - rise * 0.4, base.position.y + rise, base.position.z);
-    step.target.copy(tableTarget(rise));
+    step.target.copy(tableTarget(rise, lift));
     this._tableFov = fov;
   }
 

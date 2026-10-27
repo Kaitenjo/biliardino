@@ -28,7 +28,7 @@ export interface RecordedMatch {
  * Recomputes every ELO and every derived statistic from scratch, as the previous project did at each load: starting
  * from the initial ELO of each player, in both roles, the matches are replayed in the order they were played; each
  * player changes only the ELO of the role it played. The results are stored in `match_players` (ELO in the role before
- * the match, change), `matches.brown_expected`, `players.elo_attack` / `players.elo_defense`, `player_stats` and
+ * the match, change), `matches.white_expected`, `players.elo_attack` / `players.elo_defense`, `player_stats` and
  * `player_pairs`.
  *
  * It reads every match, so it runs only on request (the admin page), after a manual change to the database (initial
@@ -69,7 +69,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     lineup[team][role] = playerId;
   }
 
-  // [id, brown expected], [match id, player id, ELO before, ELO in the role, change], [id, ELO attack, ELO defense]
+  // [id, white expected], [match id, player id, ELO before, ELO in the role, change], [id, ELO attack, ELO defense]
   const matchUpdates: Array<[number, number]> = [];
   const matchPlayerUpdates: Array<[number, number, number, number, number]> = [];
   const playerUpdates: Array<[number, number, number]> = [];
@@ -85,7 +85,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     }
 
     const result = computeMatchElo(brown, white, match.brownScore, match.whiteScore, config);
-    matchUpdates.push([match.id, result.brownExpected]);
+    matchUpdates.push([match.id, result.whiteExpected]);
     for (const team of ['brown', 'white'] as const) {
       const delta = team === 'brown' ? result.brownDelta : result.whiteDelta;
       const [goalsFor, goalsAgainst] = team === 'brown' ? [match.brownScore, match.whiteScore] : [match.whiteScore, match.brownScore];
@@ -130,9 +130,9 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     ...(change ? [saveEloConfig(change.config)] : []),
     ...(change?.startElo === undefined ? [] : [statement('UPDATE players SET start_elo = ?', change.startElo)]),
     statement(
-      `UPDATE matches SET brown_expected = json_extract(u.value, '$[1]')
+      `UPDATE matches SET white_expected = json_extract(u.value, '$[1]')
        FROM json_each(?) u
-       WHERE matches.id = json_extract(u.value, '$[0]') AND matches.brown_expected IS NOT json_extract(u.value, '$[1]')`,
+       WHERE matches.id = json_extract(u.value, '$[0]') AND matches.white_expected IS NOT json_extract(u.value, '$[1]')`,
       JSON.stringify(matchUpdates)
     ),
     statement(
@@ -244,11 +244,11 @@ export async function recordMatch(
         runningId
       ),
       statement(
-        'INSERT INTO matches (brown_score, white_score, winner, brown_expected, created_by) VALUES (?, ?, ?, ?, ?) RETURNING id',
+        'INSERT INTO matches (brown_score, white_score, winner, white_expected, created_by) VALUES (?, ?, ?, ?, ?) RETURNING id',
         brownScore,
         whiteScore,
         brownScore > whiteScore ? 'brown' : 'white',
-        result.brownExpected,
+        result.whiteExpected,
         userId
       ),
       // The batch is a transaction: the last match is the one just inserted
