@@ -2,7 +2,7 @@ import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { LobbyPlayer } from '../../core/api/api.models';
-import { buildChest, buildCreature, buildRock, buildSeaweedBed, buildShipwreck, SPECIES } from './creatures';
+import { buildChest, buildCreature, buildRock, buildSeaweedBed, buildShipwreck, buildTitan, SPECIES } from './creatures';
 import type { Creature, SeaweedBed, Species } from './creatures';
 import {
   buildAmphora,
@@ -11,6 +11,7 @@ import {
   buildBranchCoral,
   buildBrainCoral,
   buildJellyfish,
+  buildPurpleDildo,
   buildRockArch,
   buildSeaFan,
   schoolFishGeometry
@@ -1800,6 +1801,28 @@ export class AquariumScene {
     };
     reef(7.4, -1.4, [0xf472b6, 0xfb923c, 0xef4444, 0xf9a8d4], 0x84cc16, 0xa855f7);
     reef(-4.4, -4.6, [0xc084fc, 0xfb7185, 0xfbbf24, 0x2dd4bf], 0xf9a8d4, 0xe11d48);
+
+    // The Titan, sunk a few years ago on its way to the Titanic, under the rock arch, and in the background a little purple dildo
+    const titan = buildTitan();
+    put(titan, 6.5, 0.95, -10, 1.4, -0.3);
+    titan.rotation.z = 0.05;
+
+    // The dildo floats up and down about a quarter of the screen from its top (the view looks slightly down)
+    const toy = buildPurpleDildo();
+    const toyZ = -8;
+    const depth = VIEW_Z - toyZ;
+    const toyY = VIEW_Y - (0.8 * depth) / 16 + Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * depth * 0.5;
+    toy.position.set(-1, toyY, toyZ);
+    toy.scale.setScalar(0.5);
+    toy.userData['noBatch'] = true;
+    this._seabed.add(toy);
+    this._swaying.push({
+      object: toy,
+      animate(time) {
+        toy.position.y = toyY + Math.sin(time * 0.9) * 0.45;
+        toy.rotation.z = Math.sin(time * 0.6) * 0.12;
+      }
+    });
 
     // What the wreck lost
     const anchor = buildAnchor();

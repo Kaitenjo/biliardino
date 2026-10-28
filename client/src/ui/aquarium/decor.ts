@@ -201,6 +201,34 @@ export function buildRockArch(): THREE.Group {
 }
 
 /**
+ * A purple dildo standing on the sea floor, glowing a little to be seen through the fog (scaled down when placed: it is a small one).
+ *
+ * @returns The dildo.
+ */
+export function buildPurpleDildo(): THREE.Group {
+  const group = new THREE.Group();
+  const purple = material(0xa21caf, { roughness: 0.25, emissive: 0x7e22ce, emissiveIntensity: 0.6 });
+  // The shaft and its rounded head, turned around the axis
+  const profile = [
+    [0.01, 0], [0.5, 0], [0.42, 0.1], [0.36, 0.4], [0.36, 2.1], [0.36, 2.26], [0.31, 2.29], [0.31, 2.33], [0.36, 2.36], [0.35, 2.42], [0.31, 2.48], [0.26, 2.55], [0.19, 2.6], [0.1, 2.64], [0, 2.66]
+  ].map(([radius, y]) => new THREE.Vector2(radius!, y!));
+  const shaft = new THREE.Mesh(new THREE.LatheGeometry(profile, detail(8, 14)), purple);
+  shaft.position.y = 0.75;
+  group.add(shaft);
+  // The slit in the middle of the head, seen from the front
+  const slit = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.34), material(0x3b0764, { roughness: 0.5 }));
+  slit.position.y = shaft.position.y + 2.62;
+  group.add(slit);
+  for (const x of [-0.4, 0.4]) {
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.46, detail(8, 12), detail(6, 8)), purple);
+    ball.position.set(x, 0.5, 0.12);
+    group.add(ball);
+  }
+
+  return group;
+}
+
+/**
  * A jellyfish: a pulsing translucent bell and trailing tentacles, drifting.
  *
  * @param color - Its colour.

@@ -634,39 +634,119 @@ function buildShark(): Creature {
     }
   }
 
-  // The mouth under the snout: red inside, teeth above, the lower jaw opening
-  const gums = material(0x7f1d1d, { roughness: 0.4 });
-  const tooth = material(0xf8fafc, { roughness: 0.3 });
-  const inside = new THREE.Mesh(new THREE.SphereGeometry(1, detail(8, 12), detail(6, 8)), gums);
-  inside.scale.set(0.3, 0.1, 0.24);
-  inside.position.set(x(0.86), -0.15, 0);
-  group.add(inside);
-  const toothShape = new THREE.ConeGeometry(0.028, 0.09, 4);
-  const teethAlong = (parent: THREE.Object3D, down: boolean): void => {
-    for (let i = 0; i < 11; i++) {
-      // Along the curve of the jaw, from one corner to the other round the front
-      const angle = -1.3 + (i / 10) * 2.6;
-      const piece = new THREE.Mesh(toothShape, tooth);
-      piece.position.set(Math.cos(angle) * 0.26 - 0.26, 0, Math.sin(angle) * 0.24);
-      piece.rotation.z = down ? Math.PI : 0;
-      parent.add(piece);
-    }
+  // The mouth: a wide arch under the snout, seen from below a U from one corner to the other round the front. The lower
+  // jaw is the patch of belly inside the arch, a shell laid on the body that drops on a hinge between the corners and
+  // bares the red palate under it; red cheeks close the sides of the gape
+  const radiusAt = (t: number): number => {
+    const i = profile.findIndex(([end]) => end >= t);
+    const [t0, r0] = profile[Math.max(0, i - 1)]!;
+    const [t1, r1] = profile[i]!;
+    return t1 === t0 ? r1 : r0 + ((r1 - r0) * (t - t0)) / (t1 - t0);
   };
-  const upper = new THREE.Group();
-  upper.position.set(x(0.93), -0.13, 0);
-  teethAlong(upper, true);
-  group.add(upper);
+  // A point of the skin: `phi` the angle around the body from the belly, `scale` how far out of it
+  const skin = (t: number, phi: number, scale = 1): THREE.Vector3 =>
+    new THREE.Vector3(x(t), -radiusAt(t) * Math.cos(phi) * scale, radiusAt(t) * Math.sin(phi) * scale * trunk.scale.z);
+  const front = 0.935;
+  const corner = 0.78;
+  const back = 0.74;
+  // The angles of the corners of the trunk around the belly, for the shells to follow its facets
+  const step = (Math.PI * 2) / detail(10, 18);
+  const widest = step * Math.max(1.5, Math.floor(1.25 / step - 0.5) + 0.5);
+  const angles: number[] = [];
+  for (let phi = -widest; phi <= widest + 1e-6; phi += step) {
+    angles.push(phi);
+  }
+
+  const arch = (phi: number): number => corner + (front - corner) * Math.cos((phi / widest) * (Math.PI / 2));
+  const hinge = skin(corner - 0.01, widest);
+  hinge.z = 0;
+  // A shell over the patch of belly inside the arch, its faces turned out
+  const shell = (scale: number): THREE.BufferGeometry => {
+    const points: number[] = [];
+    const rows = 3;
+    for (let row = 0; row <= rows; row++) {
+      for (const phi of angles) {
+        const point = skin(back + ((arch(phi) - back) * row) / rows, phi, scale).sub(hinge);
+        points.push(point.x, point.y, point.z);
+      }
+    }
+
+    const indices: number[] = [];
+    for (let row = 0; row < rows; row++) {
+      for (let column = 0; column < angles.length - 1; column++) {
+        const a = row * angles.length + column;
+        const b = a + angles.length;
+        indices.push(a, a + 1, b, a + 1, b + 1, b);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    // Turned out: the normal of the middle of the belly points down
+    if ((geometry.getAttribute('normal') as THREE.BufferAttribute).getY(Math.floor(angles.length / 2)) > 0) {
+      geometry.setIndex(indices.reverse());
+      geometry.computeVertexNormals();
+    }
+
+    return geometry;
+  };
+  const red = material(0x7f1d1d, { roughness: 0.4 });
+  const palate = new THREE.Mesh(shell(1.01), red);
+  palate.position.copy(hinge);
+  group.add(palate);
 
   const jaw = new THREE.Group();
-  jaw.position.set(x(0.74), -0.2, 0);
-  const chin = new THREE.Mesh(new THREE.SphereGeometry(1, detail(8, 12), detail(6, 8)), material(0xe5e7eb));
-  chin.scale.set(0.36, 0.06, 0.25);
-  chin.position.x = 0.3;
-  jaw.add(chin);
-  const lower = new THREE.Group();
-  lower.position.set(0.6, 0.05, 0);
-  teethAlong(lower, false);
-  jaw.add(lower);
+  jaw.position.copy(hinge);
+  const opening = 0.36;
+  jaw.add(new THREE.Mesh(shell(1.03), material(0xf3f4f6)), new THREE.Mesh(shell(1.03), material(0x991b1b, { roughness: 0.4, side: THREE.BackSide })));
+  // The cheeks: from the sides of the lip of the jaw up into the body, hidden in it while the mouth is shut
+  for (const side of [1, -1]) {
+    // From the back corner of the jaw, along its lip towards the front
+    const along = angles.filter(phi => phi * side >= widest * 0.4).sort((a, b) => Math.abs(b) - Math.abs(a));
+    const lip = [skin(back, widest * side, 1.03), ...along.map(phi => skin(arch(phi), phi, 1.03))].map(point => point.sub(hinge));
+    const points: number[] = [];
+    for (const point of lip) {
+      const rise = Math.min(Math.max(point.x, 0) * Math.sin(opening) + 0.04, radiusAt((point.x + hinge.x + half) / length) * 1.2);
+      // Up and in, towards the middle of the body: straight up from its side it would come out of it
+      points.push(point.x, point.y, point.z, point.x, point.y + rise, point.z * 0.5);
+    }
+
+    const indices: number[] = [];
+    for (let i = 0; i < lip.length - 1; i++) {
+      indices.push(i * 2, i * 2 + 2, i * 2 + 1, i * 2 + 1, i * 2 + 2, i * 2 + 3);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    jaw.add(new THREE.Mesh(geometry, material(0x7f1d1d, { roughness: 0.4, side: DOUBLE })));
+  }
+
+  // The teeth along the arch: the upper ones hang over the lip, pointing down and out; the lower ones stand inside the
+  // lip of the jaw, in the body while the mouth is shut
+  const tooth = material(0xf8fafc, { roughness: 0.3 });
+  const fang = new THREE.ConeGeometry(0.032, 0.11, 4).translate(0, 0.055, 0);
+  const up = new THREE.Vector3(0, 1, 0);
+  const teeth = 13;
+  for (let i = 0; i < teeth; i++) {
+    const phi = -widest + ((i + 0.5) / teeth) * widest * 2;
+    const size = 0.55 + 0.45 * Math.cos((phi / widest) * (Math.PI / 2));
+    const out = new THREE.Vector3(0, -Math.cos(phi), Math.sin(phi));
+    const upper = new THREE.Mesh(fang, tooth);
+    upper.position.copy(skin(arch(phi) + 0.004, phi));
+    upper.quaternion.setFromUnitVectors(up, new THREE.Vector3(0, -1, 0).lerp(out, 0.35).normalize());
+    upper.scale.setScalar(size);
+    group.add(upper);
+    const lower = new THREE.Mesh(fang, tooth);
+    lower.position.copy(skin(arch(phi) - 0.012, phi, 1.03).sub(hinge));
+    lower.quaternion.setFromUnitVectors(up, new THREE.Vector3(0, 1, 0).lerp(out, -0.2).normalize());
+    lower.scale.setScalar(size * 0.85);
+    jaw.add(lower);
+  }
+
   // Bigger than everything else in the water, and stocky
   group.scale.set(1.4, 1.9, 1.5);
   group.add(jaw);
@@ -684,7 +764,7 @@ function buildShark(): Creature {
       });
       // Snapping now and then: open, then shut
       const bite = Math.max(0, Math.sin(time * 0.9 + phase));
-      jaw.rotation.z = -0.04 - bite ** 3 * 0.35;
+      jaw.rotation.z = -0.03 - bite ** 3 * (opening - 0.03);
     }
   };
 }
@@ -918,77 +998,159 @@ export function buildChest(): { object: THREE.Group; glow: THREE.PointLight } {
 }
 
 /**
- * A wrecked ship, tilted and half buried, with a broken mast and a torn sail.
+ * Half of the Titanic: the bow, broken off at the third funnel, tilted and half buried.
  *
  * @returns The wreck.
  */
 export function buildShipwreck(): THREE.Group {
   const group = new THREE.Group();
-  const wood = material(0x4a2f1b, { roughness: 0.9 });
-  const dark = material(0x2b1a0f, { roughness: 0.95 });
+  const black = material(0x1c1917, { roughness: 0.9 });
+  const red = material(0x7f1d1d, { roughness: 0.9 });
+  const white = material(0xe7e5e4, { roughness: 0.85 });
+  const dark = material(0x292524, { roughness: 0.95 });
+  const buff = material(0xd9a441, { roughness: 0.85 });
+  const deckWood = material(0x78532f, { roughness: 0.95 });
 
-  // The hull: its side outline, extruded across its width
+  // The hull seen from above, the bow towards +x and the torn end towards -x, extruded up
   const outline = new THREE.Shape();
-  outline.moveTo(-3, 1.2);
-  outline.lineTo(3.4, 1.4);
-  outline.quadraticCurveTo(3, 0, 2.2, -0.6);
-  outline.lineTo(-2.4, -0.6);
-  outline.quadraticCurveTo(-3, 0, -3, 1.2);
-  // A hole torn in the side
-  const hole = new THREE.Path();
-  hole.moveTo(-0.4, 0.6);
-  hole.lineTo(0.5, 0.9);
-  hole.lineTo(0.9, 0.2);
-  hole.lineTo(0.1, -0.1);
-  hole.lineTo(-0.5, 0.15);
-  outline.holes.push(hole);
-  const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(outline, { depth: 1.8, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.1, bevelSegments: 1 }), wood);
-  hull.position.z = -0.9;
+  outline.moveTo(-2.6, -0.8);
+  outline.lineTo(1.8, -0.8);
+  outline.quadraticCurveTo(3.4, -0.5, 4.2, 0);
+  outline.quadraticCurveTo(3.4, 0.5, 1.8, 0.8);
+  outline.lineTo(-2.6, 0.8);
+  outline.lineTo(-2.35, 0.35);
+  outline.lineTo(-2.85, 0.05);
+  outline.lineTo(-2.3, -0.4);
+  outline.lineTo(-2.6, -0.8);
+  const hullGeometry = new THREE.ExtrudeGeometry(outline, { depth: 1.1, bevelEnabled: false });
+  hullGeometry.rotateX(-Math.PI / 2);
+  const hull = new THREE.Mesh(hullGeometry, black);
   group.add(hull);
+  // The red of the keel
+  const keel = new THREE.Mesh(hullGeometry, red);
+  keel.scale.set(1.01, 0.28, 1.01);
+  keel.position.y = -0.01;
+  group.add(keel);
 
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(6, 0.12, 1.7), dark);
-  deck.position.set(0.2, 1.25, 0);
-  deck.rotation.z = 0.03;
-  group.add(deck);
-
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.4), wood);
-  cabin.position.set(-2, 1.7, 0);
-  group.add(cabin);
-  const window = material(0x1e293b, { emissive: 0x0e7490, emissiveIntensity: 0.25 });
-  for (const x of [-2.35, -1.65]) {
-    const porthole = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.04, 6, 10), dark);
-    porthole.position.set(x, 1.75, 0.71);
-    const glass = new THREE.Mesh(new THREE.CircleGeometry(0.11, 10), window);
-    glass.position.set(x, 1.75, 0.705);
-    group.add(porthole, glass);
+  // The decks laid bare where the ship broke
+  for (const [y, reach] of [[0.35, 0.5], [0.7, 0.3], [1.05, 0.6]] as const) {
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.9 + reach, 0.06, 1.5), deckWood);
+    plate.position.set(-2.4 - reach / 2 + 0.25, y, 0);
+    plate.rotation.z = (y - 0.7) * 0.25;
+    group.add(plate);
   }
 
-  // The mast, broken, leaning, with what is left of the sail
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 3.6, 7), wood);
-  mast.position.set(0.8, 2.9, 0);
-  mast.rotation.z = -0.45;
+  // The superstructure: white, with a row of windows
+  const superstructure = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.55, 1.3), white);
+  superstructure.position.set(0, 1.37, 0);
+  group.add(superstructure);
+  const windows = material(0x1e293b, { emissive: 0xfbbf24, emissiveIntensity: 0.25 });
+  for (const side of [1, -1]) {
+    const row = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.1, 0.02), windows);
+    row.position.set(0, 1.42, 0.66 * side);
+    group.add(row);
+  }
+
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 1.1), white);
+  bridge.position.set(2.2, 1.55, 0);
+  group.add(bridge);
+
+  // The funnels, buff with a black top, leaning back; the last one is torn
+  const funnel = (x: number, height: number, lean: number): void => {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, height, detail(8, 12)), buff);
+    pipe.scale.z = 1.25;
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.34, height * 0.22, detail(8, 12)), black);
+    top.position.y = height * 0.39;
+    pipe.add(top);
+    pipe.position.set(x, 1.65 + height / 2, 0);
+    pipe.rotation.z = lean;
+    group.add(pipe);
+  };
+  funnel(1.1, 1.9, 0.1);
+  funnel(-0.2, 1.9, 0.14);
+  funnel(-1.5, 0.9, 0.3);
+
+  // The foremast, snapped, and the bow rail
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.8, 6), dark);
+  mast.position.set(3.1, 1.6, 0);
+  mast.rotation.z = -0.4;
   group.add(mast);
-  const yard = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 6), wood);
-  yard.position.set(1.4, 3.7, 0);
-  yard.rotation.z = Math.PI / 2 - 0.6;
-  group.add(yard);
-  const sailShape = new THREE.Shape();
-  sailShape.moveTo(-0.9, 0.7);
-  sailShape.lineTo(0.9, 0.7);
-  sailShape.lineTo(0.8, -0.2);
-  sailShape.lineTo(0.4, 0.1);
-  sailShape.lineTo(0.2, -0.6);
-  sailShape.lineTo(-0.3, -0.1);
-  sailShape.lineTo(-0.7, -0.5);
-  sailShape.lineTo(-0.9, 0.7);
-  const sail = new THREE.Mesh(new THREE.ShapeGeometry(sailShape), material(0xd6cbb0, { side: DOUBLE, transparent: true, opacity: 0.75 }));
-  sail.position.set(1.3, 3.1, 0.08);
-  sail.rotation.z = -0.6;
-  group.add(sail);
-  const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.1, 7), wood);
-  stump.position.set(-0.9, 1.8, 0);
-  stump.rotation.z = 0.2;
-  group.add(stump);
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 1.1), dark);
+  rail.position.set(3.2, 1.12, 0);
+  group.add(rail);
+  return group;
+}
+
+/**
+ * The Titan, the submersible that imploded near the Titanic, as it was: a long white capsule with a tapered nose, a
+ * grey dome at the back, a clamp around it, blue ropes and a red-tipped pole on top, and a skid under it.
+ *
+ * @returns The submersible, its nose towards +x.
+ */
+export function buildTitan(): THREE.Group {
+  const group = new THREE.Group();
+  const white = material(0xf1f5f9, { roughness: 0.4 });
+  const grey = material(0x9ca3af, { roughness: 0.4, metalness: 0.7 });
+  const black = material(0x18181b, { roughness: 0.6 });
+  const rope = material(0x38bdf8, { roughness: 0.7 });
+  const red = material(0xdc2626, { roughness: 0.6 });
+
+  // The body and its long nose, turned around x: the nose tapers and its top is flatter than its belly
+  const profile = [
+    [-1.3, 0], [-1.3, 0.5], [1.0, 0.55], [1.5, 0.46], [1.9, 0.3], [2.1, 0.12], [2.15, 0]
+  ].map(([x, radius]) => new THREE.Vector2(radius!, x!));
+  const body = new THREE.Mesh(new THREE.LatheGeometry(profile, detail(10, 16)), white);
+  body.rotation.z = -Math.PI / 2;
+  body.position.x = -0.4;
+  group.add(body);
+
+  // The titanium dome at the back
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.5, detail(8, 12), detail(5, 8), 0, Math.PI * 2, 0, Math.PI / 2), grey);
+  dome.rotation.z = Math.PI / 2;
+  dome.position.x = -1.7;
+  group.add(dome);
+
+  // The clamp around the body
+  const clamp = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.05, 5, detail(10, 16)), black);
+  clamp.rotation.y = Math.PI / 2;
+  clamp.position.x = 0.2;
+  group.add(clamp);
+
+  // The blue rope looping along the top
+  const path = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-1.5, 0.35, 0.3), new THREE.Vector3(-1.1, 0.58, 0.1), new THREE.Vector3(-0.7, 0.56, 0.25),
+    new THREE.Vector3(-0.3, 0.6, 0), new THREE.Vector3(0.1, 0.57, 0.15), new THREE.Vector3(0.2, 0.45, 0.4)
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(path, 14, 0.035, 4), rope));
+
+  // The pole with its red tip, and the equipment box
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 5), grey);
+  pole.position.set(1.2, 0.8, 0);
+  group.add(pole);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), red);
+  tip.position.set(1.2, 1.07, 0);
+  group.add(tip);
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), black);
+  box.position.set(-0.7, 0.62, 0);
+  group.add(box);
+
+  // The skid under it, the thrusters at the back
+  const skid = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.06, 0.1), grey);
+  skid.position.set(-0.3, -0.75, 0);
+  group.add(skid);
+  for (const x of [-0.8, 0.4]) {
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.25, 0.1), grey);
+    strut.position.set(x, -0.63, 0);
+    group.add(strut);
+  }
+
+  for (const z of [-0.2, 0.2]) {
+    const thruster = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.3, 6), black);
+    thruster.rotation.z = Math.PI / 2;
+    thruster.position.set(-1.45, -0.45, z);
+    group.add(thruster);
+  }
+
   return group;
 }
 
