@@ -36,7 +36,7 @@ const JOIN_COOLDOWN_SECONDS = 10;
 const COLLAPSED_STORAGE_KEY = 'biliardino-collapsed';
 
 /**
- * The panels over the scene that collapse to their first line, and the players of the lobby inside its panel.
+ * The panels over the scene that collapse to their first line: the lobby, who is in it, the match.
  */
 type Collapsible = 'lobby' | 'match' | 'players';
 
@@ -296,7 +296,7 @@ export class LobbyPage extends CustomElement {
     });
     // Every player, the first time the players of the lobby are shown
     this.effect(() => {
-      const shown = this.lobby() !== null && !this.collapsed().includes('lobby') && !this.collapsed().includes('players');
+      const shown = this.lobby() !== null && !this.collapsed().includes('players');
       untracked(() => {
         if (shown && this.everybody() === null) {
           this._loadEverybody().catch(error => this.error.set((error as Error).message));

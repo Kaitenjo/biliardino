@@ -54,7 +54,7 @@
 @if (view() === 'ranking') {
   <league-leaderboard players="{ranked()}" mode="{rankingMode()}" loading="{rankingLoading()}"
     (modeChange)="setRankingMode($event.detail)" />
-} @else if ((view() === 'aquarium' || view() === 'table') && user()) {
+} @else if (view() === 'aquarium' && user()) {
   <section class="panel lobby" [class.collapsed]="{collapsed().includes('lobby')}" aria-live="polite">
     <button
       type="button"
@@ -87,7 +87,7 @@
           <app-icon name="{joined() ? 'logout' : 'play'}" />
           { joined() ? 'Esci dalla lobby' : 'Entra in lobby' }{ cooldown() ? ` (${cooldown()}s)` : '' }
         </button>
-        @if (canGenerate() && view() === 'aquarium') {
+        @if (canGenerate()) {
           @render generateButton()
         }
       } @else if (state()) {
@@ -104,99 +104,6 @@
         <p class="muted">Caricamento…</p>
       }
     </div>
-
-    @if (lobby() && !collapsed().includes('lobby')) {
-      <div class="players">
-        <button
-          type="button"
-          class="players-toggle"
-          aria-expanded="{String(!collapsed().includes('players'))}"
-          (click)="toggleCollapsed('players')"
-        >
-          <app-icon name="users" />
-          <span class="roles-label">In lobby: { lobby()?.players?.length ?? 0 }</span>
-          <app-icon name="{collapsed().includes('players') ? 'chevron-down' : 'chevron-up'}" />
-        </button>
-        @if (!collapsed().includes('players')) {
-          @if (warning()) {
-            <p class="notice" role="status">
-              <app-icon class="warning" name="alert" />
-              { warning() }
-            </p>
-          }
-          @if (lobby()?.players?.length) {
-            <ul class="roster">
-              @for (player of lobby()?.players ?? []; track player().id) {
-                <li>
-                  <player-avatar icon="{player().icon}" label="{player().name}" size="sm" />
-                  <span class="roster-name">{ player().name }</span>
-                  <button
-                    @if (busy()) {
-                      disabled
-                    }
-                    type="button"
-                    class="btn ghost icon tiny priority"
-                    [class.on]="{player().priority}"
-                    aria-pressed="{String(player().priority)}"
-                    aria-label="{`${player().name} obbligatorio nella prossima partita`}"
-                    title="{player().priority ? 'Obbligatorio nella prossima partita: tocca per togliere' : 'Rendi obbligatorio nella prossima partita'}"
-                    (click)="togglePriority(player())"
-                  >
-                    <app-icon name="star" />
-                  </button>
-                  <button
-                    @if (busy()) {
-                      disabled
-                    }
-                    type="button"
-                    class="btn danger icon tiny"
-                    aria-label="{`Togli ${player().name} dalla lobby`}"
-                    title="Togli dalla lobby"
-                    (click)="removePlayer(player())"
-                  >
-                    <app-icon name="close" />
-                  </button>
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="muted">Nessuno in lobby.</p>
-          }
-          <div class="add">
-            <select #choice aria-label="Giocatore da aggiungere alla lobby">
-              <option value="">{ everybody() === null ? 'Caricamento…' : 'Aggiungi un giocatore…' }</option>
-              @for (candidate of candidates(); track candidate().id) {
-                <option value="{String(candidate().id)}">{ candidate().name }</option>
-              }
-            </select>
-            <button
-              @if (busy()) {
-                disabled
-              }
-              type="button"
-              class="btn gold icon tiny"
-              aria-label="Aggiungi alla lobby"
-              title="Aggiungi alla lobby"
-              (click)="addPlayer(choice, false)"
-            >
-              <app-icon name="plus" />
-            </button>
-            <button
-              @if (busy()) {
-                disabled
-              }
-              type="button"
-              class="btn ghost icon tiny priority on"
-              aria-label="Aggiungi alla lobby, obbligatorio nella prossima partita"
-              title="Aggiungi come obbligatorio nella prossima partita"
-              (click)="addPlayer(choice, true)"
-            >
-              <app-icon name="star" />
-            </button>
-          </div>
-        }
-      </div>
-    }
 
     @if (roles() && !collapsed().includes('lobby')) {
       <div class="roles">
@@ -233,6 +140,99 @@
       </div>
     }
   </section>
+
+  @if (lobby()) {
+    <section class="panel players" [class.collapsed]="{collapsed().includes('players')}" aria-label="Chi è in lobby">
+      <button
+        type="button"
+        class="players-toggle"
+        aria-expanded="{String(!collapsed().includes('players'))}"
+        (click)="toggleCollapsed('players')"
+      >
+        <app-icon name="users" />
+        <span class="roles-label">In lobby: { lobby()?.players?.length ?? 0 }</span>
+        <app-icon name="{collapsed().includes('players') ? 'chevron-down' : 'chevron-up'}" />
+      </button>
+      @if (!collapsed().includes('players')) {
+        @if (warning()) {
+          <p class="notice" role="status">
+            <app-icon class="warning" name="alert" />
+            { warning() }
+          </p>
+        }
+        @if (lobby()?.players?.length) {
+          <ul class="roster">
+            @for (player of lobby()?.players ?? []; track player().id) {
+              <li>
+                <player-avatar icon="{player().icon}" label="{player().name}" size="sm" />
+                <span class="roster-name">{ player().name }</span>
+                <button
+                  @if (busy()) {
+                    disabled
+                  }
+                  type="button"
+                  class="btn ghost icon tiny priority"
+                  [class.on]="{player().priority}"
+                  aria-pressed="{String(player().priority)}"
+                  aria-label="{`${player().name} obbligatorio nella prossima partita`}"
+                  title="{player().priority ? 'Obbligatorio nella prossima partita: tocca per togliere' : 'Rendi obbligatorio nella prossima partita'}"
+                  (click)="togglePriority(player())"
+                >
+                  <app-icon name="star" />
+                </button>
+                <button
+                  @if (busy()) {
+                    disabled
+                  }
+                  type="button"
+                  class="btn danger icon tiny"
+                  aria-label="{`Togli ${player().name} dalla lobby`}"
+                  title="Togli dalla lobby"
+                  (click)="removePlayer(player())"
+                >
+                  <app-icon name="close" />
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="muted">Nessuno in lobby.</p>
+        }
+        <div class="add">
+          <select #choice aria-label="Giocatore da aggiungere alla lobby">
+            <option value="">{ everybody() === null ? 'Caricamento…' : 'Aggiungi un giocatore…' }</option>
+            @for (candidate of candidates(); track candidate().id) {
+              <option value="{String(candidate().id)}">{ candidate().name }</option>
+            }
+          </select>
+          <button
+            @if (busy()) {
+              disabled
+            }
+            type="button"
+            class="btn gold icon tiny"
+            aria-label="Aggiungi alla lobby"
+            title="Aggiungi alla lobby"
+            (click)="addPlayer(choice, false)"
+          >
+            <app-icon name="plus" />
+          </button>
+          <button
+            @if (busy()) {
+              disabled
+            }
+            type="button"
+            class="btn ghost icon tiny priority on"
+            aria-label="Aggiungi alla lobby, obbligatorio nella prossima partita"
+            title="Aggiungi come obbligatorio nella prossima partita"
+            (click)="addPlayer(choice, true)"
+          >
+            <app-icon name="star" />
+          </button>
+        </div>
+      }
+    </section>
+  }
 }
 
 @if (error()) {

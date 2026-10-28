@@ -234,20 +234,20 @@ h1 {
   }
 }
 
-// The lobby, at the top left
+// The lobby at the top left, who is in it at the top right
 
-.lobby {
+// Their column never wider than the panel: the select and the long names shrink in it
+.lobby,
+.players {
   top: calc(var(--header) + 1rem);
-  left: 50%;
   display: grid;
-  gap: 0.9rem;
-  width: min(30rem, calc(100% - 2rem));
-  transform: translateX(-50%);
+  grid-template-columns: minmax(0, 1fr);
+  width: min(26rem, calc(50% - 1.5rem));
 }
 
-// At the table the arrow up stands over the lobby, which makes room for it
-.lobby:has(~ .arrow.up) {
-  top: calc(0.4rem + 3.4rem + 0.4rem);
+.lobby {
+  left: 1rem;
+  gap: 0.9rem;
 }
 
 .lobby-head {
@@ -320,10 +320,11 @@ h1 {
 // Who is in the lobby, collapsed to its first line by default: anybody can take a player out or put one in
 
 .players {
-  display: grid;
+  right: 1rem;
+  align-content: center;
   gap: 0.6rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+  padding-bottom: 0.85rem;
 }
 
 .players-toggle {
@@ -1001,23 +1002,104 @@ league-leaderboard ~ .arrow.left {
 // A phone, upright or sideways: smaller panels and buttons, the arrows in a row at the bottom, off the boards
 @media (max-width: 640px), (max-height: 500px) {
   .panel {
-    padding: 0.8rem 1rem;
+    padding: 0.6rem 1rem;
     border-radius: 16px;
   }
 
-  .lobby {
+  .lobby,
+  .players {
     top: calc(var(--header) + 0.5rem);
-    gap: 0.6rem;
-    width: min(26rem, calc(100% - 1.5rem));
+    width: calc(50% - 1.125rem);
   }
 
-  // The arrows are at the bottom: nothing over the lobby
-  .lobby:has(~ .arrow.up) {
-    top: calc(var(--header) + 0.5rem);
+  .lobby {
+    left: 0.75rem;
+    gap: 0.6rem;
+  }
+
+  // Half the screen is too narrow to share the first line with the buttons in the corner: the lobby starts under them
+  .lobby > .reload + * {
+    padding-top: 1.9rem;
+  }
+
+  .players {
+    right: 0.75rem;
+    gap: 0.45rem;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+    font-size: 0.8rem;
   }
 
   h1 {
     font-size: 1.15rem;
+  }
+
+  // The lobby and who is in it share the width: smaller text
+  .lobby h1 {
+    font-size: 1rem;
+  }
+
+  .status {
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 0.6rem;
+  }
+
+  .lobby .btn {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .roles {
+    gap: 0.45rem;
+    padding-top: 0.6rem;
+  }
+
+  .roles-label {
+    font-size: 0.58rem;
+  }
+
+  .switches {
+    gap: 0.4rem 1rem;
+  }
+
+  .switch {
+    gap: 0.35rem;
+    font-size: 0.8rem;
+
+    .track {
+      width: 2.2rem;
+      height: 1.2rem;
+    }
+
+    .knob {
+      width: 0.9rem;
+      height: 0.9rem;
+    }
+
+    &.on .knob {
+      transform: translate(1rem, -50%);
+    }
+  }
+
+  .confirm p,
+  .locked {
+    font-size: 0.75rem;
+  }
+
+  .players .muted {
+    margin: 0;
+    font-size: 0.8rem;
+  }
+
+  .add {
+    gap: 0.35rem;
+
+    select {
+      padding: 0.35rem 1.8rem 0.35rem 0.7rem;
+      background-position: right 0.6rem center, 0 0;
+      font-size: 0.8rem;
+    }
   }
 
   .btn {
@@ -1090,27 +1172,40 @@ league-leaderboard ~ .arrow.left {
   }
 }
 
-// Sideways: the lobby on the left, the match on the right, both low enough to leave the table in sight
+// Sideways: the panels low enough to leave the scene in sight
 @media (max-height: 500px) {
-  // Both panels in the middle, open or collapsed, small enough not to meet: the lobby under the header, the match at
-  // the bottom, with the arrow up moved to the right of it
-  .lobby,
+  // The match in the middle at the bottom, with the arrow up moved to the right of it
   .match {
     right: auto;
     left: 50%;
     width: max-content;
     max-width: calc(100% - 9rem);
-    padding: 0.45rem 2.6rem 0.45rem 0.9rem;
-    border-radius: 12px;
     transform: translateX(-50%);
   }
 
   .lobby,
-  .lobby:has(~ .arrow.up) {
+  .match,
+  .players {
+    padding: 0.45rem 2.6rem 0.45rem 0.9rem;
+    border-radius: 12px;
+  }
+
+  // The lobby under the header on the left, its roles under it; who is in it on the right
+  .lobby,
+  .players {
     top: calc(var(--header) + 0.3rem);
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+    width: max-content;
+    max-width: calc(50% - 1.125rem);
+  }
+
+  .lobby {
+    gap: 0.45rem;
+  }
+
+  .players {
+    gap: 0.3rem;
+    padding-right: 0.9rem;
+    font-size: 0.75rem;
   }
 
   .match {
@@ -1118,9 +1213,11 @@ league-leaderboard ~ .arrow.left {
     gap: 0.35rem;
   }
 
+  // Never lower than its buttons
   .panel.collapsed {
-    padding-top: 0.3rem;
-    padding-bottom: 0.3rem;
+    min-height: 2.3rem;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
   }
 
   .collapse {
@@ -1129,6 +1226,12 @@ league-leaderboard ~ .arrow.left {
     width: 1.6rem;
     height: 1.6rem;
     font-size: 0.8rem;
+  }
+
+  // Collapsed, in the middle of its line, also when the panel is lower than them
+  .panel.collapsed .collapse {
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   .collapse.reload {
@@ -1142,16 +1245,8 @@ league-leaderboard ~ .arrow.left {
   }
 
   .panel > .reload + * {
+    padding-top: 0;
     padding-right: 0;
-  }
-
-  // Sideways the lobby is one line: who is in stays in its own column, on the right
-  .players {
-    gap: 0.3rem;
-    padding: 0 0 0 1rem;
-    border-top: none;
-    border-left: 1px solid var(--line);
-    font-size: 0.75rem;
   }
 
   .roster {
@@ -1187,10 +1282,9 @@ league-leaderboard ~ .arrow.left {
     font-size: 0.75rem;
   }
 
-  // The lobby on one line: what it is on the left, the roles on the right
   .status {
     margin-bottom: 0.1rem;
-    font-size: 0.6rem;
+    font-size: 0.55rem;
   }
 
   .next {
@@ -1200,21 +1294,14 @@ league-leaderboard ~ .arrow.left {
 
   .roles {
     gap: 0.3rem;
-    padding: 0 0 0 1rem;
-    border-top: none;
-    border-left: 1px solid var(--line);
+    padding-top: 0.45rem;
   }
 
   .roles-label {
     font-size: 0.55rem;
   }
 
-  .switches {
-    gap: 0.4rem 1rem;
-  }
-
   .switch {
-    gap: 0.35rem;
     font-size: 0.75rem;
 
     .track {
@@ -1290,6 +1377,16 @@ league-leaderboard ~ .arrow.left {
 }
 
 @media (max-width: 560px) {
+  // Half of a phone held upright: the select on its own line, its buttons under it on the right
+  .add {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    select {
+      flex-basis: 100%;
+    }
+  }
+
   .score {
     gap: 0.5rem;
   }
