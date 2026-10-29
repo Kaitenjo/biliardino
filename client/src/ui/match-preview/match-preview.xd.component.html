@@ -1,0 +1,35 @@
+@import { Lineup, PlayerRef, Team } from '../../core/api/api.models.ts'
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+@import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
+
+<div class="head">
+  <span class="info">
+    @if (elo() !== null) {
+      <span class="elo">ELO <strong>{ elo() }</strong></span>
+    }
+  </span>
+  @if (delta() !== 0) {
+    <strong class="delta" [class.down]="{delta() < 0}">{ formatDelta(delta()) } Elo</strong>
+  }
+</div>
+<div class="teams">
+  @render team('Bianchi', 'white', white())
+  @render team('Marroni', 'brown', brown())
+</div>
+<div class="foot">
+  <strong class="result">{ brownScore() } – { whiteScore() }</strong>
+</div>
+
+<template team(label: string, color: Team, lineup: Lineup<PlayerRef>)>
+  <div class="{`team ${color()}`}" [class.highlighted]="{highlighted() === color()}">
+    <span class="{`team-label ${color()}`}">{ label() }</span>
+    <span class="member">
+      <app-icon class="defense" name="defense" />
+      <player-avatar icon="{lineup().defense.icon}" label="{lineup().defense.name}" />
+    </span>
+    <span class="member">
+      <app-icon class="attack" name="attack" />
+      <player-avatar icon="{lineup().attack.icon}" label="{lineup().attack.name}" />
+    </span>
+  </div>
+</template>

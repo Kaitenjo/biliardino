@@ -1,7 +1,7 @@
 import { CustomElement, Property, WebComponent } from '@xaendar/core';
 import { signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
-import type { Lineup, MatchSummary, PlayerRef, Team } from '../../core/api/api.models';
+import type { MatchSummary } from '../../core/api/api.models';
 
 /**
  * Lines of matches on the board: a page holds as many.
@@ -36,9 +36,9 @@ export class MatchBoardComponent extends CustomElement {
   public accessor total!: InputSignal<number>;
 
   /**
-   * The match under the pointer, as a list of at most one item.
+   * The match under the pointer, `null` for none.
    */
-  public readonly hovered = signal<MatchSummary[]>([]);
+  public readonly hovered = signal<MatchSummary | null>(null);
 
   /**
    * Shows the match under the pointer in the middle of the board.
@@ -46,25 +46,24 @@ export class MatchBoardComponent extends CustomElement {
    * @param match - The match.
    */
   public show(match: MatchSummary): void {
-    this.hovered.set([match]);
+    this.hovered.set(match);
   }
 
   /**
    * Hides the match.
    */
   public hide(): void {
-    this.hovered.set([]);
+    this.hovered.set(null);
   }
 
   /**
-   * A team of a match.
+   * The ELO the winners won.
    *
    * @param match - The match.
-   * @param color - The team.
-   * @returns Its players.
+   * @returns The change of each winner.
    */
-  public lineup(match: MatchSummary, color: Team): Lineup<PlayerRef> {
-    return color === 'brown' ? match.brown : match.white;
+  public gain(match: MatchSummary): number {
+    return match.winner === 'brown' ? match.brownDelta : match.whiteDelta;
   }
 
   /**
@@ -84,7 +83,7 @@ export class MatchBoardComponent extends CustomElement {
    * @returns The text, e.g. `+12`.
    */
   public formatDelta(match: MatchSummary): string {
-    const delta = match.winner === 'brown' ? match.brownDelta : match.whiteDelta;
+    const delta = this.gain(match);
     return delta > 0 ? `+${delta}` : String(delta);
   }
 }

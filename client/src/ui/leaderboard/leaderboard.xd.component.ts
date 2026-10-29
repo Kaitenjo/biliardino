@@ -2,7 +2,7 @@ import { CustomElement, Event, Property, WebComponent } from '@xaendar/core';
 import type { Output } from '@xaendar/core';
 import { signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
-import type { FormEntry, LeaderboardEntry, RankingMode, Team } from '../../core/api/api.models';
+import type { FormEntry, LeaderboardEntry, Lineup, PlayerRef, RankingMode, Team } from '../../core/api/api.models';
 import { navigate } from '../../core/router/router';
 
 /**
@@ -56,7 +56,7 @@ export class LeaderboardComponent extends CustomElement {
   /**
    * The preview of the match under the pointer, as a list of at most one item.
    */
-  public readonly preview = signal<Array<{ entry: FormEntry; x: number; y: number; below: boolean }>>([]);
+  public readonly preview = signal<{ entry: FormEntry; team: Team | null; x: number; y: number; below: boolean } | null>(null);
   /**
    * The buttons of the ranking modes.
    */
@@ -185,37 +185,31 @@ export class LeaderboardComponent extends CustomElement {
    *
    * @param event - The pointer entering the square.
    * @param entry - The match.
+   * @param playerId - The player of the row, whose team is highlighted.
    */
-  public showPreview(event: PointerEvent, entry: FormEntry): void {
+  public showPreview(event: PointerEvent, entry: FormEntry, playerId: number): void {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    this.preview.set([{ entry, x: rect.left + rect.width / 2, y: rect.top < 220 ? rect.bottom : rect.top, below: rect.top < 220 }]);
+    const team = entry.players.find(player => player.id === playerId)?.team ?? null;
+    this.preview.set({ entry, team, x: rect.left + rect.width / 2, y: rect.top < 220 ? rect.bottom : rect.top, below: rect.top < 220 });
   }
 
   /**
    * Hides the preview of a match.
    */
   public hidePreview(): void {
-    this.preview.set([]);
+    this.preview.set(null);
   }
 
   /**
-   * The players of a team of a match, the defender first as in the profile.
+   * A team of a match.
    *
    * @param entry - The match.
    * @param team - The team.
-   * @returns The defender and the attacker.
+   * @returns Its attacker and its defender.
    */
-  public teamOf(entry: FormEntry, team: Team): FormEntry['players'] {
-    return entry.players.filter(player => player.team === team).toSorted((first, second) => (first.role === second.role ? 0 : first.role === 'defense' ? -1 : 1));
-  }
-
-  /**
-   * The change of ELO, with its sign.
-   *
-   * @param delta - The change.
-   * @returns The change, with `+` when positive.
-   */
-  public formatDelta(delta: number): string {
-    return delta > 0 ? `+${delta}` : String(delta);
+  public lineupOf(entry: FormEntry, team: Team): Lineup<PlayerRef> {
+    const attack = entry.players.find(player => player.team === team && player.role === 'attack')!;
+    const defense = entry.players.find(player => player.team === team && player.role === 'defense')!;
+    return { attack, defense };
   }
 }

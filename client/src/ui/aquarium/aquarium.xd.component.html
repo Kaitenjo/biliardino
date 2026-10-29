@@ -1,5 +1,4 @@
-@import { Lineup, PlayerRef } from '../../core/api/api.models.ts'
-@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+@import { MatchPreviewComponent } from '../match-preview/match-preview.xd.component.ts'
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
 <div class="water" role="img" aria-label="{description()}">
@@ -25,20 +24,17 @@
   }
 
   @if (chartHover()) {
-    <div class="chart-preview" style="{`--x: ${chartHover().x}px; top: ${chartHover().y}px`}">
-      <div class="preview-head">
-        <span class="preview-elo">ELO <strong>{ chartHover().elo }</strong></span>
-        <strong class="preview-delta" [class.up]="{chartHover().match.eloDelta >= 0}">{ formatDelta(chartHover().match.eloDelta) }</strong>
-      </div>
-      <div class="preview-teams">
-        @render team('Bianchi', 'white', chartHover().match.white, chartHover().match.team === 'white')
-        @render team('Marroni', 'brown', chartHover().match.brown, chartHover().match.team === 'brown')
-      </div>
-      <div class="preview-foot">
-        <span class="result" [class.won]="{chartHover().match.team === chartHover().match.winner}">{ chartHover().match.brownScore } - { chartHover().match.whiteScore }</span>
-        <small>{ formatDate(chartHover().match.playedAt) }</small>
-      </div>
-    </div>
+    <match-preview
+      class="chart-preview"
+      white="{chartHover()!.match.white}"
+      brown="{chartHover()!.match.brown}"
+      whiteScore="{chartHover()!.match.whiteScore}"
+      brownScore="{chartHover()!.match.brownScore}"
+      delta="{chartHover()!.match.eloDelta}"
+      elo="{chartHover()!.elo}"
+      team="{chartHover()!.match.team}"
+      style="{`--x: ${chartHover()!.x}px; top: ${chartHover()!.y}px`}"
+    />
   }
 
   @if (failed()) {
@@ -49,19 +45,3 @@
     </ul>
   }
 </div>
-
-<template team(label: string, side: string, lineup: Lineup<PlayerRef>, mine: boolean)>
-  <div class="preview-team" [class.white]="{side() === 'white'}" [class.brown]="{side() === 'brown'}" [class.mine]="{mine()}">
-    <span class="team-label">{ label() }</span>
-    <span class="member">
-      <app-icon class="defense" name="defense" />
-      <player-avatar icon="{lineup().defense.icon}" label="{lineup().defense.name}" />
-      { lineup().defense.name }
-    </span>
-    <span class="member">
-      <app-icon class="attack" name="attack" />
-      <player-avatar icon="{lineup().attack.icon}" label="{lineup().attack.name}" />
-      { lineup().attack.name }
-    </span>
-  </div>
-</template>

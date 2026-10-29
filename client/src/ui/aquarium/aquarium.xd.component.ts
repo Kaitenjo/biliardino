@@ -238,26 +238,6 @@ export class AquariumComponent extends CustomElement {
   }
 
   /**
-   * Formats a change of ELO with its sign.
-   *
-   * @param delta - The change.
-   * @returns The text, e.g. `+12` or `-8`.
-   */
-  public formatDelta(delta: number): string {
-    return delta > 0 ? `+${delta}` : String(delta);
-  }
-
-  /**
-   * The day a match was played.
-   *
-   * @param playedAt - When, in UTC (`YYYY-MM-DD HH:MM:SS`).
-   * @returns The date in Italian time, e.g. `23/10/2026`.
-   */
-  public formatDate(playedAt: string): string {
-    return new Date(`${playedAt.replace(' ', 'T')}Z`).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  }
-
-  /**
    * Gives the scene what the page put in the slot of each board on the walls, if anything.
    */
   public placeWalls(): void {

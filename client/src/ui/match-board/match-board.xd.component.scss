@@ -115,75 +115,11 @@
   font-style: italic;
 }
 
-// The match under the pointer, in the middle of the board: chalk on a darker slate
+// The match under the pointer, in the middle of the board
 .preview {
   position: absolute;
   top: 50%;
   left: 50%;
   z-index: 2;
-  display: grid;
-  gap: 1.6cqh;
-  min-width: 50cqw;
-  padding: 2.4cqh 2.4cqw;
-  border: 0.3cqh solid var(--chalk-dim);
-  border-radius: 2cqh;
-  background: rgb(8 24 17 / 96%);
-  box-shadow: 0 1.5cqh 4cqh rgb(0 0 0 / 55%);
-  font-size: min(4.6cqh, 5.4cqw);
-  pointer-events: none;
   transform: translate(-50%, -50%);
-}
-
-.preview-head,
-.preview-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2cqw;
-}
-
-.preview-teams {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.6cqw;
-}
-
-.preview-team {
-  display: grid;
-  gap: 0.8cqh;
-  padding: 1.2cqh 1.4cqw;
-  border: 0.2cqh solid rgb(241 245 240 / 25%);
-  border-radius: 1cqh;
-
-  &.won {
-    border-color: #bbf7d0;
-  }
-
-  .team-label {
-    color: var(--chalk-dim);
-    font-size: 0.7em;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .member {
-    display: flex;
-    align-items: center;
-    gap: 1cqw;
-    white-space: nowrap;
-
-    player-avatar {
-      --avatar-size: var(--face);
-    }
-  }
-}
-
-.preview-result {
-  font-size: 1.3em;
-}
-
-.preview-date {
-  color: var(--chalk-dim);
-  font-size: 0.75em;
-  font-style: italic;
 }

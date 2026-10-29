@@ -351,7 +351,7 @@ h2 {
 
 .form {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.2rem;
 }
 
@@ -418,16 +418,6 @@ h2 {
 .preview {
   position: fixed;
   z-index: 50;
-  display: grid;
-  gap: 0.5rem;
-  width: max-content;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-solid);
-  box-shadow: var(--shadow-lg);
-  font-size: 0.78rem;
-  pointer-events: none;
 
   &.above {
     transform: translate(-50%, calc(-100% - 0.5rem));
@@ -436,96 +426,4 @@ h2 {
   &.below {
     transform: translate(-50%, 0.5rem);
   }
-
-  .attack {
-    color: var(--red);
-  }
-
-  .defense {
-    color: var(--blue);
-  }
-}
-
-.preview-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.preview-elo {
-  color: var(--text-muted);
-
-  strong {
-    color: var(--text);
-  }
-}
-
-.preview-delta {
-  color: var(--loss);
-  font-size: 0.95rem;
-
-  &.up {
-    color: var(--win);
-  }
-}
-
-.preview-score {
-  display: flex;
-  justify-content: center;
-}
-
-.result {
-  padding: 0.1rem 0.45rem;
-  border-radius: 7px;
-  background: var(--loss);
-  color: #ffffff;
-  font-weight: 800;
-
-  &.won {
-    background: var(--win);
-  }
-}
-
-.teams {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
-
-.team {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-
-  span {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    white-space: nowrap;
-  }
-
-  &.brown {
-    background: linear-gradient(180deg, var(--brown-soft), transparent 125%);
-
-    .team-label {
-      color: var(--brown);
-    }
-  }
-
-  &.white {
-    background: linear-gradient(180deg, var(--white-soft), transparent 125%);
-
-    .team-label {
-      color: var(--white);
-    }
-  }
-}
-
-.team-label {
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }

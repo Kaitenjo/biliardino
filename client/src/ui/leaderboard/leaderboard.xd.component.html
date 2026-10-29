@@ -1,5 +1,5 @@
-@import { FormEntry, Team } from '../../core/api/api.models.ts'
 @import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+@import { MatchPreviewComponent } from '../match-preview/match-preview.xd.component.ts'
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
 <header class="board-head">
@@ -8,14 +8,8 @@
   </div>
   <div class="modes" role="tablist" aria-label="Classifica per">
     @for (button of modes; track button().value) {
-      <button
-        type="button"
-        role="tab"
-        class="mode"
-        [class.active]="{mode() === button().value}"
-        aria-selected="{String(mode() === button().value)}"
-        (click)="setMode(button().value)"
-      >
+      <button type="button" role="tab" class="mode" [class.active]="{mode() === button().value}"
+        aria-selected="{String(mode() === button().value)}" (click)="setMode(button().value)">
         <app-icon name="{button().icon}" />
         { button().label }
       </button>
@@ -37,13 +31,8 @@
     </div>
     <div class="rows">
       @for (player of players(); track player().id) {
-        <div
-          role="row"
-          tabindex="0"
-          class="{`row player-row ${rowClass(player())}`}"
-          (click)="open(player().id)"
-          (keydown)="openOnKey($event, player().id)"
-        >
+        <div role="row" tabindex="0" class="{`row player-row ${rowClass(player())}`}" (click)="open(player().id)"
+          (keydown)="openOnKey($event, player().id)">
           <span class="rank" role="cell">
             <span class="rank-badge">{ player().rank ?? '—' }</span>
           </span>
@@ -65,7 +54,8 @@
           <span class="num elo" role="cell">
             <span class="elo-main">
               @if (player().form.length) {
-                <small class="form-total" title="ELO guadagnato o perso nelle ultime partite" [class.up]="{formTotal(player()).startsWith('+')}">
+                <small class="form-total" title="ELO guadagnato o perso nelle ultime partite"
+                  [class.up]="{formTotal(player()).startsWith('+')}">
                   { formTotal(player()) }
                 </small>
               }
@@ -93,13 +83,13 @@
             @if (player().form.length) {
               <span class="form">
                 @for (entry of player().form; track $index()) {
-                  <span
-                    class="dot"
-                    [class.won]="{entry().won}"
-                    (pointerenter)="showPreview($event, entry())"
-                    (pointerleave)="hidePreview()"
-                  >
-                    { entry().role === 'attack' ? 'A' : 'D' }
+                  <span class="dot" [class.won]="{entry().won}" (pointerenter)="showPreview($event, entry(), player().id)"
+                    (pointerleave)="hidePreview()">
+                    @if (entry().role === 'attack') {
+                      <app-icon style="color: white" name="attack" />
+                    } @else {
+                      <app-icon style="color: white" name="defense" />
+                    }
                   </span>
                 }
               </span>
@@ -111,30 +101,15 @@
   </div>
 }
 
-@for (item of preview(); track item().x) {
-  <div class="{`preview ${item().below ? 'below' : 'above'}`}" style="{`left: ${item().x}px; top: ${item().y}px`}">
-    <div class="preview-head">
-      <span class="preview-elo">ELO <strong>{ item().entry.elo }</strong></span>
-      <strong class="preview-delta" [class.up]="{item().entry.delta >= 0}">{ formatDelta(item().entry.delta) }</strong>
-    </div>
-    <div class="teams">
-      @render team('Bianchi', 'white', item().entry)
-      @render team('Marroni', 'brown', item().entry)
-    </div>
-    <div class="preview-score">
-      <span class="result" [class.won]="{item().entry.won}">{ item().entry.brownScore }-{ item().entry.whiteScore }</span>
-    </div>
-  </div>
+@if (preview()) {
+  <match-preview
+    class="{`preview ${preview().below ? 'below' : 'above'}`}"
+    white="{lineupOf(preview().entry, 'white')}"
+    brown="{lineupOf(preview().entry, 'brown')}"
+    whiteScore="{preview().entry.whiteScore}"
+    brownScore="{preview().entry.brownScore}"
+    delta="{preview().entry.delta}"
+    team="{preview().team}"
+    style="{`left: ${preview().x}px; top: ${preview().y}px`}"
+  />
 }
-
-<template team(label: string, color: Team, entry: FormEntry)>
-  <div class="{`team ${color()}`}">
-    <span class="team-label">{ label() }</span>
-    @for (member of teamOf(entry(), color()); track member().id) {
-      <span>
-        <app-icon class="{member().role}" name="{member().role}" />
-        <player-avatar icon="{member().icon}" label="{member().name}" />
-      </span>
-    }
-  </div>
-</template>
