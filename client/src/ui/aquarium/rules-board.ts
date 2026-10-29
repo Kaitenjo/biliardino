@@ -27,9 +27,9 @@ export const PAPER_SIZE = { width: BOARD_WIDTH - BORDER * 2, height: BOARD_HEIGH
  */
 export function buildRulesBoard(): THREE.Group {
   const group = new THREE.Group();
-  const gold = phong({ color: 0xd4af37, metalness: 0.9, roughness: 0.28, flatShading: true });
+  const gold = phong({ color: 0xe8e8e8, metalness: 0.2, roughness: 0.5, flatShading: true });
 
-  // The gilded frame: four mouldings around the parchment
+  // The white frame: four mouldings around the parchment
   for (const [width, height, x, y] of [
     [BOARD_WIDTH, BORDER, 0, BOARD_HEIGHT / 2 - BORDER / 2],
     [BOARD_WIDTH, BORDER, 0, -BOARD_HEIGHT / 2 + BORDER / 2],
@@ -41,7 +41,7 @@ export function buildRulesBoard(): THREE.Group {
     group.add(moulding);
   }
 
-  const backing = new THREE.Mesh(new THREE.BoxGeometry(BOARD_WIDTH, BOARD_HEIGHT, 0.04), phong({ color: 0x2b190c }));
+  const backing = new THREE.Mesh(new THREE.BoxGeometry(BOARD_WIDTH, BOARD_HEIGHT, 0.04), phong({ color: 0x111111 }));
   group.add(backing);
   // A plain warm paper: the rules are written over it by the page
   const paper = new THREE.Mesh(new THREE.PlaneGeometry(PAPER_SIZE.width, PAPER_SIZE.height), phong({ color: 0xf1e2bf, roughness: 0.85 }));

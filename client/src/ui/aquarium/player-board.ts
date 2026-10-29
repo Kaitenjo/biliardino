@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DISPLAY, FIGURES, NAME, TEXT } from './fonts';
+import { BOARD, FIGURES, NAME, TEXT } from './fonts';
 import type { PlayerDetail, PlayerMatch, PlayerResult, PlayerStats, RankingMode, Role } from '../../core/api/api.models';
 import { detail, paintedColorSpace } from './detail';
 import { phong } from './materials';
@@ -35,6 +35,10 @@ interface Layout {
    * The mentions fill their columns row by row; a name stands `nameY` under its label.
    */
   mentions: { columns: number[]; width: number; titleY: number; top: number; step: number; nameY: number; label: number; name: number; value: number };
+  /**
+   * The general scope has no chart: only the rules that remain, and the mentions over all the room.
+   */
+  general: { rules: Array<[number, number, number, number]>; mentions: Layout['mentions'] };
 }
 
 /**
@@ -60,7 +64,14 @@ const WIDE: Layout = {
   chart: { left: 140, right: 990, top: 610, bottom: 950 },
   axis: 22,
   title: 26,
-  mentions: { columns: [1080], width: 460, titleY: 578, top: 606, step: 76, nameY: 33, label: 26, name: 32, value: 30 }
+  mentions: { columns: [1080], width: 460, titleY: 578, top: 606, step: 76, nameY: 31, label: 22, name: 27, value: 25 },
+  general: {
+    rules: [
+      [60, 250, 1540, 250],
+      [60, 540, 1540, 540]
+    ],
+    mentions: { columns: [60, 820], width: 720, titleY: 585, top: 650, step: 110, nameY: 38, label: 24, name: 30, value: 28 }
+  }
 };
 
 /**
@@ -89,7 +100,14 @@ const TALL: Layout = {
   chart: { left: 130, right: 950, top: 980, bottom: 1265 },
   axis: 30,
   title: 34,
-  mentions: { columns: [50, 520], width: 430, titleY: 1360, top: 1410, step: 96, nameY: 44, label: 32, name: 42, value: 38 }
+  mentions: { columns: [50, 520], width: 430, titleY: 1360, top: 1410, step: 96, nameY: 40, label: 27, name: 35, value: 31 },
+  general: {
+    rules: [
+      [50, 260, 950, 260],
+      [50, 885, 950, 885]
+    ],
+    mentions: { columns: [50], width: 900, titleY: 950, top: 1030, step: 125, nameY: 46, label: 30, name: 38, value: 34 }
+  }
 };
 
 /**
@@ -102,6 +120,10 @@ export const TALL_BOARD_SIZE = { width: 3.4, height: (3.4 * TALL.height) / TALL.
  */
 const RANK_COLORS: Record<number, string> = { 1: '#f5c542', 2: '#d6dbe2', 3: '#d08a4a' };
 const ROLE_COLORS: Record<Role, number> = { attack: 0xfb7185, defense: 0x60a5fa };
+/**
+ * The outline of the match under the pointer: a darker shade of the colour of its role.
+ */
+const ROLE_RIMS: Record<Role, number> = { attack: 0x9f1239, defense: 0x1e3a8a };
 
 /**
  * Colours of the slate.
@@ -231,6 +253,7 @@ export class PlayerBoard {
   private _points: ChartPoint[] = [];
   private readonly _guide: THREE.Mesh;
   private readonly _marker: THREE.Mesh;
+  private readonly _rim: THREE.Mesh;
 
   /**
    * @param width - Width of the face of the board.
@@ -253,7 +276,10 @@ export class PlayerBoard {
     const light = new THREE.MeshBasicMaterial({ color: 0xf6dc7a, transparent: true, opacity: 0.55 });
     this._guide = new THREE.Mesh(new THREE.BoxGeometry(0.01, ((chart.bottom - chart.top) / this._layout.height) * height, 0.01), light);
     this._guide.position.set(0, this._y((chart.top + chart.bottom) / 2), 0.05);
-    this._marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, detail(8, 16), detail(6, 12)), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    // A bead of the colour of its role, as the ones of the chart, outlined by a thin hull of a darker shade just behind it
+    this._marker = new THREE.Mesh(new THREE.SphereGeometry(0.05, detail(8, 16), detail(6, 12)), phong({ color: ROLE_COLORS.attack, emissive: ROLE_COLORS.attack, emissiveIntensity: 0.6, roughness: 0.4 }));
+    this._rim = new THREE.Mesh(new THREE.SphereGeometry(0.064, detail(8, 16), detail(6, 12)), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide }));
+    this._marker.add(this._rim);
     this._guide.visible = false;
     this._marker.visible = false;
     this.object.add(this._guide, this._marker);
@@ -271,7 +297,7 @@ export class PlayerBoard {
   public show(detail: PlayerDetail | null, scope: RankingMode): void {
     const ctx = this._canvas.getContext('2d')!;
     const { chart, margin } = this._layout;
-    this._paintSlate(ctx);
+    this._paintSlate(ctx, scope);
     if (!detail) {
       this._shown = null;
       ctx.fillStyle = MUTED;
@@ -287,12 +313,21 @@ export class PlayerBoard {
     const stats = detail.stats[scope];
     this._paintHead(ctx, detail, scope);
     this._paintFigures(ctx, detail, stats, scope);
-    this._paintMentions(ctx, stats);
+    this._paintMentions(ctx, stats, scope);
+
+    // All the matches together have no chart: the mentions take its room
+    if (scope === 'best') {
+      this._points = [];
+      this._buildChart([], 0, 1);
+      this.hover(null);
+      this._texture.needsUpdate = true;
+      return;
+    }
 
     // The chart: the axis painted, the lines as tubes
     const { matches, series } = trend(detail, scope);
     ctx.fillStyle = GOLD;
-    ctx.font = `700 ${this._layout.title}px ${DISPLAY}`;
+    ctx.font = `700 ${this._layout.title}px ${BOARD}`;
     ctx.textAlign = 'left';
     ctx.fillText('ANDAMENTO ELO', margin, chart.top - 32);
     if (!series.length) {
@@ -314,6 +349,7 @@ export class PlayerBoard {
         const elo = elos[i + 1]!;
         return { position: this._chartPoint(i + 1, count, elo, low, high), match, elo };
       });
+      this._buildBeads(this._points);
     }
 
     this.hover(null);
@@ -351,7 +387,10 @@ export class PlayerBoard {
     this._guide.position.x = nearest.position.x;
     this._marker.position.copy(nearest.position);
     this._marker.position.z += 0.02;
-    (this._marker.material as THREE.MeshBasicMaterial).color.set(ROLE_COLORS[nearest.match.role]).lerp(new THREE.Color(0xffffff), 0.4);
+    const marker = this._marker.material as THREE.MeshPhongMaterial;
+    marker.color.set(ROLE_COLORS[nearest.match.role]);
+    marker.emissive.set(ROLE_COLORS[nearest.match.role]);
+    (this._rim.material as THREE.MeshBasicMaterial).color.set(ROLE_RIMS[nearest.match.role]);
     this._guide.visible = true;
     this._marker.visible = true;
     return nearest;
@@ -361,9 +400,11 @@ export class PlayerBoard {
    * The slate: dark, a little lighter in the middle, with thin gold rules between its parts.
    *
    * @param ctx - The canvas.
+   * @param scope - The scope: the general one has fewer rules.
    */
-  private _paintSlate(ctx: CanvasRenderingContext2D): void {
-    const { width, height, rules } = this._layout;
+  private _paintSlate(ctx: CanvasRenderingContext2D, scope: RankingMode): void {
+    const { width, height } = this._layout;
+    const rules = scope === 'best' ? this._layout.general.rules : this._layout.rules;
     const slate = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, Math.max(width, height) * 0.7);
     slate.addColorStop(0, '#1b1f26');
     slate.addColorStop(1, '#0b0d11');
@@ -392,7 +433,7 @@ export class PlayerBoard {
     const right = this._layout.width - this._layout.margin;
     ctx.textAlign = 'right';
     ctx.fillStyle = GOLD;
-    ctx.font = `700 ${eloAt.scope}px ${DISPLAY}`;
+    ctx.font = `700 ${eloAt.scope}px ${BOARD}`;
     ctx.fillText(SCOPES[scope].toUpperCase(), right, eloAt.scopeY);
     const elo = String(detail.stats[scope].elo);
     ctx.fillStyle = INK;
@@ -432,7 +473,7 @@ export class PlayerBoard {
     ctx.font = `700 ${name.roles}px ${FIGURES}`;
     ctx.fillText(number, rankX, rolesY);
     const numberWidth = ctx.measureText(number).width;
-    ctx.font = `700 ${name.roles}px ${DISPLAY}`;
+    ctx.font = `700 ${name.roles}px ${BOARD}`;
     const left = eloLeft - 20 - (rankX + numberWidth + 10);
     const caption = (rank ? ['IN CLASSIFICA', 'POSTO'] : ['NON CLASSIFICATO', 'NON CLASS.']).find(text => ctx.measureText(text).width <= left);
     if (caption) {
@@ -513,8 +554,9 @@ export class PlayerBoard {
    *
    * @param ctx - The canvas.
    * @param stats - The statistics of the scope.
+   * @param scope - The scope: the general one has no chart, and gives its room to the mentions.
    */
-  private _paintMentions(ctx: CanvasRenderingContext2D, stats: PlayerStats): void {
+  private _paintMentions(ctx: CanvasRenderingContext2D, stats: PlayerStats, scope: RankingMode): void {
     const mentions: Array<[string, PlayerResult | null, boolean]> = [
       ['Sempre in mezzo alle palle', stats.frequentTeammate, false],
       ['Il tuo squalo', stats.bestTeammate, true],
@@ -522,10 +564,10 @@ export class PlayerBoard {
       ['Il gargaro di turno', stats.strongestOpponent, true],
       ['Sogliola Free Elo', stats.weakestOpponent, true]
     ];
-    const layout = this._layout.mentions;
+    const layout = scope === 'best' ? this._layout.general.mentions : this._layout.mentions;
     ctx.textAlign = 'left';
     ctx.fillStyle = GOLD;
-    ctx.font = `700 ${this._layout.title}px ${DISPLAY}`;
+    ctx.font = `700 ${this._layout.title}px ${BOARD}`;
     ctx.fillText('COMPAGNI E AVVERSARI', layout.columns[0]!, layout.titleY);
     const shown = mentions.filter(([, result]) => result);
     shown.forEach(([label, result, isDelta], i) => {
@@ -673,6 +715,27 @@ export class PlayerBoard {
     }
   }
 
+
+  /**
+   * Draws a bead on each match of the chart, to show where the pointer gets its summary: one instanced mesh for each
+   * role, so that they cost two draws whatever the matches.
+   *
+   * @param points - The matches on the chart.
+   */
+  private _buildBeads(points: ChartPoint[]): void {
+    const geometry = new THREE.SphereGeometry(0.045, detail(8, 16), detail(6, 12));
+    const matrix = new THREE.Matrix4();
+    for (const role of ['attack', 'defense'] as const) {
+      const own = points.filter(point => point.match.role === role);
+      if (!own.length) {
+        continue;
+      }
+
+      const beads = new THREE.InstancedMesh(geometry, phong({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4 }), own.length);
+      own.forEach((point, i) => beads.setMatrixAt(i, matrix.makeTranslation(point.position.x, point.position.y, point.position.z)));
+      this._chart.add(beads);
+    }
+  }
   /**
    * Where a point of the chart is on the board, standing out of it.
    *

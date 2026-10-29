@@ -2,6 +2,7 @@ import { CustomElement, Property, Query, WebComponent } from '@xaendar/core';
 import { computed, signal, untracked } from '@xaendar/core/signals';
 import type { InputSignal, QuerySignal } from '@xaendar/core/signals';
 import type { LeaderboardEntry, LobbyPlayer, MatchPlayer, PlayerDetail, RankingMode, RunningMatch } from '../../core/api/api.models';
+import { cameraTransitions } from '../../core/settings/camera';
 import { quality } from '../../core/settings/quality';
 import type { SeatKey } from './foosball3d';
 import { loadFonts } from './fonts';
@@ -92,7 +93,7 @@ export class AquariumComponent extends CustomElement {
   /**
    * The match of the chart of the player under the pointer, as a list of at most one item.
    */
-  public readonly chartHover = signal<ChartHover[]>([]);
+  public readonly chartHover = signal<ChartHover | null>(null);
 
   /**
    * The box of the scene.
@@ -170,6 +171,10 @@ export class AquariumComponent extends CustomElement {
       const elements = this.podiumElements();
       untracked(() => this._scene?.setPodium(elements));
     });
+    this.effect(() => {
+      const travels = cameraTransitions();
+      untracked(() => this._scene?.setTravels(travels));
+    });
     // Another quality: the scene is built again, with or without what only decorates it
     this.effect(() => {
       quality();
@@ -217,7 +222,8 @@ export class AquariumComponent extends CustomElement {
     this._scene?.dispose();
     // Its canvas goes first in the box, under the names
     this._scene = this._sceneClass!.create(this.water(), this.labels(), matchMedia('(prefers-reduced-motion: reduce)').matches, untracked(quality));
-    this._scene.onChartHover = hover => this.chartHover.set(hover ? [hover] : []);
+    this._scene.onChartHover = hover => this.chartHover.set(hover);
+    this._scene.setTravels(untracked(cameraTransitions));
     const water = this.water();
     this._scene.resize(water.clientWidth, water.clientHeight);
     untracked(() => {

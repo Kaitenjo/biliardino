@@ -533,6 +533,10 @@ export class AquariumScene {
    */
   public onChartHover: ((hover: ChartHover | null) => void) | null = null;
   /**
+   * Whether the camera travels between the places; off, it jumps to the next one at once.
+   */
+  private _travels = true;
+  /**
    * Finds what is under the pointer, and whether a match of the chart is marked.
    */
   private readonly _raycaster = new THREE.Raycaster();
@@ -749,7 +753,24 @@ export class AquariumScene {
   }
 
   /**
+   * Turns the travel of the camera between the places on or off: off, a trip going on ends at once, and the next ones
+   * jump to their place.
+   *
+   * @param travels - Whether the camera travels.
+   */
+  public setTravels(travels: boolean): void {
+    this._travels = travels;
+    if (!travels && (this._progress !== this._goal.progress || this._side !== this._goal.side)) {
+      this._progress = this._goal.progress;
+      this._side = this._goal.side;
+      this._applyCamera();
+      this._invalidate();
+    }
+  }
+
+  /**
    * Moves the camera to a place, along its way and along the wall of the boards; at once for who asked for less motion,
+   * or turned the transitions off,
    * or while nothing is drawn.
    *
    * @param view - Where to go.
@@ -763,7 +784,7 @@ export class AquariumScene {
     this._start = { progress: this._progress, side: this._side };
     this._goal = { progress: VIEW_PROGRESS[view], side: VIEW_SIDE[view] };
     this._travelled = 0;
-    if (this._still || !this._running) {
+    if (this._still || !this._running || !this._travels) {
       this._progress = this._goal.progress;
       this._side = this._goal.side;
       this._applyCamera();

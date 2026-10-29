@@ -933,7 +933,7 @@ league-leaderboard ~ .arrow.left {
   // The parchment itself: a warm paper, darker at its edges
   background: radial-gradient(ellipse at center, #f7ecd2 30%, #ecdbb5 70%, #cdb183 100%);
   color: #2b1a0e;
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: Lora, Georgia, serif;
   transform-origin: 0 0;
   visibility: hidden;
   opacity: 0;
@@ -945,25 +945,33 @@ league-leaderboard ~ .arrow.left {
     padding: 0 40px 12px;
     border-bottom: 3px solid #b08d57;
     color: #3b2414;
-    font-family: Cinzel, Georgia, serif;
-    font-size: 56px;
-    font-weight: 900;
+    font-family: Lora, Georgia, serif;
+    font-size: 52px;
+    font-weight: 700;
     line-height: 1.1;
   }
 
+  // The rules may grow: the list scrolls under the title
   ul {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    pointer-events: auto;
+    scrollbar-color: #b08d57 transparent;
+    scrollbar-width: thin;
     display: grid;
     gap: 14px;
     margin: 0;
-    padding: 0;
+    padding: 0 12px 0 0;
+    align-content: start;
     list-style: none;
   }
 
   li {
     position: relative;
     padding-left: 34px;
-    font-size: 31px;
-    font-weight: 600;
+    font-size: 28px;
+    font-weight: 500;
     line-height: 1.15;
 
     // The bullet: a gilded dot

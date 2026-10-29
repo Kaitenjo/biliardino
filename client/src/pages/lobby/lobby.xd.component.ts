@@ -353,21 +353,7 @@ export class LobbyPage extends CustomElement {
       // It stays collapsed until the page is reloaded
     }
   }
-
-  /**
-   * Goes to the hall of fame, the home page.
-   */
-  public showRanking(): void {
-    navigate('/');
-  }
-
-  /**
-   * Goes from the hall of fame to the lobby.
-   */
-  public showLobby(): void {
-    navigate('/lobby');
-  }
-
+  
   /**
    * Ranks the leaderboard in another way, loading it from the server.
    *
@@ -378,27 +364,6 @@ export class LobbyPage extends CustomElement {
       this.rankingMode.set(mode);
       this._loadRanking().catch(error => this.error.set((error as Error).message));
     }
-  }
-
-  /**
-   * Takes the camera to the foosball table.
-   */
-  public showTable(): void {
-    navigate('/match');
-  }
-
-  /**
-   * Takes the camera back to the aquarium.
-   */
-  public showAquarium(): void {
-    navigate('/lobby');
-  }
-
-  /**
-   * Goes to the board of the rules, on the left of the player.
-   */
-  public showRules(): void {
-    navigate('/rules');
   }
 
   /**

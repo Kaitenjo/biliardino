@@ -11,22 +11,27 @@ export const DISPLAY = '"Cinzel", Georgia, serif';
 /**
  * An elegant serif for the names of the players.
  */
-export const NAME = '"Playfair Display", Georgia, serif';
+export const NAME = '"Lora", Georgia, serif';
+
+/**
+ * The titles of the board of the player.
+ */
+export const BOARD = '"Lora", Georgia, serif';
 
 /**
  * A book serif for running text: the rules, the notes under the names.
  */
-export const TEXT = '"Cormorant Garamond", Georgia, serif';
+export const TEXT = '"Lora", Georgia, serif';
 
 /**
  * A tall narrow sans for figures and their labels.
  */
-export const FIGURES = '"Oswald", "Arial Narrow", sans-serif';
+export const FIGURES = '"Inter", system-ui, sans-serif';
 
 /**
  * The faces used, as the canvas asks for them.
  */
-const FACES = [`700 40px ${DISPLAY}`, `900 40px ${DISPLAY}`, `700 40px ${NAME}`, `600 40px ${TEXT}`, `italic 500 40px ${TEXT}`, `500 40px ${FIGURES}`, `600 40px ${FIGURES}`];
+const FACES = [`700 40px ${DISPLAY}`, `900 40px ${DISPLAY}`, `700 40px ${BOARD}`, `600 40px ${TEXT}`, `italic 500 40px ${TEXT}`, `500 40px ${FIGURES}`, `600 40px ${FIGURES}`, `800 40px ${FIGURES}`];
 
 /**
  * Seconds to wait for the fonts at most: on a slow network the scene is painted with the fallbacks rather than late.

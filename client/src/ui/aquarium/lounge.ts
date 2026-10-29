@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DISPLAY } from './fonts';
+import { FIGURES } from './fonts';
 import { batchStatic } from './batching';
 import { detail, isHigh, paintedColorSpace } from './detail';
 import { phong } from './materials';
@@ -110,7 +110,7 @@ function texture(width: number, height: number, paint: (ctx: CanvasRenderingCont
 }
 
 /**
- * A board on a wall, as in an old station: a mahogany case with brass edges, a black face, and a gilded plate with its
+ * A board on a wall, as in an old station: a black case with white edges, a dark face, and a white plate with its
  * name on top. What it shows is drawn over the canvas, on the face.
  *
  * @param size - The size of its face.
@@ -119,8 +119,8 @@ function texture(width: number, height: number, paint: (ctx: CanvasRenderingCont
  */
 export function wallBoard({ width, height }: { width: number; height: number }, title: string): THREE.Group {
   const board = new THREE.Group();
-  const brass = material(0xc9a227, { metalness: 0.85, roughness: 0.3, flatShading: false });
-  const caseBox = new THREE.Mesh(new THREE.BoxGeometry(width + 0.5, height + 0.5, 0.3), material(0x3a1d10, { roughness: 0.45 }));
+  const trim = material(0xe8e8e8, { metalness: 0.2, roughness: 0.5, flatShading: false });
+  const caseBox = new THREE.Mesh(new THREE.BoxGeometry(width + 0.5, height + 0.5, 0.3), material(0x111111, { roughness: 0.5 }));
   caseBox.position.z = -0.15;
   board.add(caseBox);
   for (const [w, h, x, y] of [
@@ -129,7 +129,7 @@ export function wallBoard({ width, height }: { width: number; height: number }, 
     [0.08, height + 0.56, (width + 0.5) / 2, 0],
     [0.08, height + 0.56, -(width + 0.5) / 2, 0]
   ] as const) {
-    const edge = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.34), brass);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.34), trim);
     edge.position.set(x, y, -0.13);
     board.add(edge);
   }
@@ -144,19 +144,19 @@ export function wallBoard({ width, height }: { width: number; height: number }, 
     phong({
       map: texture(520, 100, ctx => {
         const shine = ctx.createLinearGradient(0, 0, 0, 100);
-        shine.addColorStop(0, '#f6dc7a');
-        shine.addColorStop(0.5, '#c9a227');
-        shine.addColorStop(1, '#8a6a12');
+        shine.addColorStop(0, '#ffffff');
+        shine.addColorStop(0.5, '#e8e8e8');
+        shine.addColorStop(1, '#b8b8b8');
         ctx.fillStyle = shine;
         ctx.fillRect(0, 0, 520, 100);
-        ctx.strokeStyle = '#5c4308';
+        ctx.strokeStyle = '#111111';
         ctx.lineWidth = 6;
         ctx.strokeRect(6, 6, 508, 88);
-        ctx.fillStyle = '#2b1d03';
-        ctx.font = `700 58px ${DISPLAY}`;
+        ctx.fillStyle = '#111111';
+        ctx.font = `800 54px ${FIGURES}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(title, 260, 54);
+        ctx.fillText(title.toUpperCase(), 260, 54);
       }),
       // Matte: a polished plate glares under the lamps, over the title
       roughness: 1

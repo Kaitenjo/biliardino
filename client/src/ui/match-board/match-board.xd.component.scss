@@ -3,7 +3,7 @@
 :host {
   // A line of a match, and the icon of a player in it: as big as the lines fit, on a wide board and on a tall one
   --line: 8cqh;
-  --face: min(6.2cqh, 9cqw);
+  --face: min(6.6cqh, 9cqw);
   --chalk: rgb(241 245 240 / 92%);
   --chalk-dim: rgb(241 245 240 / 55%);
 
@@ -20,6 +20,7 @@
 }
 
 .board {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1.2cqh;
@@ -27,7 +28,7 @@
   height: 100%;
   padding: 2.6cqh 3cqw;
   color: var(--chalk);
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: Lora, Georgia, serif;
   font-weight: 700;
   // The faint halo of chalk
   text-shadow: 0 0 0.4cqh rgb(255 255 255 / 25%);
@@ -40,34 +41,27 @@
   grid-template-columns: 1fr 2.4fr 1.2fr 2.4fr 1fr;
   align-items: center;
   justify-items: center;
+
+  &:hover {
+    background: rgb(241 245 240 / 10%);
+  }
 }
 
 .head {
   padding-bottom: 0.8cqh;
   border-bottom: 0.3cqh solid var(--chalk-dim);
   color: var(--chalk-dim);
-  font-family: Cinzel, Georgia, serif;
-  font-size: min(3.6cqh, 3cqw);
+  font-family: Lora, Georgia, serif;
+  font-size: min(4.2cqh, 3.6cqw);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 
-  // The colour of the team, a smudge of chalk before its name
-  .team::before {
-    content: '';
-    display: inline-block;
-    width: 0.7em;
-    height: 0.7em;
-    margin-right: 0.35em;
-    border-radius: 50%;
-    vertical-align: -0.05em;
+  .white {
+    color: #f8fafc;
   }
 
-  .brown::before {
-    background: #c8a27a;
-  }
-
-  .white::before {
-    background: #f8fafc;
+  .brown {
+    color: #c8a27a;
   }
 }
 
@@ -79,8 +73,14 @@
 
 .line {
   height: var(--line);
+  cursor: default;
+  pointer-events: auto;
   border-bottom: 0.2cqh dashed rgb(241 245 240 / 14%);
-  font-size: min(4.4cqh, 5.4cqw);
+  font-size: min(5.6cqh, 6.4cqw);
+
+  &:hover {
+    background: rgb(241 245 240 / 10%);
+  }
 }
 
 .team {
@@ -109,6 +109,79 @@
 .foot {
   display: flex;
   justify-content: space-between;
-  font-size: min(3.4cqh, 4.4cqw);
+  font-size: min(4cqh, 5cqw);
+  font-style: italic;
+}
+
+// The match under the pointer, in the middle of the board: chalk on a darker slate
+.preview {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  gap: 1.6cqh;
+  min-width: 50cqw;
+  padding: 2.4cqh 2.4cqw;
+  border: 0.3cqh solid var(--chalk-dim);
+  border-radius: 2cqh;
+  background: rgb(8 24 17 / 96%);
+  box-shadow: 0 1.5cqh 4cqh rgb(0 0 0 / 55%);
+  font-size: min(4.6cqh, 5.4cqw);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.preview-head,
+.preview-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+}
+
+.preview-teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6cqw;
+}
+
+.preview-team {
+  display: grid;
+  gap: 0.8cqh;
+  padding: 1.2cqh 1.4cqw;
+  border: 0.2cqh solid rgb(241 245 240 / 25%);
+  border-radius: 1cqh;
+
+  &.won {
+    border-color: #bbf7d0;
+  }
+
+  .team-label {
+    color: var(--chalk-dim);
+    font-size: 0.7em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .member {
+    display: flex;
+    align-items: center;
+    gap: 1cqw;
+    white-space: nowrap;
+
+    player-avatar {
+      --avatar-size: var(--face);
+    }
+  }
+}
+
+.preview-result {
+  font-size: 1.3em;
+}
+
+.preview-date {
+  color: var(--chalk-dim);
+  font-size: 0.75em;
   font-style: italic;
 }

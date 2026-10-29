@@ -1,0 +1,13 @@
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+
+<button
+  type="button"
+  class="toggle"
+  [class.on]="{on()}"
+  aria-pressed="{String(on())}"
+  aria-label="{on() ? 'Transizioni della camera attive: tocca per disattivarle' : 'Transizioni della camera disattivate: tocca per attivarle'}"
+  title="{on() ? 'Transizioni della camera attive' : 'Transizioni della camera disattivate'}"
+  (click)="toggle()"
+>
+  <app-icon name="camera" />
+</button>

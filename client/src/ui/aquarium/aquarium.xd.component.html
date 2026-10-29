@@ -24,19 +24,19 @@
     </a>
   }
 
-  @for (hover of chartHover(); track hover().match.id) {
-    <div class="chart-preview" style="{`--x: ${hover().x}px; top: ${hover().y}px`}">
+  @if (chartHover()) {
+    <div class="chart-preview" style="{`--x: ${chartHover().x}px; top: ${chartHover().y}px`}">
       <div class="preview-head">
-        <span class="preview-elo">ELO <strong>{ hover().elo }</strong></span>
-        <strong class="preview-delta" [class.up]="{hover().match.eloDelta >= 0}">{ formatDelta(hover().match.eloDelta) }</strong>
+        <span class="preview-elo">ELO <strong>{ chartHover().elo }</strong></span>
+        <strong class="preview-delta" [class.up]="{chartHover().match.eloDelta >= 0}">{ formatDelta(chartHover().match.eloDelta) }</strong>
       </div>
       <div class="preview-teams">
-        @render team('Marroni', 'brown', hover().match.brown, hover().match.team === 'brown')
-        @render team('Bianchi', 'white', hover().match.white, hover().match.team === 'white')
+        @render team('Bianchi', 'white', chartHover().match.white, chartHover().match.team === 'white')
+        @render team('Marroni', 'brown', chartHover().match.brown, chartHover().match.team === 'brown')
       </div>
       <div class="preview-foot">
-        <span class="result" [class.won]="{hover().match.team === hover().match.winner}">{ hover().match.brownScore } - { hover().match.whiteScore }</span>
-        <small>{ formatDate(hover().match.playedAt) }</small>
+        <span class="result" [class.won]="{chartHover().match.team === chartHover().match.winner}">{ chartHover().match.brownScore } - { chartHover().match.whiteScore }</span>
+        <small>{ formatDate(chartHover().match.playedAt) }</small>
       </div>
     </div>
   }

@@ -240,40 +240,7 @@
 }
 
 @switch (view()) {
-  @case ('ranking') {
-    <button type="button" class="arrow right" aria-label="Vai alla lobby" title="Vai alla lobby" (click)="showLobby()">
-      <app-icon name="arrow-right" />
-    </button>
-  }
-  @case ('aquarium') {
-    <button type="button" class="arrow left" aria-label="Vai alla classifica" title="Classifica"
-      (click)="showRanking()">
-      <app-icon name="arrow-left" />
-    </button>
-    <button type="button" class="arrow down" aria-label="Vai al biliardino" title="Vai al biliardino"
-      (click)="showTable()">
-      <app-icon name="arrow-down" />
-    </button>
-  }
-  @case ('rules') {
-    <button type="button" class="arrow right" aria-label="Torna al giocatore" title="Giocatore"
-      (click)="backToPlayer()">
-      <app-icon name="arrow-right" />
-    </button>
-    <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
-      <app-icon name="arrow-down" />
-    </button>
-  }
   @case ('stats') {
-    <button type="button" class="arrow left" aria-label="Vai al regolamento" title="Regolamento" (click)="showRules()">
-      <app-icon name="arrow-left" />
-    </button>
-    <button type="button" class="arrow right" aria-label="Vai alle partite" title="Partite" (click)="showMatches()">
-      <app-icon name="arrow-right" />
-    </button>
-    <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
-      <app-icon name="arrow-down" />
-    </button>
     <nav class="pager" role="tablist" aria-label="Statistiche per">
       @for (scope of scopes; track scope().value) {
         <button type="button" role="tab" class="{profileScope() === scope().value ? 'btn gold' : 'btn ghost'}"
@@ -284,23 +251,7 @@
       }
     </nav>
   }
-  @case ('matches') {
-    <button type="button" class="arrow left" aria-label="Torna al giocatore" title="Giocatore" (click)="backToPlayer()">
-      <app-icon name="arrow-left" />
-    </button>
-    <button type="button" class="arrow down" aria-label="Torna al biliardino" title="Biliardino" (click)="showTable()">
-      <app-icon name="arrow-down" />
-    </button>
-  }
   @default {
-    <button type="button" class="arrow left" aria-label="Torna all'acquario" title="Torna all'acquario"
-      (click)="showAquarium()">
-      <app-icon name="arrow-left" />
-    </button>
-    <button type="button" class="arrow up" aria-label="Vai al tuo profilo" title="Profilo" (click)="showProfile()">
-      <app-icon name="arrow-up" />
-    </button>
-
     <section class="panel match" [class.collapsed]="{collapsed().includes('match')}" aria-live="polite">
       <button
         type="button"

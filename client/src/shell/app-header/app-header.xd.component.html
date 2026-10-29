@@ -3,6 +3,7 @@
 @import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
 @import { PushToggleComponent } from '../../ui/push-toggle/push-toggle.xd.component.ts'
 @import { QualityToggleComponent } from '../../ui/quality-toggle/quality-toggle.xd.component.ts'
+@import { CameraToggleComponent } from '../../ui/camera-toggle/camera-toggle.xd.component.ts'
 @import { UserMenuComponent } from '../user-menu/user-menu.xd.component.ts'
 
 <header>
@@ -54,6 +55,7 @@
     }
   </nav>
   <div class="account">
+    <camera-toggle />
     <quality-toggle />
     @if (user()) {
       <user-menu />

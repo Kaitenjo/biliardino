@@ -1,6 +1,7 @@
 import { CustomElement, Property, WebComponent } from '@xaendar/core';
+import { signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
-import type { MatchSummary } from '../../core/api/api.models';
+import type { Lineup, MatchSummary, PlayerRef, Team } from '../../core/api/api.models';
 
 /**
  * Lines of matches on the board: a page holds as many.
@@ -33,6 +34,38 @@ export class MatchBoardComponent extends CustomElement {
   public accessor pageCount!: InputSignal<number>;
   @Property<InputSignal<number>>(0)
   public accessor total!: InputSignal<number>;
+
+  /**
+   * The match under the pointer, as a list of at most one item.
+   */
+  public readonly hovered = signal<MatchSummary[]>([]);
+
+  /**
+   * Shows the match under the pointer in the middle of the board.
+   *
+   * @param match - The match.
+   */
+  public show(match: MatchSummary): void {
+    this.hovered.set([match]);
+  }
+
+  /**
+   * Hides the match.
+   */
+  public hide(): void {
+    this.hovered.set([]);
+  }
+
+  /**
+   * A team of a match.
+   *
+   * @param match - The match.
+   * @param color - The team.
+   * @returns Its players.
+   */
+  public lineup(match: MatchSummary, color: Team): Lineup<PlayerRef> {
+    return color === 'brown' ? match.brown : match.white;
+  }
 
   /**
    * The day of a match.

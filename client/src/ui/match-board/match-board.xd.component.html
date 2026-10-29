@@ -1,26 +1,27 @@
+@import { MatchSummary, Team } from '../../core/api/api.models.ts'
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
 <div class="board" role="img" aria-label="{`Lavagna delle partite, pagina ${page()} di ${pageCount()}`}">
   <div class="head" aria-hidden="true">
     <span>Data</span>
-    <span class="team brown">Marroni</span>
-    <span>Ris.</span>
     <span class="team white">Bianchi</span>
+    <span>Ris.</span>
+    <span class="team brown">Marroni</span>
     <span class="delta">Elo</span>
   </div>
 
   <div class="lines">
     @for (match of games(); track match().id) {
-      <div class="line">
+      <div class="line" (pointerenter)="show(match())" (pointerleave)="hide()">
         <span class="date">{ formatDay(match().playedAt) }</span>
-        <span class="team brown" [class.lost]="{match().winner !== 'brown'}">
-          <player-avatar icon="{match().brown.defense.icon}" label="{match().brown.defense.name}" />
-          <player-avatar icon="{match().brown.attack.icon}" label="{match().brown.attack.name}" />
-        </span>
-        <span class="score">{ match().brownScore } – { match().whiteScore }</span>
         <span class="team white" [class.lost]="{match().winner === 'brown'}">
           <player-avatar icon="{match().white.defense.icon}" label="{match().white.defense.name}" />
           <player-avatar icon="{match().white.attack.icon}" label="{match().white.attack.name}" />
+        </span>
+        <span class="score">{ match().whiteScore } – { match().brownScore }</span>
+        <span class="team brown" [class.lost]="{match().winner !== 'brown'}">
+          <player-avatar icon="{match().brown.defense.icon}" label="{match().brown.defense.name}" />
+          <player-avatar icon="{match().brown.attack.icon}" label="{match().brown.attack.name}" />
         </span>
         <span class="delta">{ formatDelta(match()) }</span>
       </div>
@@ -31,4 +32,34 @@
     <span>Pagina { page() } di { pageCount() }</span>
     <span>{ total() } partite giocate</span>
   </div>
+
+  @for (item of hovered(); track item().id) {
+    <div class="preview" role="presentation">
+      <div class="preview-head">
+        <span class="preview-date">{ formatDay(item().playedAt) }</span>
+        <strong class="delta">{ formatDelta(item()) } Elo</strong>
+      </div>
+      <div class="preview-teams">
+        @render team('Bianchi', 'white', item())
+        @render team('Marroni', 'brown', item())
+      </div>
+      <div class="preview-foot">
+        <strong class="preview-result">{ item().brownScore } – { item().whiteScore }</strong>
+      </div>
+    </div>
+  }
 </div>
+
+<template team(label: string, color: Team, match: MatchSummary)>
+  <div class="{`preview-team ${color()}`}" [class.won]="{match().winner === color()}">
+    <span class="team-label">{ label() }</span>
+    <span class="member">
+      <player-avatar icon="{lineup(match(), color()).defense.icon}" label="{lineup(match(), color()).defense.name}" />
+      { lineup(match(), color()).defense.name }
+    </span>
+    <span class="member">
+      <player-avatar icon="{lineup(match(), color()).attack.icon}" label="{lineup(match(), color()).attack.name}" />
+      { lineup(match(), color()).attack.name }
+    </span>
+  </div>
+</template>
