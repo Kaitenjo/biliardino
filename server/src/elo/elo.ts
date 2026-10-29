@@ -58,6 +58,10 @@ export interface EloConfig {
    * Least ELO that the winning team earns, even when it was the clear favourite.
    */
   minWinDelta: number;
+  /**
+   * Whether the personal rule of Filippo Addabbo is on (see `playerDelta`).
+   */
+  filippoRule: boolean;
 }
 
 /**
@@ -73,7 +77,8 @@ export const DEFAULT_ELO_CONFIG: Readonly<EloConfig> = {
   surpriseWeight: 3,
   surpriseExponent: 1.5,
   minWinProbability: 0.01,
-  minWinDelta: 1
+  minWinDelta: 1,
+  filippoRule: true
 };
 
 /**
@@ -175,6 +180,29 @@ export function computeMatchElo(brown: Lineup<EloPlayer>, white: Lineup<EloPlaye
   }
 
   return { brownElo, whiteElo, whiteExpected, brownDelta, whiteDelta: -brownDelta };
+}
+
+/**
+ * Players with a personal rule on the change of ELO: when they win they earn half of the team's change, when they lose
+ * they lose twice as much (names in lower case). Their team mates and the opponents are not affected, so the match is no
+ * longer zero sum.
+ */
+const HALF_WIN_DOUBLE_LOSS = new Set(['filippo addabbo']);
+
+/**
+ * Change of ELO of a single player, given the change of its team: the personal rules are applied here.
+ *
+ * @param name - Name of the player.
+ * @param teamDelta - Change of ELO of the team of the player.
+ * @param config - The variables of the system: the personal rule applies only when `filippoRule` is on.
+ * @returns The change of ELO of the player.
+ */
+export function playerDelta(name: string, teamDelta: number, config: Pick<EloConfig, 'filippoRule'>): number {
+  if (!config.filippoRule || !HALF_WIN_DOUBLE_LOSS.has(name.trim().toLowerCase())) {
+    return teamDelta;
+  }
+
+  return teamDelta > 0 ? teamDelta / 2 : teamDelta * 2;
 }
 
 /**

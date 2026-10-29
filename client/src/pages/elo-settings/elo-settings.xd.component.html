@@ -26,6 +26,17 @@
         <small>{ field().hint }</small>
       </label>
     }
+    <label class="check">
+      <input
+        type="checkbox"
+        data-key="filippoRule"
+        @if (filippoOn()) {
+          checked
+        }
+      />
+      Regola Filippo Addabbo
+      <small>Se attiva, Filippo Addabbo guadagna la metà dei punti quando vince e ne perde il doppio quando perde.</small>
+    </label>
     <label>
       ELO iniziale di tutti (facoltativo)
       <input type="text" inputmode="decimal" autocomplete="off" data-key="startElo" placeholder="Lascia vuoto per tenere quello di ciascuno" />

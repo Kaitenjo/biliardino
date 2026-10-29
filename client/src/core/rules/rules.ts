@@ -7,5 +7,6 @@ export const RULES: readonly string[] = [
   'Regola DIFONZO: La battuta è valida solo se vi sono stati due tocchi da parte del difensore con una sponda tra i due',
   'Non valgono schizzo e rullata',
   'Se la palla non può essere colpita deve ribattere il difensore della metà campo nella quale si è fermata la palla',
-  'Non possono essere cambiati i ruoli durante la partita'
+  'Non possono essere cambiati i ruoli durante la partita',
+  'Regola FILIPPO: se rompe il cazzo guadagna la metà dei punti e ne perde il doppio'
 ];

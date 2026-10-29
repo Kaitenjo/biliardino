@@ -3,7 +3,7 @@ import type { Lineup, Role, Team } from '../models.ts';
 import { addMatch, addPairs, emptyRecords, pairsOf, parseRecords, selectRecords, storeRecords } from '../players/player-stats.ts';
 import type { PairCount, PlayerRecords, RecordRow } from '../players/player-stats.ts';
 import { loadEloConfig, saveEloConfig } from './elo-config.ts';
-import { computeMatchElo, roundAwayFromZero } from './elo.ts';
+import { computeMatchElo, playerDelta, roundAwayFromZero } from './elo.ts';
 import type { EloConfig, EloPlayer } from './elo.ts';
 
 /**
@@ -44,9 +44,10 @@ export interface RecordedMatch {
 export async function recomputeRatings(change?: { config: EloConfig; startElo?: number | undefined }): Promise<void> {
   const config = change?.config ?? (await loadEloConfig());
   const players = new Map<number, Record<Role, EloPlayer>>();
+  const names = new Map<number, string>();
   const records = new Map<number, PlayerRecords>();
   const [playerRows, matches, lineupRows] = await Promise.all([
-    all<{ id: number; startElo: number }>('SELECT id, start_elo AS startElo FROM players'),
+    all<{ id: number; name: string; startElo: number }>('SELECT id, name, start_elo AS startElo FROM players'),
     all<{ id: number; brownScore: number; whiteScore: number }>('SELECT id, brown_score AS brownScore, white_score AS whiteScore FROM matches ORDER BY played_at, id'),
     all<{ matchId: number; playerId: number; team: Team; role: Role }>('SELECT match_id AS matchId, player_id AS playerId, team, role FROM match_players')
   ]);
@@ -54,6 +55,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     const id = playerRows[i]!.id;
     const startElo = change?.startElo ?? playerRows[i]!.startElo;
     players.set(id, { attack: { elo: startElo, matches: 0 }, defense: { elo: startElo, matches: 0 } });
+    names.set(id, playerRows[i]!.name);
     records.set(id, emptyRecords());
   }
 
@@ -87,11 +89,12 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     const result = computeMatchElo(brown, white, match.brownScore, match.whiteScore, config);
     matchUpdates.push([match.id, result.whiteExpected]);
     for (const team of ['brown', 'white'] as const) {
-      const delta = team === 'brown' ? result.brownDelta : result.whiteDelta;
+      const teamDelta = team === 'brown' ? result.brownDelta : result.whiteDelta;
       const [goalsFor, goalsAgainst] = team === 'brown' ? [match.brownScore, match.whiteScore] : [match.whiteScore, match.brownScore];
       for (const role of ['attack', 'defense'] as const) {
         const player = team === 'brown' ? brown[role] : white[role];
         const playerId = ids[team][role]!;
+        const delta = playerDelta(names.get(playerId) ?? '', teamDelta, config);
         matchPlayerUpdates.push([match.id, playerId, player.elo, player.elo, delta]);
         addMatch(records.get(playerId)!, role, goalsFor > goalsAgainst, goalsFor, goalsAgainst, delta);
       }
@@ -111,14 +114,13 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     }
 
     // The four players are updated only once the match is computed: each one entered it with its previous ELO
-    for (const player of [brown.attack, brown.defense]) {
-      player.elo += result.brownDelta;
-      player.matches++;
-    }
-
-    for (const player of [white.attack, white.defense]) {
-      player.elo += result.whiteDelta;
-      player.matches++;
+    for (const team of ['brown', 'white'] as const) {
+      const teamDelta = team === 'brown' ? result.brownDelta : result.whiteDelta;
+      for (const role of ['attack', 'defense'] as const) {
+        const player = team === 'brown' ? brown[role] : white[role];
+        player.elo += playerDelta(names.get(ids[team][role]!) ?? '', teamDelta, config);
+        player.matches++;
+      }
     }
   }
 
@@ -188,7 +190,7 @@ export async function recordMatch(
   const [runningRows, lastRows, playerRows, recordRows] = await batch([
     statement('SELECT id FROM running_match WHERE id = ?', runningId),
     statement('SELECT COALESCE(MAX(id), 0) AS id FROM matches'),
-    statement(`SELECT id, elo_attack AS eloAttack, elo_defense AS eloDefense FROM players WHERE id IN (${marks})`, ...ids),
+    statement(`SELECT id, name, elo_attack AS eloAttack, elo_defense AS eloDefense FROM players WHERE id IN (${marks})`, ...ids),
     selectRecords(ids)
   ]);
   if (!runningRows!.results.length) {
@@ -196,7 +198,7 @@ export async function recordMatch(
   }
 
   const lastId = (lastRows!.results[0] as { id: number }).id;
-  const players = new Map((playerRows!.results as Array<{ id: number; eloAttack: number; eloDefense: number }>).map(player => [player.id, player]));
+  const players = new Map((playerRows!.results as Array<{ id: number; name: string; eloAttack: number; eloDefense: number }>).map(player => [player.id, player]));
   if (players.size !== 4) {
     return 'unknown-player';
   }
@@ -221,12 +223,13 @@ export async function recordMatch(
   const matchPlayers: Array<[number, Team, Role, number, number, number]> = [];
   const elos = new Map<number, Lineup<number>>();
   for (const team of ['brown', 'white'] as const) {
-    const delta = team === 'brown' ? result.brownDelta : result.whiteDelta;
+    const teamDelta = team === 'brown' ? result.brownDelta : result.whiteDelta;
     const [goalsFor, goalsAgainst] = team === 'brown' ? [brownScore, whiteScore] : [whiteScore, brownScore];
     for (const role of ['attack', 'defense'] as const) {
       const id = (team === 'brown' ? brown : white)[role];
       const before = (team === 'brown' ? brownPlayers : whitePlayers)[role].elo;
       const player = players.get(id)!;
+      const delta = playerDelta(player.name, teamDelta, config);
       matchPlayers.push([id, team, role, before, before, delta]);
       elos.set(id, { attack: role === 'attack' ? before + delta : player.eloAttack, defense: role === 'defense' ? before + delta : player.eloDefense });
       addMatch(records.get(id)!, role, goalsFor > goalsAgainst, goalsFor, goalsAgainst, delta);

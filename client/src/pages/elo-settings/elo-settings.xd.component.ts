@@ -11,7 +11,7 @@ interface EloField {
   /**
    * Name of the variable.
    */
-  key: keyof EloConfig;
+  key: Exclude<keyof EloConfig, 'filippoRule'>;
   /**
    * Label of the field.
    */
@@ -96,9 +96,18 @@ export class EloSettingsPage extends CustomElement {
    * @param key - The variable.
    * @returns Its value as text.
    */
-  public initial(key: keyof EloConfig): string {
+  public initial(key: EloField['key']): string {
     const settings = this.settings();
     return settings ? String(settings.config[key]) : '';
+  }
+
+  /**
+   * Whether the rule of Filippo Addabbo is on in the saved variables, shown when the form opens.
+   *
+   * @returns `true` when it is on.
+   */
+  public filippoOn(): boolean {
+    return this.settings()?.config.filippoRule ?? false;
   }
 
   /**
@@ -182,7 +191,11 @@ export class EloSettingsPage extends CustomElement {
   private _fill(config: EloConfig, startElo: string): void {
     for (const input of this.inputs()) {
       const key = input.dataset['key']!;
-      input.value = key === 'startElo' ? startElo : String(config[key as keyof EloConfig]);
+      if (key === 'filippoRule') {
+        input.checked = config.filippoRule;
+      } else {
+        input.value = key === 'startElo' ? startElo : String(config[key as EloField['key']]);
+      }
     }
   }
 
@@ -202,7 +215,7 @@ export class EloSettingsPage extends CustomElement {
    * @returns The variables, or the message of the first field that isn't a number.
    */
   private _readConfig(): EloConfig | string {
-    const config: Partial<EloConfig> = {};
+    const config: Partial<EloConfig> = { filippoRule: this.inputs().find(input => input.dataset['key'] === 'filippoRule')?.checked ?? false };
     for (const { key, label } of FIELDS) {
       const text = this._text(key);
       const value = text ? Number(text) : NaN;

@@ -668,6 +668,10 @@ export interface EloConfig {
    * Least ELO that the winning team earns.
    */
   minWinDelta: number;
+  /**
+   * Whether the personal rule of Filippo Addabbo is on: half the points when he wins, double when he loses.
+   */
+  filippoRule: boolean;
 }
 
 /**

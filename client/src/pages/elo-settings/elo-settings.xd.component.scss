@@ -44,6 +44,21 @@ form {
   gap: 1rem;
 }
 
+label.check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+
+  input {
+    width: auto;
+  }
+
+  small {
+    flex-basis: 100%;
+  }
+}
+
 label {
   @include mixins.field;
 
