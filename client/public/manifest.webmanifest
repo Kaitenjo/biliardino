@@ -1,0 +1,13 @@
+{
+  "name": "CAlcio Balilla",
+  "short_name": "Balilla",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#030610",
+  "theme_color": "#030610",
+  "lang": "it",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
