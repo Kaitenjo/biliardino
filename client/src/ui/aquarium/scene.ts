@@ -1446,8 +1446,10 @@ export class AquariumScene {
    * of the creatures fade out of the aquarium.
    */
   private _applyCamera(): void {
-    // Wider at the table, back to the usual view at the next places (see `_frameTable`)
-    const fov = THREE.MathUtils.lerp(FOV, this._tableFov, this._near('table', VIEW_PROGRESS.table - VIEW_PROGRESS.aquarium));
+    // Wider at the table, back to the usual view at the next places (see `_frameTable`): the boards on the wall, nearer
+    // than the aquarium, already at the usual view
+    const after = this._progress > VIEW_PROGRESS.table;
+    const fov = THREE.MathUtils.lerp(FOV, this._tableFov, this._near('table', after ? VIEW_PROGRESS.stats - VIEW_PROGRESS.table : VIEW_PROGRESS.table - VIEW_PROGRESS.aquarium));
     if (fov !== this._camera.fov) {
       this._camera.fov = fov;
       this._camera.updateProjectionMatrix();
