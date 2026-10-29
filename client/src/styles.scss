@@ -1,19 +1,19 @@
 :root {
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --bg: #070708;
-  // Red from the top down to the middle of the screen, then black
+  // Dark blue from the top down to the middle of the screen, then black
   --bg-gradient:
-    radial-gradient(ellipse 110% 60% at 50% -5%, rgb(229 25 45 / 5%), transparent 70%),
-    linear-gradient(180deg, #3d0910 0%, #1e050a 15%, #0a0204 55%, #050506 100%);
-  --surface: rgb(21 21 24 / 86%);
-  --surface-solid: #151518;
+    radial-gradient(ellipse 110% 60% at 50% -5%, rgb(91 155 255 / 6%), transparent 70%),
+    linear-gradient(180deg, #0c1a36 0%, #08122a 15%, #040a18 55%, #030610 100%);
+  --surface: rgb(14 25 48 / 86%);
+  --surface-solid: #0e1930;
   // The background of every card: opaque, so that it doesn't change with the fixed page background under it while scrolling
-  --card-base: #0e0e10;
-  --card-glow: color-mix(in srgb, var(--primary-soft) 55%, transparent);
+  --card-base: #0a1428;
+  --card-glow: rgb(60 110 200 / 16%);
   --card-bg:
     radial-gradient(circle at 0% 0%, var(--card-glow), transparent 150%),
     var(--card-base);
-  --surface-alt: #1f1f23;
+  --surface-alt: #16264a;
   --border: rgb(255 255 255 / 8%);
   --text: #f4f4f5;
   --text-muted: #a1a1aa;

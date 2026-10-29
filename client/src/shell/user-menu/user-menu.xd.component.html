@@ -1,6 +1,7 @@
 @import { user } from '../../core/auth/session.ts'
 @import { AppIconComponent } from '../../ui/app-icon/app-icon.xd.component.ts'
 @import { PasswordDialogComponent } from '../../ui/password-dialog/password-dialog.xd.component.ts'
+@import { SettingsDialogComponent } from '../../ui/settings-dialog/settings-dialog.xd.component.ts'
 @import { PlayerAvatarComponent } from '../../ui/player-avatar/player-avatar.xd.component.ts'
 
 <button
@@ -20,6 +21,10 @@
       <app-icon name="shield-check" />
       Cambia password
     </button>
+    <button type="button" role="menuitem" (click)="openSettingsDialog()">
+      <app-icon name="settings" />
+      Impostazioni
+    </button>
     <button type="button" role="menuitem" (click)="logOut()">
       <app-icon name="logout" />
       Logout
@@ -27,3 +32,4 @@
   </div>
 }
 <password-dialog />
+<settings-dialog />

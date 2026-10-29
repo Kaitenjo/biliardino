@@ -5,6 +5,7 @@ import { logout } from '../../core/auth/auth';
 import { disablePush } from '../../core/notifications/push';
 import { isProtectedRoute, navigate } from '../../core/router/router';
 import { PasswordDialogComponent } from '../../ui/password-dialog/password-dialog.xd.component';
+import { SettingsDialogComponent } from '../../ui/settings-dialog/settings-dialog.xd.component';
 
 /**
  * The dropdown of the logged user: its icon, opening the links to its statistics, the change of the password (a modal)
@@ -25,6 +26,12 @@ export class UserMenuComponent extends CustomElement {
    */
   @Query.required(PasswordDialogComponent)
   public accessor passwordDialog!: QuerySignal<PasswordDialogComponent>;
+
+  /**
+   * The modal with the settings.
+   */
+  @Query.required(SettingsDialogComponent)
+  public accessor settingsDialog!: QuerySignal<SettingsDialogComponent>;
 
   /**
    * Closes the dropdown on a click outside of it.
@@ -68,6 +75,14 @@ export class UserMenuComponent extends CustomElement {
   public openPasswordDialog(): void {
     this.expanded.set(false);
     this.passwordDialog().open();
+  }
+
+  /**
+   * Closes the dropdown and opens the modal with the settings.
+   */
+  public openSettingsDialog(): void {
+    this.expanded.set(false);
+    this.settingsDialog().open();
   }
 
   /**

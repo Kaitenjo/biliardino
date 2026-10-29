@@ -1,0 +1,42 @@
+@import { AppIconComponent } from '../app-icon/app-icon.xd.component.ts'
+
+<dialog aria-labelledby="settings-title" (click)="onBackdropClick($event)">
+  <header>
+    <h2 id="settings-title">Impostazioni</h2>
+    <button type="button" class="close" aria-label="Chiudi" (click)="close()">
+      <app-icon name="close" />
+    </button>
+  </header>
+  <div class="options">
+    <label class="option">
+      <span class="text">
+        <app-icon name="hd" />
+        Grafica alta
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="switch"
+        @if (high()) {
+          checked
+        }
+        (change)="toggleQuality()"
+      />
+    </label>
+    <label class="option">
+      <span class="text">
+        <app-icon name="camera" />
+        Transizioni della camera
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="switch"
+        @if (transitions()) {
+          checked
+        }
+        (change)="toggleTransitions()"
+      />
+    </label>
+  </div>
+</dialog>
