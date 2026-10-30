@@ -1,6 +1,7 @@
 import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 import * as THREE from 'three';
 import { batchMoving } from './batching';
+import { buildPurpleDildo } from './decor';
 import { detail, paintedColorSpace } from './detail';
 import { phong } from './materials';
 import type { Look } from './materials';
@@ -14,12 +15,12 @@ import type { Look } from './materials';
 /**
  * The species of the aquarium.
  */
-export type Species = 'clown' | 'tang' | 'puffer' | 'angel' | 'gold' | 'shark' | 'betta' | 'octopus' | 'sole' | 'sardine' | 'tuna';
+export type Species = 'clown' | 'tang' | 'puffer' | 'angel' | 'gold' | 'shark' | 'betta' | 'octopus' | 'sole' | 'sardine' | 'tuna' | 'dildo';
 
 /**
  * Every species: each player gets one at random, all different while possible.
  */
-export const SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'angel', 'gold', 'shark', 'betta', 'octopus', 'sole', 'sardine', 'tuna'];
+export const SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'angel', 'gold', 'shark', 'betta', 'octopus', 'sole', 'sardine', 'tuna', 'dildo'];
 
 /**
  * How a creature moves: freely in the water, lying on the bottom (the sole), or drifting low (the octopus).
@@ -395,6 +396,32 @@ function swimmer(parts: FishParts, speed: number, height: number, motion: Motion
 }
 
 /**
+ * The purple dildo of the sea floor as a creature: lying down, its head forward, it wags around its middle as it swims.
+ *
+ * @returns The creature.
+ */
+function buildDildo(): Creature {
+  const group = new THREE.Group();
+  const pivot = new THREE.Group();
+  const toy = buildPurpleDildo();
+  toy.scale.setScalar(0.42);
+  toy.rotation.z = -Math.PI / 2;
+  toy.position.x = -0.72;
+  pivot.add(toy);
+  group.add(pivot);
+  const phase = Math.random() * 10;
+  return {
+    object: group,
+    motion: 'swim',
+    speed: 0.9,
+    height: 0.7,
+    animate(time, pace) {
+      pivot.rotation.y = Math.sin(time * (3 + pace * 5) + phase) * (0.12 + pace * 0.14);
+    }
+  };
+}
+
+/**
  * Builds a creature of a species, its parts drawn in batches.
  *
  * @param species - The species.
@@ -509,6 +536,8 @@ function buildSpecies(species: Species): Creature {
       });
       return swimmer(fish, 0.8, 0.7);
     }
+    case 'dildo':
+      return buildDildo();
     case 'tuna': {
       const fish = buildFish({
         length: 1.05, height: 0.32, width: 0.3, fin: 0x1e3a8a, tail: 'crescent', tailSize: 0.42, dorsal: 0.3, anal: 0.16, eye: 0.06,

@@ -1,6 +1,6 @@
-import { CustomElement, Event, Property, WebComponent } from '@xaendar/core';
+import { CustomElement, Event, HostProperty, Property, WebComponent } from '@xaendar/core';
 import type { Output } from '@xaendar/core';
-import { signal } from '@xaendar/core/signals';
+import { computed, signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
 import type { FormEntry, LeaderboardEntry, Lineup, PlayerRef, RankingMode, Team } from '../../core/api/api.models';
 import { navigate } from '../../core/router/router';
@@ -58,6 +58,21 @@ export class LeaderboardComponent extends CustomElement {
    */
   public readonly preview = signal<{ entry: FormEntry; team: Team | null; x: number; y: number; below: boolean } | null>(null);
   /**
+   * Whether the screen is narrow and held upright, the only case where the panel can be lowered and the rows show just
+   * the icon of the player. The same query as the lobby, which gives the panel the whole height.
+   */
+  @HostProperty('class.upright')
+  public readonly upright = signal(false);
+  /**
+   * Whether the panel was asked to lower to its first line.
+   */
+  public readonly collapsed = signal(false);
+  /**
+   * Whether the panel is lowered to its first line, to show the scene behind it.
+   */
+  @HostProperty('class.collapsed')
+  public readonly lowered = computed(() => this._computeLowered());
+  /**
    * The buttons of the ranking modes.
    */
   public readonly modes: readonly ModeButton[] = [
@@ -65,6 +80,26 @@ export class LeaderboardComponent extends CustomElement {
     { value: 'attack', label: 'Attacco', icon: 'attack' },
     { value: 'defense', label: 'Difesa', icon: 'defense' }
   ];
+  /**
+   * The media query of the narrow screen held upright.
+   */
+  private readonly _uprightQuery = matchMedia('(max-width: 900px) and (max-aspect-ratio: 13/10)');
+  /**
+   * Follows the media query.
+   */
+  private readonly _onUprightChange = (): void => this.upright.set(this._uprightQuery.matches);
+
+  public onInit(): void {
+    this._onUprightChange();
+    this._uprightQuery.addEventListener('change', this._onUprightChange);
+  }
+
+  /**
+   * Lowers the panel to its first line, or raises it again.
+   */
+  public toggleCollapsed(): void {
+    this.collapsed.set(!this.collapsed());
+  }
 
   /**
    * Opens the page of a player.
@@ -211,5 +246,13 @@ export class LeaderboardComponent extends CustomElement {
     const attack = entry.players.find(player => player.team === team && player.role === 'attack')!;
     const defense = entry.players.find(player => player.team === team && player.role === 'defense')!;
     return { attack, defense };
+  }
+
+  private _computeLowered(): boolean {
+    return this.upright() && this.collapsed();
+  }
+
+  public onDestroy(): void {
+    this._uprightQuery.removeEventListener('change', this._onUprightChange);
   }
 }

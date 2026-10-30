@@ -1,5 +1,4 @@
 import { CustomElement, Property, WebComponent } from '@xaendar/core';
-import { signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
 import type { MatchSummary } from '../../core/api/api.models';
 
@@ -34,27 +33,6 @@ export class MatchBoardComponent extends CustomElement {
   public accessor pageCount!: InputSignal<number>;
   @Property<InputSignal<number>>(0)
   public accessor total!: InputSignal<number>;
-
-  /**
-   * The match under the pointer, `null` for none.
-   */
-  public readonly hovered = signal<MatchSummary | null>(null);
-
-  /**
-   * Shows the match under the pointer in the middle of the board.
-   *
-   * @param match - The match.
-   */
-  public show(match: MatchSummary): void {
-    this.hovered.set(match);
-  }
-
-  /**
-   * Hides the match.
-   */
-  public hide(): void {
-    this.hovered.set(null);
-  }
 
   /**
    * The ELO the winners won.

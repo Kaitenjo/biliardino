@@ -990,10 +990,15 @@ league-leaderboard ~ .arrow.left {
 
 // On a narrow screen held upright the leaderboard is under the podium; held sideways, it stays on the left
 @media (max-width: 900px) and (max-aspect-ratio: 13/10) {
+  // The whole height; the leaderboard itself lowers to its first line to show the scene
   league-leaderboard {
-    top: 46%;
     right: 1rem;
     width: auto;
+
+    // Lowered to its first line, at the bottom
+    &.collapsed {
+      top: auto;
+    }
   }
 
   // Over the podium, not over the leaderboard

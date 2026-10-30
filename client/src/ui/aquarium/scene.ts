@@ -1540,7 +1540,8 @@ export class AquariumScene {
    * @returns The creature in the water.
    */
   private _release(player: LobbyPlayer, animated: boolean): Inhabitant {
-    const species = this._pickSpecies();
+    // Giuseppe Latrofa is always the dildo
+    const species = player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
     const creature = buildCreature(species);
     this._scene.add(creature.object);
     const label = document.createElement('span');
