@@ -1,6 +1,15 @@
 import { signal } from '@xaendar/core/signals';
 import { deletePushSubscription, fetchPushKey, postPushSubscription } from '../api/api';
 
+declare global {
+  interface Navigator {
+    /**
+     * Only defined in Brave, whose user agent is the same as Chrome's.
+     */
+    readonly brave?: { isBrave(): Promise<boolean> };
+  }
+}
+
 /**
  * Whether this browser can receive push notifications. On iPhone only once the site is added to the Home screen.
  */
@@ -54,9 +63,18 @@ export async function enablePush(): Promise<void> {
 
   const worker = await serviceWorker();
   const { publicKey } = await fetchPushKey();
-  const subscription =
-    (await worker.pushManager.getSubscription()) ??
-    (await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: fromBase64Url(publicKey) }));
+  let subscription = await worker.pushManager.getSubscription();
+  if (!subscription) {
+    try {
+      subscription = await worker.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: fromBase64Url(publicKey)
+      });
+    } catch (error) {
+      throw new Error(await subscribeErrorMessage(error));
+    }
+  }
+
   await postPushSubscription(subscription.toJSON());
   pushEnabled.set(true);
 }
@@ -90,6 +108,47 @@ export async function disablePush(): Promise<void> {
 function serviceWorker(): Promise<ServiceWorkerRegistration> {
   registration ??= navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready);
   return registration;
+}
+
+/**
+ * Explains why the subscription failed, with the fix for the browser in use. The "push service error" (AbortError)
+ * happens when the browser cannot reach its own push service.
+ *
+ * @param error - The error thrown by the subscription.
+ * @returns The message to show.
+ */
+async function subscribeErrorMessage(error: unknown): Promise<string> {
+  const name = error instanceof DOMException ? error.name : '';
+  const detail = error instanceof Error ? error.message : String(error);
+
+  if (name === 'NotAllowedError') {
+    return 'Notifiche bloccate: abilitale per questo sito nelle impostazioni del browser';
+  }
+
+  if (name !== 'AbortError') {
+    return `Impossibile attivare le notifiche: ${detail}`;
+  }
+
+  const userAgent = navigator.userAgent;
+  let hint: string;
+
+  if (await navigator.brave?.isBrave()) {
+    hint = 'In Brave attiva "Usa i servizi Google per la messaggistica push" in brave://settings/privacy, poi riavvia il browser';
+  } else if (/Edg\//.test(userAgent)) {
+    hint = 'In Edge controlla che le notifiche di Windows siano attive (e "Non disturbare" spento) e che la rete non blocchi il servizio push';
+  } else if (/Firefox\//.test(userAgent)) {
+    hint = 'In Firefox controlla che dom.push.enabled non sia disattivato in about:config e che la rete non blocchi il servizio push';
+  } else if (/OPR\//.test(userAgent)) {
+    hint = 'In Opera attiva i servizi Google per le notifiche push nelle impostazioni e riavvia il browser';
+  } else if (/Chrome\//.test(userAgent)) {
+    hint = 'In Chrome controlla la connessione e che la rete non blocchi Google (FCM)';
+  } else if (/Safari\//.test(userAgent)) {
+    hint = 'In Safari controlla le notifiche del sito nelle impostazioni (su iPhone aggiungi prima il sito alla schermata Home)';
+  } else {
+    hint = 'Controlla le impostazioni delle notifiche del browser e che la rete non blocchi il servizio push';
+  }
+
+  return `Il browser non riesce a registrarsi al servizio push. ${hint}`;
 }
 
 /**

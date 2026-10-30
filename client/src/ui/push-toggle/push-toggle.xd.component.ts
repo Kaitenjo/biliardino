@@ -55,7 +55,7 @@ export class PushToggleComponent extends CustomElement {
     try {
       await (pushEnabled() ? disablePush() : enablePush());
     } catch (error) {
-      this._showError((error as Error).message);
+      this._showError(error instanceof Error ? error.message : String(error));
     } finally {
       this.busy.set(false);
     }
