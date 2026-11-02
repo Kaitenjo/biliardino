@@ -1,8 +1,8 @@
 import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { signal } from '@xaendar/core/signals';
 import type { QuerySignal } from '@xaendar/core/signals';
-import { fetchEloSettings, fetchRankSettings, postEloRecompute, putRanks } from '../../core/api/api';
-import type { EloConfig, EloSettings, RankSettings } from '../../core/api/api.models';
+import { fetchBans, fetchEloSettings, fetchRankSettings, postEloRecompute, putBan, putRanks } from '../../core/api/api';
+import type { BanEntry, EloConfig, EloSettings, RankSettings } from '../../core/api/api.models';
 import { loadRanks } from '../../core/ranks/ranks';
 
 /**
@@ -77,6 +77,18 @@ export class EloSettingsPage extends CustomElement {
    * The error of the ranks to show, `''` when there is none.
    */
   public readonly rankError = signal('');
+  /**
+   * The banlist: every player with whether it is banned, `null` until loaded.
+   */
+  public readonly bans = signal<BanEntry[] | null>(null);
+  /**
+   * Whether a ban or an unban is being saved.
+   */
+  public readonly banBusy = signal(false);
+  /**
+   * The error of the banlist to show, `''` when there is none.
+   */
+  public readonly banError = signal('');
   /**
    * Whether the settings are loading.
    */
@@ -184,6 +196,27 @@ export class EloSettingsPage extends CustomElement {
   }
 
   /**
+   * Bans a player or lets it back in, at once: a banned one is taken out of the lobby and of the match to play.
+   *
+   * @param player - The player.
+   */
+  public async toggleBan(player: BanEntry): Promise<void> {
+    if (!player.banned && !confirm(`Bannare ${player.name}? Sarà buttato fuori dalla lobby e dalla partita in corso, e non potrà più accedere.`)) {
+      return;
+    }
+
+    this.banError.set('');
+    this.banBusy.set(true);
+    try {
+      this.bans.set(await putBan(player.id, !player.banned));
+    } catch (error) {
+      this.banError.set((error as Error).message);
+    } finally {
+      this.banBusy.set(false);
+    }
+  }
+
+  /**
    * Puts the default values in the form, without saving them.
    */
   public useDefaults(): void {
@@ -236,9 +269,10 @@ export class EloSettingsPage extends CustomElement {
    */
   private async _load(): Promise<void> {
     try {
-      const [settings, rankSettings] = await Promise.all([fetchEloSettings(), fetchRankSettings()]);
+      const [settings, rankSettings, bans] = await Promise.all([fetchEloSettings(), fetchRankSettings(), fetchBans()]);
       this.settings.set(settings);
       this.rankSettings.set(rankSettings);
+      this.bans.set(bans);
     } catch (error) {
       this.error.set((error as Error).message);
     } finally {

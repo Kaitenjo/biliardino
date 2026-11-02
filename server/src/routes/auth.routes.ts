@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { createSession, deleteSession, findUserByName, readToken, requireAuth } from '../auth/auth.ts';
+import { BANNED_ERROR, createSession, deleteSession, findUserByName, readToken, requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
 import { hashPassword, verifyPassword } from '../auth/password.ts';
 import { get, run } from '../db/db.ts';
@@ -31,6 +31,11 @@ authRouter.post('/login', async c => {
   const found = typeof name === 'string' ? await findUserByName(name.trim()) : undefined;
   if (!found || typeof password !== 'string' || !verifyPassword(password, found.passwordHash)) {
     return c.json({ error: 'Nome o password errati' }, 401);
+  }
+
+  // After the password, so that the ban is not told to who doesn't know it
+  if (found.banned) {
+    return c.json({ error: BANNED_ERROR, banned: true }, 403);
   }
 
   const user: AuthUser = { id: found.id, playerId: found.playerId, name: found.name, icon: found.icon, isAdmin: found.isAdmin };

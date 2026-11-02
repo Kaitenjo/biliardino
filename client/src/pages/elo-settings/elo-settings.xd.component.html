@@ -77,6 +77,34 @@
   </form>
 }
 
+@if (bans()) {
+  <section class="card">
+    <h2>Banlist</h2>
+    <p class="muted">
+      Un giocatore bannato non può accedere, viene buttato fuori dalla lobby e, se è nella partita in corso, la partita viene
+      rigenerata senza di lui. Puoi bannare e riammettere in qualsiasi momento.
+    </p>
+    @if (banError()) {
+      <p class="error">{ banError() }</p>
+    }
+    @for (player of bans(); track player().id) {
+      <div class="ban-row">
+        <span>{ player().name }</span>
+        <button
+          @if (banBusy()) {
+            disabled
+          }
+          type="button"
+          class="ghost"
+          (click)="toggleBan(player())"
+        >
+          { player().banned ? 'Riammetti' : 'Banna' }
+        </button>
+      </div>
+    }
+  </section>
+}
+
 @if (rankSettings()) {
   <form class="card" novalidate (submit)="submitRanks($event)">
     <h2>Rank</h2>

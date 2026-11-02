@@ -1,13 +1,33 @@
 import { Hono } from 'hono';
 import { requireAdmin, requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
-import { get, run } from '../db/db.ts';
+import { all, get, run } from '../db/db.ts';
 import { loadEloConfig, parseEloConfig, START_ELO_LIMITS } from '../elo/elo-config.ts';
 import { DEFAULT_ELO_CONFIG } from '../elo/elo.ts';
 import { recomputeRatings } from '../elo/ratings.ts';
 import { listRanks, RANK_LIMITS, saveRanks } from '../players/ranks.ts';
-import { getLobbyState, tick } from '../lobby/lobby.ts';
+import { getLobbyState, removeBannedPlayer, tick } from '../lobby/lobby.ts';
 import { readBody } from './read-body.ts';
+
+/**
+ * A player as the banlist shows it.
+ */
+interface BanEntry {
+  id: number;
+  name: string;
+  icon: string;
+  banned: boolean;
+}
+
+/**
+ * Every player with whether it is banned, by name.
+ *
+ * @returns The players.
+ */
+async function listBans(): Promise<BanEntry[]> {
+  const rows = await all<Omit<BanEntry, 'banned'> & { banned: number }>('SELECT id, name, icon, banned FROM players WHERE is_admin = 0 ORDER BY name');
+  return rows.map(row => ({ ...row, banned: Boolean(row.banned) }));
+}
 
 /**
  * The pages of the super admin, who can change the roles of any player without the limit of once a day. The change
@@ -73,6 +93,34 @@ adminRouter.post('/recompute', async c => {
 
   await recomputeRatings({ config, startElo: startElo ?? undefined });
   return c.json({ config });
+});
+
+// The banlist: every player, with whether it is banned. A banned player can't log in, is refused on any request, is
+// taken out of the lobby and, if in the match to play, the match is generated again without it
+adminRouter.get('/bans', async c => c.json({ players: await listBans() }));
+
+adminRouter.put('/bans/:playerId', async c => {
+  const playerId = Number(c.req.param('playerId'));
+  const { banned } = await readBody(c);
+  const player = Number.isInteger(playerId) ? await get<{ isAdmin: number }>('SELECT is_admin AS isAdmin FROM players WHERE id = ?', playerId) : undefined;
+  if (!player) {
+    return c.json({ error: 'Giocatore non trovato' }, 404);
+  }
+
+  if (typeof banned !== 'boolean') {
+    return c.json({ error: 'Dati mancanti' }, 400);
+  }
+
+  if (banned && player.isAdmin) {
+    return c.json({ error: "L'amministratore non si può bannare" }, 400);
+  }
+
+  await run('UPDATE players SET banned = ? WHERE id = ?', banned ? 1 : 0, playerId);
+  if (banned) {
+    await removeBannedPlayer(playerId, c.get('user').id);
+  }
+
+  return c.json({ players: await listBans() });
 });
 
 // The thresholds of the ranks, that give the border of the icon of the players: saved at once, no recomputation needed

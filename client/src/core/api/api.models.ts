@@ -743,6 +743,28 @@ export interface RankSettings {
 }
 
 /**
+ * A player in the banlist page of the super admin.
+ */
+export interface BanEntry {
+  /**
+   * Id of the player.
+   */
+  id: number;
+  /**
+   * Its name.
+   */
+  name: string;
+  /**
+   * Its icon.
+   */
+  icon: string;
+  /**
+   * Whether it is banned.
+   */
+  banned: boolean;
+}
+
+/**
  * The session opened by a login.
  */
 export interface Session {

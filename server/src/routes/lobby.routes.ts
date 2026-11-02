@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { requireAuth } from '../auth/auth.ts';
+import { BANNED_ERROR, requireAuth } from '../auth/auth.ts';
 import type { AppEnv } from '../auth/auth.ts';
 import { get } from '../db/db.ts';
 import { generateNextMatch, getLobbyState, setInLobby, setLobbyPriority, tick } from '../lobby/lobby.ts';
@@ -75,15 +75,20 @@ lobbyRouter.post('/:id/generate', async c => {
  * @param inside - Whether it enters.
  * @returns The answer: the lobby page, or the error.
  */
-async function setInside(id: string, playerId: number, inside: boolean): Promise<{ body: object; status: 200 | 404 | 409 }> {
+async function setInside(id: string, playerId: number, inside: boolean): Promise<{ body: object; status: 200 | 403 | 404 | 409 }> {
   const lobbyId = Number(id);
   if (!Number.isInteger(lobbyId)) {
     return { body: { error: 'Lobby non trovata' }, status: 404 };
   }
 
   await tick();
-  if ((await setInLobby(lobbyId, playerId, inside)) === 'closed') {
+  const result = await setInLobby(lobbyId, playerId, inside);
+  if (result === 'closed') {
     return { body: { error: 'La lobby è chiusa' }, status: 409 };
+  }
+
+  if (result === 'banned') {
+    return { body: { error: BANNED_ERROR, banned: true }, status: 403 };
   }
 
   return { body: await getLobbyState(), status: 200 };
@@ -100,7 +105,7 @@ async function setInside(id: string, playerId: number, inside: boolean): Promise
  * @returns The answer: the lobby page; or the error, with the lobby page in `state` when the player was already in (or
  * already out, or no longer in when only `priority` changes).
  */
-async function setOtherInside(id: string, player: string, inside: boolean, priority = false, onlyPriority = false): Promise<{ body: object; status: 200 | 404 | 409 }> {
+async function setOtherInside(id: string, player: string, inside: boolean, priority = false, onlyPriority = false): Promise<{ body: object; status: 200 | 403 | 404 | 409 }> {
   const lobbyId = Number(id);
   const playerId = Number(player);
   if (!Number.isInteger(lobbyId)) {
@@ -117,6 +122,8 @@ async function setOtherInside(id: string, player: string, inside: boolean, prior
   switch (result) {
     case 'closed':
       return { body: { error: 'La lobby è chiusa' }, status: 409 };
+    case 'banned':
+      return { body: { error: `${row.name} è nella banlist`, state: await getLobbyState() }, status: 409 };
     case 'unchanged':
       return {
         body: { error: inside && !onlyPriority ? `${row.name} è già in lobby` : `${row.name} non è più in lobby`, state: await getLobbyState() },

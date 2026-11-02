@@ -36,6 +36,14 @@
   }
 }
 
+.ban-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+}
+
 .intro {
   h1 {
     display: flex;

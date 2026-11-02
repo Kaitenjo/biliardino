@@ -1,6 +1,6 @@
 import { untracked } from '@xaendar/core/signals';
 import { sessionToken, setSession } from '../auth/session';
-import type { AuthUser, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, Rank, RankingMode, RankSettings, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
+import type { AuthUser, BanEntry, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, Rank, RankingMode, RankSettings, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
 
 /**
  * An error answered by the server, with its message.
@@ -59,12 +59,12 @@ async function request<TResult>(method: string, path: string, body?: unknown, ab
     throw new ApiError('Server non raggiungibile', 0);
   }
 
-  if (response.status === 401 && token) {
-    // The session expired or was closed elsewhere
+  const data = response.status === 204 ? undefined : await response.json().catch(() => undefined);
+  if (token && (response.status === 401 || (response.status === 403 && (data as { banned?: boolean } | undefined)?.banned))) {
+    // The session expired or was closed elsewhere, or the player was banned
     setSession(null);
   }
 
-  const data = response.status === 204 ? undefined : await response.json().catch(() => undefined);
   if (!response.ok) {
     throw new ApiError((data as { error?: string } | undefined)?.error ?? `Errore ${response.status}`, response.status, data);
   }
@@ -356,6 +356,27 @@ export function fetchRankSettings(): Promise<RankSettings> {
  */
 export function putRanks(thresholds: Array<{ key: string; minElo: number }>): Promise<RankSettings> {
   return request('PUT', '/admin/ranks', { ranks: thresholds });
+}
+
+/**
+ * Loads the banlist: every player with whether it is banned. Only the super admin can.
+ *
+ * @returns The players, by name.
+ */
+export function fetchBans(): Promise<BanEntry[]> {
+  return request<{ players: BanEntry[] }>('GET', '/admin/bans').then(answer => answer.players);
+}
+
+/**
+ * Bans a player or lets it back in. A banned one is taken out of the lobby, and the match to play is generated again
+ * without it. Only the super admin can.
+ *
+ * @param playerId - The id of the player.
+ * @param banned - Whether it is banned.
+ * @returns The banlist now.
+ */
+export function putBan(playerId: number, banned: boolean): Promise<BanEntry[]> {
+  return request<{ players: BanEntry[] }>('PUT', `/admin/bans/${playerId}`, { banned }).then(answer => answer.players);
 }
 
 /**

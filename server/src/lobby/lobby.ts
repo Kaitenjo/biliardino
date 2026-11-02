@@ -183,12 +183,16 @@ export async function getLobbyState(): Promise<LobbyState> {
  * @param playerId - The player.
  * @param inside - Whether it enters.
  * @param priority - Whether the next match must include it, when it enters.
- * @returns `'closed'` when the lobby is not open (it doesn't change), `'unchanged'` when the player was already in (or
- * already out), `'changed'` otherwise.
+ * @returns `'closed'` when the lobby is not open (it doesn't change), `'banned'` when the player is in the banlist and
+ * would enter, `'unchanged'` when the player was already in (or already out), `'changed'` otherwise.
  */
-export async function setInLobby(lobbyId: number, playerId: number, inside: boolean, priority = false): Promise<'closed' | 'unchanged' | 'changed'> {
+export async function setInLobby(lobbyId: number, playerId: number, inside: boolean, priority = false): Promise<'closed' | 'banned' | 'unchanged' | 'changed'> {
   if (!(await get('SELECT 1 FROM lobbies WHERE id = ? AND closed = 0', lobbyId))) {
     return 'closed';
+  }
+
+  if (inside && (await get('SELECT 1 FROM players WHERE id = ? AND banned = 1', playerId))) {
+    return 'banned';
   }
 
   const result = await (inside
@@ -256,6 +260,30 @@ export async function replaceRunningMatch(userId: number): Promise<MatchView | n
     : undefined;
   const result = await generateLobbyMatch(lobby.id, userId, avoid);
   return typeof result === 'string' ? null : result;
+}
+
+/**
+ * Takes a banned player out of the open lobbies and, when it is in the match to play, generates it again without it, if
+ * another one can be formed (else the other 3 are told it is cancelled). The player is taken out first.
+ *
+ * @param playerId - The banned player.
+ * @param userId - The user who banned it, who generates the new match.
+ */
+export async function removeBannedPlayer(playerId: number, userId: number): Promise<void> {
+  await run('DELETE FROM lobby_players WHERE player_id = ? AND lobby_id IN (SELECT id FROM lobbies WHERE closed = 0)', playerId);
+
+  const running = await getRunningMatch();
+  const ids = running ? [running.brown.attack.id, running.brown.defense.id, running.white.attack.id, running.white.defense.id] : [];
+  if (!ids.includes(playerId)) {
+    return;
+  }
+
+  if (!(await replaceRunningMatch(userId))) {
+    await notify(
+      ids.filter(id => id !== playerId),
+      { title: 'Partita annullata', body: 'Un giocatore è stato escluso e non si può generare un’altra partita con chi è in lobby.', url: '/#/lobby' }
+    );
+  }
 }
 
 /**
