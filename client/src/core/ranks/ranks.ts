@@ -5,7 +5,7 @@ import type { Rank } from '../api/api.models';
 /**
  * Fraction of the width of the image of a border taken by the hole where the icon of the player goes.
  */
-export const RANK_HOLE = 0.62;
+export const RANK_HOLE = 0.58;
 
 /**
  * The ranks, from the lowest to the highest; empty until loaded.

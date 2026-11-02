@@ -44,9 +44,10 @@ img:not(.frame) {
 
 .frame {
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
-  width: calc(100% / 0.62);
+  width: 200%;
+  height: 200%;
   max-width: none;
   transform: translate(-50%, -50%);
   pointer-events: none;

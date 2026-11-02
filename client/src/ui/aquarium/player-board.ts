@@ -626,8 +626,8 @@ export class PlayerBoard {
     const { x, y } = this._layout.icon;
     // With a border the icon sits in its hole, so it is smaller than the room the layout leaves it
     const frame = frameKey ? this._image(rankImage(frameKey)) : null;
-    const frameRadius = this._layout.icon.radius * 1.15;
-    const radius = frameKey ? frameRadius * RANK_HOLE * 1.03 : this._layout.icon.radius;
+    const frameRadius = this._layout.icon.radius * 1.25;
+    const radius = frameKey ? frameRadius * RANK_HOLE * 1.02 : this._layout.icon.radius;
     const isUrl = /^(https?:|data:|\/)/.test(icon);
     ctx.save();
     ctx.fillStyle = '#2a303a';
@@ -658,7 +658,7 @@ export class PlayerBoard {
     ctx.restore();
     if (frameKey) {
       if (frame) {
-        ctx.drawImage(frame, x - frameRadius / RANK_HOLE, y - frameRadius / RANK_HOLE, (frameRadius / RANK_HOLE) * 2, (frameRadius / RANK_HOLE) * 2);
+        ctx.drawImage(frame, x - frameRadius, y - frameRadius, frameRadius * 2, frameRadius * 2);
       }
 
       return;
