@@ -49,7 +49,7 @@ type Collapsible = 'lobby' | 'match' | 'players';
 /**
  * What waits for the confirmation in the panel of the match: deleting it, or saving its result.
  */
-type PendingAction = { kind: 'drop' } | { kind: 'save'; brownScore: number; whiteScore: number };
+type PendingAction = { kind: 'drop' };
 
 /**
  * Reads which panels were left collapsed on this device.
@@ -120,10 +120,6 @@ export class LobbyPage extends CustomElement {
    * does.
    */
   public readonly pendingAction = signal<PendingAction | null>(null);
-  /**
-   * The result waiting for the confirmation, 0-0 when none does.
-   */
-  public readonly pendingResult = computed(() => this._computePendingResult());
   /**
    * The open lobby, `null` when there is none.
    */
@@ -622,7 +618,7 @@ export class LobbyPage extends CustomElement {
    * @param brownScore - Goals of the brown team.
    * @param whiteScore - Goals of the white team.
    */
-  public save(event: SubmitEvent, brownScore: number, whiteScore: number): void {
+  public async save(event: SubmitEvent, brownScore: number, whiteScore: number): Promise<void> {
     event.preventDefault();
     if (!this.running()) {
       return;
@@ -640,7 +636,7 @@ export class LobbyPage extends CustomElement {
     }
 
     this.error.set('');
-    this.pendingAction.set({ kind: 'save', brownScore, whiteScore });
+    await this._save(brownScore, whiteScore);
   }
 
   /**
@@ -655,9 +651,6 @@ export class LobbyPage extends CustomElement {
           // The match generated in its place, if any: its players are told by the server
           this.running.set(await deleteRunningMatch());
         });
-        break;
-      case 'save':
-        await this._save(action.brownScore, action.whiteScore);
         break;
       default:
         break;
@@ -893,16 +886,6 @@ export class LobbyPage extends CustomElement {
       await this._loadProfile(id);
       this.profileScope.set(scope);
     }
-  }
-
-  /**
-   * Computes the value of `pendingResult`.
-   *
-   * @returns The goals of the two teams of the result waiting for the confirmation, 0-0 when none does.
-   */
-  private _computePendingResult(): { brownScore: number; whiteScore: number } {
-    const action = this.pendingAction();
-    return action?.kind === 'save' ? { brownScore: action.brownScore, whiteScore: action.whiteScore } : { brownScore: 0, whiteScore: 0 };
   }
 
   /**

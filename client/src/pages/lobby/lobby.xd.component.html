@@ -336,30 +336,6 @@
                   </div>
                 </div>
               }
-              @case ('save') {
-                <div class="confirm action" role="alert">
-                  <app-icon class="warning" name="alert" />
-                  <p>
-                    Salvare il risultato Bianchi { pendingResult().whiteScore } – Marroni { pendingResult().brownScore }?
-                    Gli ELO si aggiornano subito e la partita non si potrà più modificare. Se la lobby è aperta, dopo si
-                    potrà generare un'altra partita con chi è in lobby.
-                  </p>
-                  <div class="confirm-actions">
-                    <button type="button" class="btn ghost small" (click)="cancelAction()">Annulla</button>
-                    <button
-                      @if (busy()) {
-                        disabled
-                      }
-                      type="button"
-                      class="btn gold small"
-                      (click)="confirmAction()"
-                    >
-                      <app-icon name="save" />
-                      Salva
-                    </button>
-                  </div>
-                </div>
-              }
               @default {
                 <div class="score-actions">
                   <button
