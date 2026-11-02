@@ -545,7 +545,7 @@ function addDayTrends(entries: readonly LeaderboardEntry[], elos: ReadonlyMap<nu
     const results = played.get(entry.id);
     const attack = results?.attack ?? { matches: 0, delta: 0 };
     const defense = results?.defense ?? { matches: 0, delta: 0 };
-    const counted = playedInMode(attack, defense, by);
+    const counted = playedInMode(attack, defense, entry.eloAttack > entry.eloDefense, by);
     if (entry.matches > counted.matches) {
       const exact = elos.get(entry.id)!;
       const matches = { matchesAttack: entry.matchesAttack - attack.matches, matchesDefense: entry.matchesDefense - defense.matches };
@@ -562,7 +562,7 @@ function addDayTrends(entries: readonly LeaderboardEntry[], elos: ReadonlyMap<nu
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i]!;
     const results = played.get(entry.id);
-    const counted = results && playedInMode(results.attack, results.defense, by);
+    const counted = results && playedInMode(results.attack, results.defense, entry.eloAttack > entry.eloDefense, by);
     if (counted?.matches) {
       const startRank = startRanks.get(entry.id);
       entry.trend = { delta: Math.round(counted.delta), positions: startRank === undefined ? 0 : startRank - entry.rank! };
@@ -575,17 +575,18 @@ function addDayTrends(entries: readonly LeaderboardEntry[], elos: ReadonlyMap<nu
  *
  * @param attack - What it did in attack.
  * @param defense - What it did in defence.
+ * @param isAttackBestRole - What role the player is better at
  * @param by - The ranking mode.
  * @returns What it did in the role, or in both.
  */
-function playedInMode(attack: PlayedToday, defense: PlayedToday, by: RankingMode): PlayedToday {
+function playedInMode(attack: PlayedToday, defense: PlayedToday, isAttackBestRole: boolean, by: RankingMode): PlayedToday {
   switch (by) {
     case 'attack':
       return attack;
     case 'defense':
       return defense;
     default:
-      return { matches: attack.matches + defense.matches, delta: attack.delta + defense.delta };
+      return { matches: attack.matches + defense.matches, delta: isAttackBestRole ? attack.delta : defense.delta };
   }
 }
 
