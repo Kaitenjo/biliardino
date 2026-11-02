@@ -22,15 +22,20 @@
 } @else {
   <div class="board" role="table" aria-label="Classifica">
     <div class="row head" role="row">
-      <span class="rank" role="columnheader" title="Posizione in classifica">#</span>
-      <span role="columnheader" title="Giocatore e ruoli che gioca">Giocatore</span>
-      <span class="num" role="columnheader" title="ELO su cui si basa la classifica">Elo</span>
-      <span class="num" role="columnheader" title="Vittorie / Sconfitte e percentuale di vittorie">V / S</span>
-      <span class="num ratio-col" role="columnheader" title="Rapporto goal fatti/subiti">Goal</span>
-      <span class="form-col" role="columnheader" title="Ultime 5 partite">Forma</span>
+      @for (column of columns; track column().key) {
+        <span class="{column().className}" role="columnheader" title="{column().hint}"
+          aria-sort="{sortState(column().key)}">
+          <button type="button" class="sort" [class.active]="{sort().key === column().key}" (click)="sortBy(column())">
+            { column().label }
+            @if (sort().key === column().key) {
+              <app-icon name="{sort().descending ? 'chevron-down' : 'chevron-up'}" />
+            }
+          </button>
+        </span>
+      }
     </div>
     <div class="rows">
-      @for (player of players(); track player().id) {
+      @for (player of sorted(); track player().id) {
         <div role="row" tabindex="0" class="{`row player-row ${rowClass(player())}`}" (click)="open(player().id)"
           (keydown)="openOnKey($event, player().id)">
           <span class="rank" role="cell">

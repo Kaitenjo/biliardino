@@ -135,6 +135,36 @@ h2 {
   text-transform: uppercase;
 }
 
+// A header sorts the rows by its column; the one in use is gold, with the arrow of the direction
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  &.active {
+    color: var(--gold);
+  }
+}
+
 .rows {
   display: grid;
   flex: 1;

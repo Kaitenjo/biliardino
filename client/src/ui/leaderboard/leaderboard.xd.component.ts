@@ -1,6 +1,6 @@
 import { CustomElement, Event, Property, WebComponent } from '@xaendar/core';
 import type { Output } from '@xaendar/core';
-import { signal } from '@xaendar/core/signals';
+import { computed, signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
 import type { FormEntry, LeaderboardEntry, Lineup, PlayerRef, RankingMode, Team } from '../../core/api/api.models';
 import { navigate } from '../../core/router/router';
@@ -24,8 +24,40 @@ interface ModeButton {
 }
 
 /**
+ * What the rows can be sorted by.
+ */
+type SortKey = 'rank' | 'name' | 'elo' | 'record' | 'goals' | 'form';
+
+/**
+ * A header of the table.
+ */
+interface ColumnHeader {
+  /**
+   * What it sorts the rows by.
+   */
+  key: SortKey;
+  /**
+   * Its name.
+   */
+  label: string;
+  /**
+   * What the column shows.
+   */
+  hint: string;
+  /**
+   * The classes of its cell.
+   */
+  className: string;
+  /**
+   * Whether the first click sorts from the highest value.
+   */
+  descending: boolean;
+}
+
+/**
  * The leaderboard, on a glass panel: a row for each player, ranked by the best of the two ELOs of each player or by the
- * ELO of a role. A row opens the page of its player; the squares of the form show the match under the pointer.
+ * ELO of a role. A row opens the page of its player; a header sorts the rows by its column, the squares of the form show
+ * the match under the pointer.
  */
 @WebComponent({
   selector: 'league-leaderboard',
@@ -65,6 +97,25 @@ export class LeaderboardComponent extends CustomElement {
     { value: 'attack', label: 'Attacco', icon: 'attack' },
     { value: 'defense', label: 'Difesa', icon: 'defense' }
   ];
+  /**
+   * The headers of the table.
+   */
+  public readonly columns: readonly ColumnHeader[] = [
+    { key: 'rank', label: '#', hint: 'Posizione in classifica', className: 'rank', descending: false },
+    { key: 'name', label: 'Giocatore', hint: 'Giocatore e ruoli che gioca', className: '', descending: false },
+    { key: 'elo', label: 'Elo', hint: 'ELO su cui si basa la classifica', className: 'num', descending: true },
+    { key: 'record', label: 'V / S', hint: 'Vittorie / Sconfitte e percentuale di vittorie', className: 'num', descending: true },
+    { key: 'goals', label: 'Goal', hint: 'Rapporto goal fatti/subiti', className: 'num ratio-col', descending: true },
+    { key: 'form', label: 'Forma', hint: 'Ultime 5 partite', className: 'form-col', descending: true }
+  ];
+  /**
+   * The column the rows are sorted by, and in which direction.
+   */
+  public readonly sort = signal<{ key: SortKey; descending: boolean }>({ key: 'rank', descending: false });
+  /**
+   * The rows, in the order asked; those who never played always last.
+   */
+  public readonly sorted = computed(() => this._computeSorted());
 
   /**
    * Opens the page of a player.
@@ -86,6 +137,37 @@ export class LeaderboardComponent extends CustomElement {
       event.preventDefault();
       this.open(id);
     }
+  }
+
+  /**
+   * Sorts the rows by a column: the first click in its direction, the second in the other one, the third back by rank.
+   *
+   * @param column - The header clicked.
+   */
+  public sortBy(column: ColumnHeader): void {
+    const { key, descending } = this.sort();
+    if (key !== column.key) {
+      this.sort.set({ key: column.key, descending: column.descending });
+    } else if (descending === column.descending) {
+      this.sort.set({ key, descending: !descending });
+    } else {
+      this.sort.set({ key: 'rank', descending: false });
+    }
+  }
+
+  /**
+   * How a column sorts the rows, for screen readers.
+   *
+   * @param key - The column.
+   * @returns `ascending`, `descending` or `none`.
+   */
+  public sortState(key: SortKey): string {
+    const sort = this.sort();
+    if (sort.key !== key) {
+      return 'none';
+    }
+
+    return sort.descending ? 'descending' : 'ascending';
   }
 
   /**
@@ -176,7 +258,7 @@ export class LeaderboardComponent extends CustomElement {
    * @returns The sum of the changes, with its sign.
    */
   public formTotal(player: LeaderboardEntry): string {
-    const total = player.form.reduce((sum, entry) => sum + entry.delta, 0);
+    const total = this._formSum(player);
     return total > 0 ? `+${total}` : String(total);
   }
 
@@ -211,5 +293,66 @@ export class LeaderboardComponent extends CustomElement {
     const attack = entry.players.find(player => player.team === team && player.role === 'attack')!;
     const defense = entry.players.find(player => player.team === team && player.role === 'defense')!;
     return { attack, defense };
+  }
+
+  private _computeSorted(): LeaderboardEntry[] {
+    const { key, descending } = this.sort();
+    const direction = descending ? -1 : 1;
+    return this.players().slice().sort((first, second) => Number(first.rank === null) - Number(second.rank === null) || direction * this._compare(first, second, key));
+  }
+
+  /**
+   * Compares two players by a column. Those it cannot tell apart stay in the order of the ranking.
+   *
+   * @param first - A player.
+   * @param second - The other one.
+   * @param key - The column.
+   * @returns A negative number when the first has the lower value, a positive one when it has the higher one, `0` if equal.
+   */
+  private _compare(first: LeaderboardEntry, second: LeaderboardEntry, key: SortKey): number {
+    switch (key) {
+      case 'rank':
+        return (first.rank ?? 0) - (second.rank ?? 0);
+      case 'name':
+        return first.name.localeCompare(second.name);
+      case 'elo':
+        return first.elo - second.elo;
+      case 'record':
+        return this._winShare(first) - this._winShare(second);
+      case 'goals':
+        return this._goalShare(first) - this._goalShare(second);
+      case 'form':
+        return this._formSum(first) - this._formSum(second);
+    }
+  }
+
+  /**
+   * The share of matches a player won.
+   *
+   * @param player - The player.
+   * @returns A number from 0 to 1, 0 when it never played.
+   */
+  private _winShare(player: LeaderboardEntry): number {
+    return player.matches ? player.wins / player.matches : 0;
+  }
+
+  /**
+   * The ratio between goals scored and conceded.
+   *
+   * @param player - The player.
+   * @returns The ratio, 0 when it conceded none: the table shows no ratio then.
+   */
+  private _goalShare(player: LeaderboardEntry): number {
+    return player.goalsAgainst ? player.goalsFor / player.goalsAgainst : 0;
+  }
+
+  /**
+   * The ELO won or lost in the last matches.
+   *
+   * @param player - The player.
+   * @returns The sum of the changes.
+   */
+  private _formSum(player: LeaderboardEntry): number {
+    return player.form.reduce((sum, entry) => sum + entry.delta, 0);
   }
 }
