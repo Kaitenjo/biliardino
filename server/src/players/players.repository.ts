@@ -449,21 +449,14 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
 
   const sorted = [...entries.values()].sort((first, second) => exact.get(second.id)! - exact.get(first.id)! || first.name.localeCompare(second.name));
 
-  // Dense ranking on the rounded ELO, as the previous project: players who never played have no rank
+  // The position in the order above, so that two players with the same rounded ELO still get different numbers: the
+  // exact ELO (then the name) decides who is first. Players who never played have no rank
   let rank = 0;
-  let previousElo: number | null = null;
   for (let i = 0; i < sorted.length; i++) {
     const entry = sorted[i]!;
-    if (!entry.matches) {
-      continue;
+    if (entry.matches) {
+      entry.rank = ++rank;
     }
-
-    if (entry.elo !== previousElo) {
-      rank++;
-      previousElo = entry.elo;
-    }
-
-    entry.rank = rank;
   }
 
   return onlyPlayed ? sorted.filter(entry => entry.matches > 0) : sorted;

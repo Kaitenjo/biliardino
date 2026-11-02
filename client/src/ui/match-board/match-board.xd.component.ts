@@ -1,6 +1,7 @@
 import { CustomElement, Property, WebComponent } from '@xaendar/core';
 import type { InputSignal } from '@xaendar/core/signals';
 import type { MatchSummary } from '../../core/api/api.models';
+import { navigate } from '../../core/router/router';
 
 /**
  * Lines of matches on the board: a page holds as many.
@@ -63,5 +64,27 @@ export class MatchBoardComponent extends CustomElement {
   public formatDelta(match: MatchSummary): string {
     const delta = this.gain(match);
     return delta > 0 ? `+${delta}` : String(delta);
+  }
+
+  /**
+   * Opens the page of a player.
+   *
+   * @param id - The id of the player.
+   */
+  public open(id: number): void {
+    navigate(`/players/${id}`);
+  }
+
+  /**
+   * Opens the page of a player from the keyboard.
+   *
+   * @param event - The key pressed on its icon.
+   * @param id - The id of the player.
+   */
+  public openOnKey(event: KeyboardEvent, id: number): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.open(id);
+    }
   }
 }

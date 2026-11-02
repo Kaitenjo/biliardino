@@ -91,6 +91,18 @@
 
   player-avatar {
     --avatar-size: var(--face);
+
+    cursor: pointer;
+
+    &:hover {
+      filter: brightness(1.15);
+    }
+
+    &:focus-visible {
+      border-radius: 50%;
+      outline: 2px solid var(--chalk-dim);
+      outline-offset: 2px;
+    }
   }
 }
 
