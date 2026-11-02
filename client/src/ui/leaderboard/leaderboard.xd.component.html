@@ -69,13 +69,20 @@
                   </small>
                 </span>
               }
+              @if (player().trend?.positions) {
+                <small class="positions" title="{positionsHint(player().trend!.positions)}"
+                  [class.up]="{player().trend!.positions > 0}">
+                  <app-icon name="{player().trend!.positions > 0 ? 'arrow-up' : 'arrow-down'}" />
+                  { positionsCount(player().trend!.positions) }
+                </small>
+              }
             </span>
             <span class="num elo" role="cell">
               <span class="elo-main">
-                @if (player().form.length) {
-                  <small class="form-total" title="ELO guadagnato o perso nelle ultime partite"
-                    [class.up]="{formTotal(player()).startsWith('+')}">
-                    { formTotal(player()) }
+                @if (player().trend) {
+                  <small class="day-delta" title="ELO guadagnato o perso oggi" [class.up]="{player().trend!.delta > 0}"
+                    [class.even]="{player().trend!.delta === 0}">
+                    { dayDelta(player().trend!.delta) }
                   </small>
                 }
                 <strong>{ player().elo }</strong>
@@ -104,11 +111,7 @@
                   @for (entry of player().form; track $index()) {
                     <span class="dot" [class.won]="{entry().won}"
                       (pointerenter)="showPreview($event, entry(), player().id)" (pointerleave)="hidePreview()">
-                      @if (entry().role === 'attack') {
-                        <app-icon style="color: white" name="attack" />
-                      } @else {
-                        <app-icon style="color: white" name="defense" />
-                      }
+                      <app-icon name="{entry().role}" />
                     </span>
                   }
                 </span>

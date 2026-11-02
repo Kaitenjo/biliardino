@@ -20,6 +20,7 @@ import {
 } from '../../core/api/api';
 import type { LeaderboardEntry, LobbyPlayer, LobbyState, MatchPage, PlayerDetail, RankingMode, Role, RunningMatch, SavedMatch, UserRoles } from '../../core/api/api.models';
 import { user } from '../../core/auth/session';
+import { untilRomeMidnight } from '../../core/dates/dates';
 import { navigate, route, routeName } from '../../core/router/router';
 import type { PodiumPlace } from '../../ui/aquarium/aquarium.xd.component';
 import type { View } from '../../ui/aquarium/scene';
@@ -29,6 +30,11 @@ import { BOARD_LINES } from '../../ui/match-board/match-board.xd.component';
  * Seconds to wait between entering and leaving the lobby, so that a tap after another doesn't flood the server.
  */
 const JOIN_COOLDOWN_SECONDS = 10;
+
+/**
+ * Milliseconds to wait after midnight before reading the leaderboard again.
+ */
+const MIDNIGHT_MARGIN_MS = 5000;
 
 /**
  * Where the panels over the scene remember being collapsed, on this device.
@@ -229,6 +235,10 @@ export class LobbyPage extends CustomElement {
    */
   private _rankingController: AbortController | null = null;
   /**
+   * The timer reading the leaderboard again at midnight.
+   */
+  private _midnightTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
    * Aborts the request of a page of matches in flight.
    */
   private _matchesController: AbortController | null = null;
@@ -305,6 +315,7 @@ export class LobbyPage extends CustomElement {
     });
     document.addEventListener('visibilitychange', this._onVisibility);
     navigator.serviceWorker?.addEventListener('message', this._onWorkerMessage);
+    this._scheduleMidnight();
   }
 
   /**
@@ -319,6 +330,21 @@ export class LobbyPage extends CustomElement {
     if (this._cooldownTimer !== null) {
       clearInterval(this._cooldownTimer);
     }
+
+    if (this._midnightTimer !== null) {
+      clearTimeout(this._midnightTimer);
+    }
+  }
+
+  /**
+   * Reads the leaderboard again at each midnight, when the trends of the day end: a little later, so that the day has
+   * changed for the server too even when the clock of this device is ahead.
+   */
+  private _scheduleMidnight(): void {
+    this._midnightTimer = setTimeout(() => {
+      this._loadRanking().catch(() => undefined);
+      this._scheduleMidnight();
+    }, untilRomeMidnight() + MIDNIGHT_MARGIN_MS);
   }
 
   /**

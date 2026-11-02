@@ -20,4 +20,7 @@ export class AppIconComponent extends CustomElement {
   @HostProperty('data-name')
   @Property('')
   public accessor name!: InputSignal<string>;
+
+  @Property('white')
+  public accessor fillColor!: InputSignal<string>;
 }

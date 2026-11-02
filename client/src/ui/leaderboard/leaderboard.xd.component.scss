@@ -132,8 +132,9 @@ h2 {
   scrollbar-width: thin;
 }
 
+// Upright the player is only its icon, with the room for the positions moved today
 :host(.upright) .board {
-  --player-width: 2.75rem;
+  --player-width: 4.8rem;
 }
 
 .row {
@@ -179,7 +180,6 @@ h2 {
 }
 
 .head {
-  position: sticky;
   top: 0;
   z-index: 1;
   padding-bottom: 0.45rem;
@@ -254,7 +254,7 @@ h2 {
   }
 
   // The row of the logged user lights up in gold on hover
-  &.me:hover {
+  &.me {
     background: color-mix(in srgb, var(--gold) 18%, var(--row-hover));
     border-color: var(--gold);
     box-shadow: 0 0 0 1px var(--gold), 0 6px 20px rgb(245 197 66 / 25%);
@@ -354,6 +354,23 @@ h2 {
   white-space: nowrap;
 }
 
+// The positions moved today, at the end of the cell: right before the ELO
+.positions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.1rem;
+  margin-left: auto;
+  color: var(--down);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+
+  &.up {
+    color: var(--up);
+  }
+}
+
 .attack {
   color: #fb7185;
 }
@@ -379,7 +396,7 @@ h2 {
   }
 }
 
-.form-total {
+.day-delta {
   padding: 0.02rem 0.32rem;
   border-radius: 6px;
   background: rgb(248 113 113 / 15%);
@@ -390,6 +407,11 @@ h2 {
   &.up {
     background: rgb(74 222 128 / 15%);
     color: var(--up);
+  }
+
+  &.even {
+    background: var(--row-hover);
+    color: var(--ink-muted);
   }
 }
 

@@ -28,6 +28,18 @@ export function today(): string {
 }
 
 /**
+ * The moment today started in Italy, as `matches.played_at` stores it.
+ *
+ * @returns The UTC date and time, `YYYY-MM-DD HH:MM:SS`.
+ */
+export function todayStart(): string {
+  const midnight = new Date(`${today()}T00:00:00Z`);
+  // At midnight UTC Italy still has the offset of its own midnight: summer time changes later in the night
+  midnight.setUTCMinutes(-romeClock(midnight).minutes);
+  return midnight.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+/**
  * Reads a moment on an Italian clock, summer time included.
  *
  * @param now - The moment, now by default.

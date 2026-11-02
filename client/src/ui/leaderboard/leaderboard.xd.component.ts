@@ -304,14 +304,38 @@ export class LeaderboardComponent extends CustomElement {
   }
 
   /**
-   * The ELO won or lost in the last matches.
+   * The ELO won or lost today.
    *
-   * @param player - The player.
-   * @returns The sum of the changes, with its sign.
+   * @param delta - The change.
+   * @returns The change, with its sign.
    */
-  public formTotal(player: LeaderboardEntry): string {
-    const total = this._formSum(player);
-    return total > 0 ? `+${total}` : String(total);
+  public dayDelta(delta: number): string {
+    return delta > 0 ? `+${delta}` : String(delta);
+  }
+
+  /**
+   * How many positions a player moved today.
+   *
+   * @param positions - The positions climbed, lost when negative.
+   * @returns Their number.
+   */
+  public positionsCount(positions: number): number {
+    return Math.abs(positions);
+  }
+
+  /**
+   * Says how many positions a player moved today.
+   *
+   * @param positions - The positions climbed, lost when negative.
+   * @returns The text of the hint.
+   */
+  public positionsHint(positions: number): string {
+    const count = this.positionsCount(positions);
+    if (count === 1) {
+      return positions > 0 ? '1 posizione guadagnata oggi' : '1 posizione persa oggi';
+    }
+
+    return `${count} posizioni ${positions > 0 ? 'guadagnate' : 'perse'} oggi`;
   }
 
   /**

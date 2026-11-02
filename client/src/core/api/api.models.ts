@@ -76,8 +76,22 @@ export interface FormEntry {
 export type RankingMode = 'best' | Role;
 
 /**
- * A row of the leaderboard. `elo`, `rank`, the record, the goals and the form follow the ranking mode: in a role,
- * only the matches played in that role count.
+ * How the day is going for a player who played today.
+ */
+export interface DayTrend {
+  /**
+   * ELO won in today's matches, lost when negative.
+   */
+  delta: number;
+  /**
+   * Positions climbed since the start of the day, lost when negative; 0 for who entered the ranking today.
+   */
+  positions: number;
+}
+
+/**
+ * A row of the leaderboard. `elo`, `rank`, the record, the goals, the form and the trend of the day follow the ranking
+ * mode: in a role, only the matches played in that role count.
  */
 export interface LeaderboardEntry extends PlayerSummary {
   /**
@@ -132,6 +146,10 @@ export interface LeaderboardEntry extends PlayerSummary {
    * The last 5 matches, oldest first.
    */
   form: FormEntry[];
+  /**
+   * How the day is going, `null` when it didn't play today (it resets each day).
+   */
+  trend: DayTrend | null;
   /**
    * Whether the player said it is available today (it resets each day).
    */

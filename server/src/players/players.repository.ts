@@ -1,5 +1,5 @@
 import { all } from '../db/db.ts';
-import { today } from '../dates.ts';
+import { today, todayStart } from '../dates.ts';
 import type { Lineup, PlayerSummary, Role, Team } from '../models.ts';
 import { emptyRecords, FORM_LENGTH, loadRecords } from './player-stats.ts';
 
@@ -78,8 +78,22 @@ export interface FormEntry {
 }
 
 /**
- * A row of the leaderboard. `elo`, `rank`, the record, the goals and the form follow the ranking mode: in a role,
- * only the matches played in that role count.
+ * How the day is going for a player who played today.
+ */
+export interface DayTrend {
+  /**
+   * ELO won in today's matches, lost when negative, rounded.
+   */
+  delta: number;
+  /**
+   * Positions climbed since the start of the day, lost when negative; 0 for who entered the ranking today.
+   */
+  positions: number;
+}
+
+/**
+ * A row of the leaderboard. `elo`, `rank`, the record, the goals, the form and the trend of the day follow the ranking
+ * mode: in a role, only the matches played in that role count.
  */
 export interface LeaderboardEntry extends PlayerSummary {
   /**
@@ -134,6 +148,10 @@ export interface LeaderboardEntry extends PlayerSummary {
    * The last 5 matches, oldest first.
    */
   form: FormEntry[];
+  /**
+   * How the day is going, `null` when it didn't play today (it resets each day).
+   */
+  trend: DayTrend | null;
   /**
    * Whether the player said it is available today (it resets each day).
    */
@@ -338,6 +356,20 @@ export interface PlayerDetail {
 }
 
 /**
+ * What a player did today in a role.
+ */
+interface PlayedToday {
+  /**
+   * Matches played.
+   */
+  matches: number;
+  /**
+   * Exact change of ELO.
+   */
+  delta: number;
+}
+
+/**
  * A row of `match_players` with its match, ELOs not rounded.
  */
 interface MatchRow {
@@ -401,7 +433,7 @@ interface MatchRow {
  * @returns The players, by ELO. Their records come from `player_stats`, not from the matches.
  */
 export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = false): Promise<LeaderboardEntry[]> {
-  const [players, records, forms] = await Promise.all([
+  const [players, records, forms, played] = await Promise.all([
     all<{ id: number; name: string; icon: string; eloAttack: number; eloDefense: number; playsAttack: number; playsDefense: number; availableToday: number }>(
       `SELECT id, name, icon, elo_attack AS eloAttack, elo_defense AS eloDefense, plays_attack AS playsAttack, plays_defense AS playsDefense,
          COALESCE(available_on = ?, 0) AS availableToday
@@ -409,7 +441,8 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
       today()
     ),
     loadRecords(),
-    loadForms(by)
+    loadForms(by),
+    loadPlayedToday()
   ]);
   const entries = new Map<number, LeaderboardEntry>();
   const exactElos = new Map<number, Lineup<number>>();
@@ -436,6 +469,7 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
       goalsFor: record.goalsFor,
       goalsAgainst: record.goalsAgainst,
       form: forms.get(player.id) ?? [],
+      trend: null,
       availableToday: Boolean(player.availableToday)
     });
   }
@@ -459,7 +493,100 @@ export async function listLeaderboard(by: RankingMode = 'best', onlyPlayed = fal
     }
   }
 
+  addDayTrends(sorted, exactElos, played, by);
   return onlyPlayed ? sorted.filter(entry => entry.matches > 0) : sorted;
+}
+
+/**
+ * What each player did today, by role.
+ *
+ * @returns The players who played today, with their matches and their exact change of ELO in each role.
+ */
+async function loadPlayedToday(): Promise<Map<number, Lineup<PlayedToday>>> {
+  const rows = await all<{ playerId: number; role: Role; delta: number }>(
+    `SELECT mp.player_id AS playerId, mp.role, mp.elo_delta AS delta
+     FROM matches m JOIN match_players mp ON mp.match_id = m.id
+     WHERE m.played_at >= ?`,
+    todayStart()
+  );
+  const played = new Map<number, Lineup<PlayedToday>>();
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    let results = played.get(row.playerId);
+    if (!results) {
+      results = { attack: { matches: 0, delta: 0 }, defense: { matches: 0, delta: 0 } };
+      played.set(row.playerId, results);
+    }
+
+    results[row.role].matches++;
+    results[row.role].delta += row.delta;
+  }
+
+  return played;
+}
+
+/**
+ * Fills the trend of the day of the players who played today in the mode. The ranking at the start of the day is the
+ * one `listLeaderboard` gives with today's matches undone.
+ *
+ * @param entries - The rows, already ranked.
+ * @param elos - The exact ELOs of each player, by role.
+ * @param played - What each player did today.
+ * @param by - The ranking mode.
+ */
+function addDayTrends(entries: readonly LeaderboardEntry[], elos: ReadonlyMap<number, Lineup<number>>, played: ReadonlyMap<number, Lineup<PlayedToday>>, by: RankingMode): void {
+  if (!played.size) {
+    return;
+  }
+
+  const start: Array<{ entry: LeaderboardEntry; elo: number }> = [];
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    const results = played.get(entry.id);
+    const attack = results?.attack ?? { matches: 0, delta: 0 };
+    const defense = results?.defense ?? { matches: 0, delta: 0 };
+    const counted = playedInMode(attack, defense, by);
+    if (entry.matches > counted.matches) {
+      const exact = elos.get(entry.id)!;
+      const matches = { matchesAttack: entry.matchesAttack - attack.matches, matchesDefense: entry.matchesDefense - defense.matches };
+      start.push({ entry, elo: rankingElo({ attack: exact.attack - attack.delta, defense: exact.defense - defense.delta }, matches, by) });
+    }
+  }
+
+  const startRanks = new Map<number, number>();
+  const startOrder = start.sort((first, second) => second.elo - first.elo || first.entry.name.localeCompare(second.entry.name));
+  for (let i = 0; i < startOrder.length; i++) {
+    startRanks.set(startOrder[i]!.entry.id, i + 1);
+  }
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    const results = played.get(entry.id);
+    const counted = results && playedInMode(results.attack, results.defense, by);
+    if (counted?.matches) {
+      const startRank = startRanks.get(entry.id);
+      entry.trend = { delta: Math.round(counted.delta), positions: startRank === undefined ? 0 : startRank - entry.rank! };
+    }
+  }
+}
+
+/**
+ * What counts of what a player did today in a ranking mode.
+ *
+ * @param attack - What it did in attack.
+ * @param defense - What it did in defence.
+ * @param by - The ranking mode.
+ * @returns What it did in the role, or in both.
+ */
+function playedInMode(attack: PlayedToday, defense: PlayedToday, by: RankingMode): PlayedToday {
+  switch (by) {
+    case 'attack':
+      return attack;
+    case 'defense':
+      return defense;
+    default:
+      return { matches: attack.matches + defense.matches, delta: attack.delta + defense.delta };
+  }
 }
 
 /**
@@ -535,7 +662,7 @@ async function loadForms(by: RankingMode): Promise<Map<number, FormEntry[]>> {
  * @param by - The ranking mode.
  * @returns Its ELO in the role; in the general ranking the best of the roles it played, or of both when it played none.
  */
-function rankingElo(elos: Lineup<number>, entry: LeaderboardEntry, by: RankingMode): number {
+function rankingElo(elos: Lineup<number>, entry: Pick<LeaderboardEntry, 'matchesAttack' | 'matchesDefense'>, by: RankingMode): number {
   switch (by) {
     case 'attack':
       return elos.attack;

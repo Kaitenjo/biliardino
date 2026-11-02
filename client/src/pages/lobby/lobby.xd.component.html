@@ -245,7 +245,7 @@
       @for (scope of scopes; track scope().value) {
         <button type="button" role="tab" class="{profileScope() === scope().value ? 'btn gold' : 'btn ghost'}"
           aria-selected="{String(profileScope() === scope().value)}" (click)="setProfileScope(scope().value)">
-          <app-icon name="{scope().icon}" />
+          <app-icon name="{scope().icon}" fillColor="transparent"/>
           { scope().label }
         </button>
       }
