@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BOARD, FIGURES, NAME, TEXT } from './fonts';
 import type { PlayerDetail, PlayerMatch, PlayerResult, PlayerStats, RankingMode, Role } from '../../core/api/api.models';
+import { RANK_HOLE, rankImage, rankKeyOf } from '../../core/ranks/ranks';
 import { detail, paintedColorSpace } from './detail';
 import { phong } from './materials';
 
@@ -480,7 +481,7 @@ export class PlayerBoard {
       ctx.fillText(caption, rankX + numberWidth + 10, rolesY);
     }
 
-    this._paintIcon(ctx, player.icon, rank);
+    this._paintIcon(ctx, player.icon, rank, rank === null ? '' : rankKeyOf(detail.stats[scope].elo));
   }
 
   /**
@@ -618,10 +619,15 @@ export class PlayerBoard {
    *
    * @param ctx - The canvas.
    * @param icon - The URL of an image, an emoji, or `''`.
-   * @param rank - The rank, `null` when it never played in the scope.
+   * @param rank - The position in the ranking, `null` when it never played in the scope.
+   * @param frameKey - The rank of its ELO in the scope, whose border goes around the icon; `''` for none.
    */
-  private _paintIcon(ctx: CanvasRenderingContext2D, icon: string, rank: number | null): void {
-    const { x, y, radius } = this._layout.icon;
+  private _paintIcon(ctx: CanvasRenderingContext2D, icon: string, rank: number | null, frameKey: string): void {
+    const { x, y } = this._layout.icon;
+    // With a border the icon sits in its hole, so it is smaller than the room the layout leaves it
+    const frame = frameKey ? this._image(rankImage(frameKey)) : null;
+    const frameRadius = this._layout.icon.radius * 1.15;
+    const radius = frameKey ? frameRadius * RANK_HOLE * 1.03 : this._layout.icon.radius;
     const isUrl = /^(https?:|data:|\/)/.test(icon);
     ctx.save();
     ctx.fillStyle = '#2a303a';
@@ -650,6 +656,14 @@ export class PlayerBoard {
     }
 
     ctx.restore();
+    if (frameKey) {
+      if (frame) {
+        ctx.drawImage(frame, x - frameRadius / RANK_HOLE, y - frameRadius / RANK_HOLE, (frameRadius / RANK_HOLE) * 2, (frameRadius / RANK_HOLE) * 2);
+      }
+
+      return;
+    }
+
     ctx.strokeStyle = (rank && RANK_COLORS[rank]) || '#8b95a5';
     ctx.lineWidth = 8;
     ctx.beginPath();

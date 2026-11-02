@@ -181,7 +181,7 @@ h2 {
 .player-row {
   --accent: transparent;
 
-  min-height: 3.6rem;
+  min-height: 4.5rem;
   border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
   border-radius: 14px;
@@ -198,6 +198,13 @@ h2 {
   &:focus-visible {
     outline: 2px solid var(--gold);
     outline-offset: 1px;
+  }
+
+  // The row of the logged user lights up in gold on hover
+  &.me:hover {
+    background: color-mix(in srgb, var(--gold) 18%, var(--row-hover));
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), 0 6px 20px rgb(245 197 66 / 25%);
   }
 
   &.gold,
@@ -258,6 +265,11 @@ h2 {
   align-items: center;
   gap: 0.65rem;
   min-width: 0;
+}
+
+// Room for the border of the rank, bigger than the icon
+.player player-avatar {
+  margin-inline: 0.4rem 0.2rem;
 }
 
 .player-text {

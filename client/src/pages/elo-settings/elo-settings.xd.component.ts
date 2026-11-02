@@ -1,8 +1,9 @@
 import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { signal } from '@xaendar/core/signals';
 import type { QuerySignal } from '@xaendar/core/signals';
-import { fetchEloSettings, postEloRecompute } from '../../core/api/api';
-import type { EloConfig, EloSettings } from '../../core/api/api.models';
+import { fetchEloSettings, fetchRankSettings, postEloRecompute, putRanks } from '../../core/api/api';
+import type { EloConfig, EloSettings, RankSettings } from '../../core/api/api.models';
+import { loadRanks } from '../../core/ranks/ranks';
 
 /**
  * A variable of the ELO system as the form shows it.
@@ -61,6 +62,22 @@ export class EloSettingsPage extends CustomElement {
    */
   public readonly settings = signal<EloSettings | null>(null);
   /**
+   * The ranks with the allowed range of their thresholds, `null` until loaded.
+   */
+  public readonly rankSettings = signal<RankSettings | null>(null);
+  /**
+   * Whether the thresholds of the ranks are being saved.
+   */
+  public readonly rankBusy = signal(false);
+  /**
+   * Whether the last saving of the ranks succeeded.
+   */
+  public readonly rankDone = signal(false);
+  /**
+   * The error of the ranks to show, `''` when there is none.
+   */
+  public readonly rankError = signal('');
+  /**
    * Whether the settings are loading.
    */
   public readonly loading = signal(true);
@@ -82,6 +99,12 @@ export class EloSettingsPage extends CustomElement {
    */
   @Query.all<HTMLInputElement>('input[data-key]')
   public accessor inputs!: QuerySignal<HTMLInputElement[]>;
+
+  /**
+   * The threshold fields of the ranks, each with the name of its rank in `data-rank`.
+   */
+  @Query.all<HTMLInputElement>('input[data-rank]')
+  public accessor rankInputs!: QuerySignal<HTMLInputElement[]>;
 
   /**
    * Loads the saved variables.
@@ -118,6 +141,46 @@ export class EloSettingsPage extends CustomElement {
   public submit(event: Event): void {
     event.preventDefault();
     this.recompute();
+  }
+
+  /**
+   * Sends the form of the ranks: the browser doesn't reload the page.
+   *
+   * @param event - The submit event.
+   */
+  public submitRanks(event: Event): void {
+    event.preventDefault();
+    this.saveRanks();
+  }
+
+  /**
+   * Saves the thresholds of the ranks: no recomputation, the borders are given from the ELOs as they are.
+   */
+  public async saveRanks(): Promise<void> {
+    this.rankError.set('');
+    this.rankDone.set(false);
+    const thresholds: Array<{ key: string; minElo: number }> = [];
+    for (const input of this.rankInputs()) {
+      const text = input.value.trim().replace(',', '.');
+      const minElo = text ? Number(text) : NaN;
+      if (!Number.isFinite(minElo)) {
+        this.rankError.set('Ogni soglia deve essere un numero');
+        return;
+      }
+
+      thresholds.push({ key: input.dataset['rank']!, minElo });
+    }
+
+    this.rankBusy.set(true);
+    try {
+      this.rankSettings.set(await putRanks(thresholds));
+      await loadRanks();
+      this.rankDone.set(true);
+    } catch (error) {
+      this.rankError.set((error as Error).message);
+    } finally {
+      this.rankBusy.set(false);
+    }
   }
 
   /**
@@ -173,8 +236,9 @@ export class EloSettingsPage extends CustomElement {
    */
   private async _load(): Promise<void> {
     try {
-      const settings = await fetchEloSettings();
+      const [settings, rankSettings] = await Promise.all([fetchEloSettings(), fetchRankSettings()]);
       this.settings.set(settings);
+      this.rankSettings.set(rankSettings);
     } catch (error) {
       this.error.set((error as Error).message);
     } finally {

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { listRanks } from '../players/ranks.ts';
 import { findPlayerDetail, listLeaderboard } from '../players/players.repository.ts';
 
 /**
@@ -7,6 +8,9 @@ import { findPlayerDetail, listLeaderboard } from '../players/players.repository
 export const playersRouter = new Hono();
 
 playersRouter.get('/', async c => c.json(await listLeaderboard()));
+
+// The ranks, from the lowest: the client gives each player the border of the rank its ELO falls in. Before `/:id`
+playersRouter.get('/ranks', async c => c.json(await listRanks()));
 
 // The leaderboard: only the players with at least one match (in the role), ranked by the best of their two ELOs or
 // by the ELO of a role (?by=attack|defense). Before `/:id`, so that it doesn't read "ranking" as an id

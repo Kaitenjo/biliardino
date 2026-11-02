@@ -1,6 +1,7 @@
 import { CustomElement, HostProperty, Property, WebComponent } from '@xaendar/core';
 import { computed, signal, untracked } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
+import { rankImage } from '../../core/ranks/ranks';
 
 /**
  * The icon of a player: its avatar when the icon is a URL, an emoji otherwise, a silhouette when it has none or the
@@ -22,6 +23,11 @@ export class PlayerAvatarComponent extends CustomElement {
    */
   @Property('')
   public accessor label!: InputSignal<string>;
+  /**
+   * The rank, whose border is drawn around the icon: the name of its image, `''` for no border.
+   */
+  @Property('')
+  public accessor rank!: InputSignal<string>;
   /**
    * The size: `sm`, `md`, `lg` or `xl`.
    */
@@ -45,6 +51,15 @@ export class PlayerAvatarComponent extends CustomElement {
       this.icon();
       untracked(() => this.failed.set(false));
     });
+  }
+
+  /**
+   * The URL of the image of the border of the rank.
+   *
+   * @returns The URL.
+   */
+  public frame(): string {
+    return rankImage(this.rank());
   }
 
   /**

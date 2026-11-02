@@ -3,6 +3,8 @@ import type { Output } from '@xaendar/core';
 import { computed, signal } from '@xaendar/core/signals';
 import type { InputSignal } from '@xaendar/core/signals';
 import type { FormEntry, LeaderboardEntry, Lineup, PlayerRef, RankingMode, Team } from '../../core/api/api.models';
+import { user } from '../../core/auth/session';
+import { rankKeyOf } from '../../core/ranks/ranks';
 import { navigate } from '../../core/router/router';
 
 /**
@@ -196,12 +198,26 @@ export class LeaderboardComponent extends CustomElement {
   }
 
   /**
+   * The rank of a player in the mode shown: its `elo` is the one of the mode, so the border changes with it.
+   *
+   * @param player - The player.
+   * @returns The rank, `''` for none: who never played has only its initial ELO.
+   */
+  public rankOf(player: LeaderboardEntry): string {
+    return player.rank === null ? '' : rankKeyOf(player.elo);
+  }
+
+  /**
    * The class of the row of a player: the podium, or a player who never played.
    *
    * @param player - The player.
    * @returns `gold`, `silver`, `bronze`, `inactive` or `''`.
    */
   public rowClass(player: LeaderboardEntry): string {
+    return `${this._rankClass(player)}${player.id === user()?.playerId ? ' me' : ''}`;
+  }
+
+  private _rankClass(player: LeaderboardEntry): string {
     switch (player.rank) {
       case null:
         return 'inactive';

@@ -76,3 +76,42 @@
     </div>
   </form>
 }
+
+@if (rankSettings()) {
+  <form class="card" novalidate (submit)="submitRanks($event)">
+    <h2>Rank</h2>
+    <p class="muted">
+      Il rank di un giocatore, mostrato come bordo attorno alla sua icona in classifica e nelle sue statistiche, dipende dal
+      suo ELO (quello della classifica che si sta guardando). Ogni rank parte dall’ELO indicato e arriva fino al successivo;
+      il più basso parte da 0. Il salvataggio vale subito, senza ricalcolare nulla.
+    </p>
+    @for (rank of rankSettings().ranks; track rank().key) {
+      <label class="rank-field">
+        <img src="/ranks/{rank().key}.webp" alt="" aria-hidden="true" />
+        { rank().label }: da ELO
+        <input type="text" inputmode="decimal" autocomplete="off" data-rank="{rank().key}" value="{rank().minElo}" />
+      </label>
+    }
+    @if (rankError()) {
+      <p class="error">{ rankError() }</p>
+    }
+    <div class="actions">
+      <button
+        @if (rankBusy()) {
+          disabled
+        }
+        type="submit"
+        class="primary"
+      >
+        <app-icon name="check-circle" />
+        Salva i rank
+      </button>
+      @if (rankDone()) {
+        <p class="success">
+          <app-icon name="check-circle" />
+          Rank salvati.
+        </p>
+      }
+    </div>
+  </form>
+}

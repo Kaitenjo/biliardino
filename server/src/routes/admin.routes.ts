@@ -5,6 +5,7 @@ import { get, run } from '../db/db.ts';
 import { loadEloConfig, parseEloConfig, START_ELO_LIMITS } from '../elo/elo-config.ts';
 import { DEFAULT_ELO_CONFIG } from '../elo/elo.ts';
 import { recomputeRatings } from '../elo/ratings.ts';
+import { listRanks, RANK_LIMITS, saveRanks } from '../players/ranks.ts';
 import { getLobbyState, tick } from '../lobby/lobby.ts';
 import { readBody } from './read-body.ts';
 
@@ -72,4 +73,12 @@ adminRouter.post('/recompute', async c => {
 
   await recomputeRatings({ config, startElo: startElo ?? undefined });
   return c.json({ config });
+});
+
+// The thresholds of the ranks, that give the border of the icon of the players: saved at once, no recomputation needed
+adminRouter.get('/ranks', async c => c.json({ ranks: await listRanks(), limits: RANK_LIMITS }));
+
+adminRouter.put('/ranks', async c => {
+  const ranks = await saveRanks(await readBody(c));
+  return typeof ranks === 'string' ? c.json({ error: ranks }, 400) : c.json({ ranks, limits: RANK_LIMITS });
 });

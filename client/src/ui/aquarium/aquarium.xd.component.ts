@@ -2,6 +2,7 @@ import { CustomElement, Property, Query, WebComponent } from '@xaendar/core';
 import { computed, signal, untracked } from '@xaendar/core/signals';
 import type { InputSignal, QuerySignal } from '@xaendar/core/signals';
 import type { LeaderboardEntry, LobbyPlayer, MatchPlayer, PlayerDetail, RankingMode, RunningMatch } from '../../core/api/api.models';
+import { ranks } from '../../core/ranks/ranks';
 import { cameraTransitions } from '../../core/settings/camera';
 import { quality } from '../../core/settings/quality';
 import type { SeatKey } from './foosball3d';
@@ -157,6 +158,7 @@ export class AquariumComponent extends CustomElement {
     this.effect(() => {
       const profile = this.profile();
       const scope = this.profileScope();
+      ranks();
       untracked(() => this._scene?.setPlayer(profile, scope));
     });
     this.effect(() => {

@@ -3,10 +3,10 @@
 
   display: inline-grid;
   place-items: center;
+  position: relative;
   flex: none;
   width: var(--avatar-size);
   height: var(--avatar-size);
-  overflow: hidden;
   border: 2px solid var(--surface-solid);
   border-radius: 50%;
   background: linear-gradient(160deg, #2a2a30, #18181c);
@@ -29,10 +29,27 @@
   border-width: 4px;
 }
 
-img {
+// The border is bigger than the icon, which sits in its hole: the rest is clipped to the circle by itself
+img:not(.frame),
+span,
+svg {
+  clip-path: circle(50%);
+}
+
+img:not(.frame) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(100% / 0.62);
+  max-width: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 svg {

@@ -693,6 +693,38 @@ export interface EloSettings {
 }
 
 /**
+ * A rank: the border of the icon of the players whose ELO reaches its threshold.
+ */
+export interface Rank {
+  /**
+   * Name of the image of the border.
+   */
+  key: string;
+  /**
+   * Name shown to the users.
+   */
+  label: string;
+  /**
+   * The lowest ELO of the rank.
+   */
+  minElo: number;
+}
+
+/**
+ * The ranks as the super admin edits them.
+ */
+export interface RankSettings {
+  /**
+   * The ranks, from the lowest to the highest.
+   */
+  ranks: Rank[];
+  /**
+   * Allowed range of a threshold.
+   */
+  limits: { min: number; max: number };
+}
+
+/**
  * The session opened by a login.
  */
 export interface Session {

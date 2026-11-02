@@ -1,6 +1,6 @@
 import { untracked } from '@xaendar/core/signals';
 import { sessionToken, setSession } from '../auth/session';
-import type { AuthUser, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, RankingMode, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
+import type { AuthUser, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, Rank, RankingMode, RankSettings, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
 
 /**
  * An error answered by the server, with its message.
@@ -328,6 +328,34 @@ export function fetchEloSettings(): Promise<EloSettings> {
  */
 export function postEloRecompute(config: EloConfig, startElo: number | null): Promise<{ config: EloConfig }> {
   return request('POST', '/admin/recompute', { ...config, startElo });
+}
+
+/**
+ * Loads the ranks that give the border of the icon of the players.
+ *
+ * @returns The ranks, from the lowest.
+ */
+export function fetchRanks(): Promise<Rank[]> {
+  return request('GET', '/players/ranks');
+}
+
+/**
+ * Loads the ranks for editing. Only the super admin can.
+ *
+ * @returns The ranks with the allowed range of the thresholds.
+ */
+export function fetchRankSettings(): Promise<RankSettings> {
+  return request('GET', '/admin/ranks');
+}
+
+/**
+ * Saves the thresholds of the ranks. Only the super admin can.
+ *
+ * @param thresholds - The threshold of each rank.
+ * @returns The ranks saved.
+ */
+export function putRanks(thresholds: Array<{ key: string; minElo: number }>): Promise<RankSettings> {
+  return request('PUT', '/admin/ranks', { ranks: thresholds });
 }
 
 /**
