@@ -543,6 +543,158 @@ export class AquariumScene {
   private readonly _pointer = new THREE.Vector2();
   private _hovering = false;
   /**
+   * The purple toy floating in the background, where it floats now (it bobs around it), and whether it is held by the pointer.
+   */
+  private _toy: THREE.Group | null = null;
+  private readonly _toyHome = new THREE.Vector2();
+  private _toyDepth = 0;
+  private _toyHeld = false;
+  private _toyDropped = false;
+  private readonly _toyGrip = new THREE.Vector2();
+  private readonly _toyPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1));
+  private readonly _rayPoint = new THREE.Vector3();
+  /**
+   * Points the raycaster where the pointer is.
+   *
+   * @param event - The event of the pointer over the canvas.
+   */
+  private _aim(event: PointerEvent): void {
+    const rect = this._renderer.domElement.getBoundingClientRect();
+    this._pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this._raycaster.setFromCamera(this._pointer, this._camera);
+  }
+  /**
+   * Whether the sea is what the camera shows, so that its things can be touched.
+   *
+   * @returns Whether the camera is at the aquarium.
+   */
+  private _atSea(): boolean {
+    return this._near('aquarium', 0.05) >= 1;
+  }
+  /**
+   * The point of the plane of the toy under the pointer.
+   *
+   * @returns The point, `null` if the pointer looks away from it.
+   */
+  private _toyPoint(): THREE.Vector3 | null {
+    this._toyPlane.constant = -this._toyDepth;
+    return this._raycaster.ray.intersectPlane(this._toyPlane, this._rayPoint);
+  }
+  /**
+   * Takes the toy if it is under the pointer; otherwise the click disturbs the fish.
+   *
+   * @param event - The press.
+   */
+  private readonly _onPointerDown = (event: PointerEvent): void => {
+    if (!this._toy || !this._atSea() || event.button !== 0) {
+      return;
+    }
+
+    this._aim(event);
+    if (this._raycaster.intersectObject(this._toy, true).length > 0) {
+      const point = this._toyPoint();
+      if (point) {
+        this._toyHeld = true;
+        this._toyGrip.set(this._toy.position.x - point.x, this._toy.position.y - point.y);
+        this._renderer.domElement.setPointerCapture(event.pointerId);
+        this._renderer.domElement.style.cursor = 'grabbing';
+        return;
+      }
+    }
+
+    this._startle();
+  };
+  /**
+   * Drags the toy; otherwise shows a hand over it.
+   *
+   * @param event - The move.
+   */
+  private readonly _onToyMove = (event: PointerEvent): void => {
+    if (!this._toy || !this._atSea()) {
+      return;
+    }
+
+    this._aim(event);
+    if (!this._toyHeld) {
+      this._renderer.domElement.style.cursor = this._raycaster.intersectObject(this._toy, true).length > 0 ? 'grab' : '';
+      return;
+    }
+
+    const point = this._toyPoint();
+    if (point) {
+      const halfWidth = this._halfWidth * ((VIEW_Z - this._toyDepth) / VIEW_Z);
+      this._toy.position.x = THREE.MathUtils.clamp(point.x + this._toyGrip.x, -halfWidth, halfWidth);
+      this._toy.position.y = THREE.MathUtils.clamp(point.y + this._toyGrip.y, FLOOR_Y + 0.5, this._visibleTop(this._toyDepth) - 0.5);
+      this._invalidate();
+    }
+  };
+  /**
+   * Lets the toy go: it floats where it is.
+   *
+   * @param event - The release.
+   */
+  private readonly _onPointerUp = (event: PointerEvent): void => {
+    if (!this._toyHeld) {
+      return;
+    }
+
+    this._toyHeld = false;
+    this._toyDropped = true;
+    this._renderer.domElement.style.cursor = '';
+    this._renderer.domElement.releasePointerCapture(event.pointerId);
+    this._invalidate();
+  };
+  /**
+   * The fish are disturbed by a click: each darts away from the point clicked and swims on from there; the schools turn back.
+   */
+  private _startle(): void {
+    const ray = this._raycaster.ray;
+    for (const inhabitant of [...this._inhabitants.values(), ...this._background]) {
+      if (inhabitant.vanish !== null) {
+        continue;
+      }
+
+      const position = inhabitant.position;
+      const t = ray.direction.z === 0 ? 0 : (position.z - ray.origin.z) / ray.direction.z;
+      const away = new THREE.Vector3(position.x - (ray.origin.x + ray.direction.x * t), position.y - (ray.origin.y + ray.direction.y * t), 0);
+      if (away.lengthSq() < 0.0001) {
+        away.set(Math.random() - 0.5, Math.random() - 0.5, 0);
+      }
+
+      // Not the same way for all: a little scattered
+      away.normalize();
+      away.z = (Math.random() - 0.5) * 0.8;
+      away.normalize();
+      const reach = 3 + Math.random() * 3;
+      const halfWidth = this._halfWidth * ((VIEW_Z - position.z) / VIEW_Z);
+      const target = position.clone().addScaledVector(away, reach);
+      target.x = THREE.MathUtils.clamp(target.x, -halfWidth, halfWidth);
+      target.z = THREE.MathUtils.clamp(target.z, inhabitant.far, inhabitant.near);
+      switch (inhabitant.creature.motion) {
+        case 'bottom':
+          target.y = position.y;
+          break;
+        case 'drift':
+          target.y = THREE.MathUtils.clamp(target.y, FLOOR_Y + 0.3, FLOOR_Y + 2.1);
+          break;
+        case 'swim':
+          target.y = THREE.MathUtils.clamp(target.y, FLOOR_Y + 0.6 + inhabitant.creature.height / 2, TOP_Y);
+          break;
+      }
+
+      inhabitant.target.copy(target);
+      inhabitant.pause = 0;
+      // A sudden dart, faster than its usual pace
+      inhabitant.velocity.subVectors(target, position).setLength(inhabitant.speed * 2.5);
+    }
+
+    for (const school of this._schools) {
+      school.direction = school.direction === 1 ? -1 : 1;
+    }
+
+    this._invalidate();
+  }
+  /**
    * Marks the match under the pointer, while the camera is at the board of the player.
    *
    * @param event - The move of the pointer over the canvas.
@@ -747,6 +899,10 @@ export class AquariumScene {
     // A tap marks a match too
     canvas.addEventListener('pointerdown', this._onPointerMove);
     canvas.addEventListener('pointerleave', this._onPointerLeave);
+    canvas.addEventListener('pointerdown', this._onPointerDown);
+    canvas.addEventListener('pointermove', this._onToyMove);
+    canvas.addEventListener('pointerup', this._onPointerUp);
+    canvas.addEventListener('pointercancel', this._onPointerUp);
     for (const [key, anchor] of Object.entries(table.seats) as Array<[SeatKey, THREE.Vector3]>) {
       this._seatAnchors.set(key, anchor.clone().add(TABLE_POSITION));
     }
@@ -1156,6 +1312,10 @@ export class AquariumScene {
     this._renderer.domElement.removeEventListener('pointermove', this._onPointerMove);
     this._renderer.domElement.removeEventListener('pointerdown', this._onPointerMove);
     this._renderer.domElement.removeEventListener('pointerleave', this._onPointerLeave);
+    this._renderer.domElement.removeEventListener('pointerdown', this._onPointerDown);
+    this._renderer.domElement.removeEventListener('pointermove', this._onToyMove);
+    this._renderer.domElement.removeEventListener('pointerup', this._onPointerUp);
+    this._renderer.domElement.removeEventListener('pointercancel', this._onPointerUp);
     cancelAnimationFrame(this._frame);
     this._dispose(this._scene);
     (this._scene.background as THREE.Texture | null)?.dispose();
@@ -1840,10 +2000,24 @@ export class AquariumScene {
     toy.scale.setScalar(0.5);
     toy.userData['noBatch'] = true;
     this._seabed.add(toy);
+    this._toy = toy;
+    this._toyDepth = toyZ;
+    this._toyHome.set(-1, toyY);
     this._swaying.push({
       object: toy,
-      animate(time) {
-        toy.position.y = toyY + Math.sin(time * 0.9) * 0.45;
+      animate: time => {
+        const bob = Math.sin(time * 0.9) * 0.45;
+        // Held by the pointer it follows it; let go, it floats up and down around where it was left
+        if (this._toyDropped) {
+          this._toyDropped = false;
+          this._toyHome.set(toy.position.x, toy.position.y - bob);
+        }
+
+        if (!this._toyHeld) {
+          toy.position.x = this._toyHome.x;
+          toy.position.y = this._toyHome.y + bob;
+        }
+
         toy.rotation.z = Math.sin(time * 0.6) * 0.12;
       }
     });
