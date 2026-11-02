@@ -602,7 +602,24 @@ export class AquariumScene {
       }
     }
 
-    this._startle();
+    // The nearest fish under the pointer, if any, is frightened
+    let nearest: Inhabitant | null = null;
+    let nearestDistance = Infinity;
+    for (const inhabitant of this._inhabitants.values()) {
+      if (inhabitant.vanish !== null) {
+        continue;
+      }
+
+      const [hit] = this._raycaster.intersectObject(inhabitant.creature.object, true);
+      if (hit && hit.distance < nearestDistance) {
+        nearest = inhabitant;
+        nearestDistance = hit.distance;
+      }
+    }
+
+    if (nearest) {
+      this._startle(nearest);
+    }
   };
   /**
    * Drags the toy; otherwise shows a hand over it.
@@ -645,53 +662,42 @@ export class AquariumScene {
     this._invalidate();
   };
   /**
-   * The fish are disturbed by a click: each darts away from the point clicked and swims on from there; the schools turn back.
+   * A fish is frightened by a click: it darts away from the point clicked, then slows down and goes on wandering.
+   *
+   * @param inhabitant - The fish clicked.
    */
-  private _startle(): void {
+  private _startle(inhabitant: Inhabitant): void {
     const ray = this._raycaster.ray;
-    for (const inhabitant of [...this._inhabitants.values(), ...this._background]) {
-      if (inhabitant.vanish !== null) {
-        continue;
-      }
-
-      const position = inhabitant.position;
-      const t = ray.direction.z === 0 ? 0 : (position.z - ray.origin.z) / ray.direction.z;
-      const away = new THREE.Vector3(position.x - (ray.origin.x + ray.direction.x * t), position.y - (ray.origin.y + ray.direction.y * t), 0);
-      if (away.lengthSq() < 0.0001) {
-        away.set(Math.random() - 0.5, Math.random() - 0.5, 0);
-      }
-
-      // Not the same way for all: a little scattered
-      away.normalize();
-      away.z = (Math.random() - 0.5) * 0.8;
-      away.normalize();
-      const reach = 3 + Math.random() * 3;
-      const halfWidth = this._halfWidth * ((VIEW_Z - position.z) / VIEW_Z);
-      const target = position.clone().addScaledVector(away, reach);
-      target.x = THREE.MathUtils.clamp(target.x, -halfWidth, halfWidth);
-      target.z = THREE.MathUtils.clamp(target.z, inhabitant.far, inhabitant.near);
-      switch (inhabitant.creature.motion) {
-        case 'bottom':
-          target.y = position.y;
-          break;
-        case 'drift':
-          target.y = THREE.MathUtils.clamp(target.y, FLOOR_Y + 0.3, FLOOR_Y + 2.1);
-          break;
-        case 'swim':
-          target.y = THREE.MathUtils.clamp(target.y, FLOOR_Y + 0.6 + inhabitant.creature.height / 2, TOP_Y);
-          break;
-      }
-
-      inhabitant.target.copy(target);
-      inhabitant.pause = 0;
-      // A sudden dart, faster than its usual pace
-      inhabitant.velocity.subVectors(target, position).setLength(inhabitant.speed * 2.5);
+    const position = inhabitant.position;
+    const t = ray.direction.z === 0 ? 0 : (position.z - ray.origin.z) / ray.direction.z;
+    const away = new THREE.Vector3(position.x - (ray.origin.x + ray.direction.x * t), position.y - (ray.origin.y + ray.direction.y * t), 0);
+    if (away.lengthSq() < 0.0001) {
+      away.set(Math.random() - 0.5, Math.random() - 0.5, 0);
     }
 
-    for (const school of this._schools) {
-      school.direction = school.direction === 1 ? -1 : 1;
+    away.normalize();
+    away.z = (Math.random() - 0.5) * 0.6;
+    away.normalize();
+    const halfWidth = this._halfWidth * ((VIEW_Z - position.z) / VIEW_Z);
+    const target = position.clone().addScaledVector(away, 2.5 + Math.random() * 2);
+    target.x = THREE.MathUtils.clamp(target.x, -halfWidth, halfWidth);
+    target.z = THREE.MathUtils.clamp(target.z, inhabitant.far, inhabitant.near);
+    switch (inhabitant.creature.motion) {
+      case 'bottom':
+        target.y = position.y;
+        break;
+      case 'drift':
+        target.y = THREE.MathUtils.clamp(target.y, FLOOR_Y + 0.3, FLOOR_Y + 2.1);
+        break;
+      case 'swim':
+        target.y = THREE.MathUtils.clamp(target.y, FLOOR_Y + 0.6 + inhabitant.creature.height / 2, TOP_Y);
+        break;
     }
 
+    inhabitant.target.copy(target);
+    inhabitant.pause = 0;
+    // A sudden dart: the steering slows it down as it nears the target, then it picks another one
+    inhabitant.velocity.subVectors(target, position).setLength(inhabitant.speed * 3);
     this._invalidate();
   }
   /**
