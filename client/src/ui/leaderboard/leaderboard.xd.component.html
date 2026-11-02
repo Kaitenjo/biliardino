@@ -2,119 +2,128 @@
 @import { MatchPreviewComponent } from '../match-preview/match-preview.xd.component.ts'
 @import { PlayerAvatarComponent } from '../player-avatar/player-avatar.xd.component.ts'
 
+@if (upright()) {
+  <button type="button" class="collapse" aria-expanded="{String(!collapsed())}"
+    aria-label="{collapsed() ? 'Espandi la classifica' : 'Riduci la classifica'}"
+    title="{collapsed() ? 'Espandi' : 'Riduci'}" (click)="toggleCollapsed()">
+    <app-icon name="{collapsed() ? 'chevron-up' : 'chevron-down'}" />
+  </button>
+}
+
 <header class="board-head">
   <div class="title">
     <p class="eyebrow">CA Biliardino Championship</p>
   </div>
-  <div class="modes" role="tablist" aria-label="Classifica per">
-    @for (button of modes; track button().value) {
-      <button type="button" role="tab" class="mode" [class.active]="{mode() === button().value}"
-        aria-selected="{String(mode() === button().value)}" (click)="setMode(button().value)">
-        <app-icon name="{button().icon}" />
-        { button().label }
-      </button>
-    }
-  </div>
+  @if (!lowered()) {
+    <div class="modes" role="tablist" aria-label="Classifica per">
+      @for (button of modes; track button().value) {
+        <button type="button" role="tab" class="mode" [class.active]="{mode() === button().value}"
+          aria-selected="{String(mode() === button().value)}" (click)="setMode(button().value)">
+          <app-icon name="{button().icon}" />
+          { button().label }
+        </button>
+      }
+    </div>
+  }
 </header>
 
-@if (loading() && !players().length) {
-  <p class="muted">Caricamento della classifica…</p>
-} @else {
-  <div class="board" role="table" aria-label="Classifica">
-    <div class="row head" role="row">
-      @for (column of columns; track column().key) {
-        <span class="{column().className}" role="columnheader" title="{column().hint}"
-          aria-sort="{sortState(column().key)}">
-          <button type="button" class="sort" [class.active]="{sort().key === column().key}" (click)="sortBy(column())">
-            { column().label }
-            @if (sort().key === column().key) {
-              <app-icon name="{sort().descending ? 'chevron-down' : 'chevron-up'}" />
-            }
-          </button>
-        </span>
-      }
-    </div>
-    <div class="rows">
-      @for (player of sorted(); track player().id) {
-        <div role="row" tabindex="0" class="{`row player-row ${rowClass(player())}`}" (click)="open(player().id)"
-          (keydown)="openOnKey($event, player().id)">
-          <span class="rank" role="cell">
-            <span class="rank-badge">{ player().rank ?? '—' }</span>
+@if (!lowered()) {
+  @if (loading() && !players().length) {
+    <p class="muted">Caricamento della classifica…</p>
+  } @else {
+    <div class="board" role="table" aria-label="Classifica">
+      <div class="row head" role="row">
+        @for (column of columns; track column().key) {
+          <span class="{column().className}" role="columnheader" title="{column().hint}"
+            aria-sort="{sortState(column().key)}">
+            <button type="button" class="sort" [class.active]="{sort().key === column().key}"
+              (click)="sortBy(column())">
+              { column().label }
+              @if (sort().key === column().key) {
+                <app-icon name="{sort().descending ? 'chevron-down' : 'chevron-up'}" />
+              }
+            </button>
           </span>
-          <span class="player" role="cell">
-            <player-avatar icon="{player().icon}" label="{player().name}" rank="{rankOf(player())}" size="sm" />
-            <span class="player-text">
-              <strong>{ player().name }</strong>
-              <small class="roles">
-                @if (player().playsAttack) {
-                  <app-icon class="attack" name="attack" />
-                }
-                @if (player().playsDefense) {
-                  <app-icon class="defense" name="defense" />
-                }
-                <span class="roles-label">{ rolesLabel(player()) }</span>
-              </small>
+        }
+      </div>
+      <div class="rows">
+        @for (player of sorted(); track player().id) {
+          <div role="row" tabindex="0" class="{`row player-row ${rowClass(player())}`}" (click)="open(player().id)"
+            (keydown)="openOnKey($event, player().id)">
+            <span class="rank" role="cell">
+              <span class="rank-badge">{ player().rank ?? '—' }</span>
             </span>
-          </span>
-          <span class="num elo" role="cell">
-            <span class="elo-main">
-              @if (player().form.length) {
-                <small class="form-total" title="ELO guadagnato o perso nelle ultime partite"
-                  [class.up]="{formTotal(player()).startsWith('+')}">
-                  { formTotal(player()) }
+            <span class="player" role="cell">
+              <player-avatar icon="{player().icon}" label="{player().name}" rank="{rankOf(player())}" size="sm" />
+              @if (!upright()) {
+                <span class="player-text">
+                  <strong>{ player().name }</strong>
+                  <small class="roles">
+                    @if (player().playsAttack) {
+                      <app-icon class="attack" name="attack" />
+                    }
+                    @if (player().playsDefense) {
+                      <app-icon class="defense" name="defense" />
+                    }
+                    <span class="roles-label">{ rolesLabel(player()) }</span>
+                  </small>
+                </span>
+              }
+            </span>
+            <span class="num elo" role="cell">
+              <span class="elo-main">
+                @if (player().form.length) {
+                  <small class="form-total" title="ELO guadagnato o perso nelle ultime partite"
+                    [class.up]="{formTotal(player()).startsWith('+')}">
+                    { formTotal(player()) }
+                  </small>
+                }
+                <strong>{ player().elo }</strong>
+              </span>
+              @if (mode() === 'best') {
+                <small class="elo-roles" title="ELO in attacco e in difesa">
+                  <app-icon class="attack" name="attack" />
+                  { player().eloAttack }
+                  <app-icon class="defense" name="defense" />
+                  { player().eloDefense }
                 </small>
               }
-              <strong>{ player().elo }</strong>
             </span>
-            @if (mode() === 'best') {
-              <small class="elo-roles" title="ELO in attacco e in difesa">
-                <app-icon class="attack" name="attack" />
-                { player().eloAttack }
-                <app-icon class="defense" name="defense" />
-                { player().eloDefense }
-              </small>
-            }
-          </span>
-          <span class="num record" role="cell">
-            <span>
-              <span class="wins">{ player().wins }</span>
-              { ' / ' }
-              <span class="losses">{ player().losses }</span>
-            </span>
-            <small>{ winRate(player()) }</small>
-          </span>
-          <span class="{`num ratio-col ratio ${ratioClass(player())}`}" role="cell">{ goalRatio(player()) }</span>
-          <span class="form-col" role="cell">
-            @if (player().form.length) {
-              <span class="form">
-                @for (entry of player().form; track $index()) {
-                  <span class="dot" [class.won]="{entry().won}" (pointerenter)="showPreview($event, entry(), player().id)"
-                    (pointerleave)="hidePreview()">
-                    @if (entry().role === 'attack') {
-                      <app-icon style="color: white" name="attack" />
-                    } @else {
-                      <app-icon style="color: white" name="defense" />
-                    }
-                  </span>
-                }
+            <span class="num record" role="cell">
+              <span>
+                <span class="wins">{ player().wins }</span>
+                { ' / ' }
+                <span class="losses">{ player().losses }</span>
               </span>
-            }
-          </span>
-        </div>
-      }
+              <small>{ winRate(player()) }</small>
+            </span>
+            <span class="{`num ratio-col ratio ${ratioClass(player())}`}" role="cell">{ goalRatio(player()) }</span>
+            <span class="form-col" role="cell">
+              @if (player().form.length) {
+                <span class="form">
+                  @for (entry of player().form; track $index()) {
+                    <span class="dot" [class.won]="{entry().won}"
+                      (pointerenter)="showPreview($event, entry(), player().id)" (pointerleave)="hidePreview()">
+                      @if (entry().role === 'attack') {
+                        <app-icon style="color: white" name="attack" />
+                      } @else {
+                        <app-icon style="color: white" name="defense" />
+                      }
+                    </span>
+                  }
+                </span>
+              }
+            </span>
+          </div>
+        }
+      </div>
     </div>
-  </div>
+  }
 }
 
 @if (preview()) {
-  <match-preview
-    class="{`preview ${preview().below ? 'below' : 'above'}`}"
-    white="{lineupOf(preview().entry, 'white')}"
-    brown="{lineupOf(preview().entry, 'brown')}"
-    whiteScore="{preview().entry.whiteScore}"
-    brownScore="{preview().entry.brownScore}"
-    delta="{preview().entry.delta}"
-    team="{preview().team}"
-    style="{`left: ${preview().x}px; top: ${preview().y}px`}"
-  />
+  <match-preview class="{`preview ${preview().below ? 'below' : 'above'}`}" white="{lineupOf(preview().entry, 'white')}"
+    brown="{lineupOf(preview().entry, 'brown')}" whiteScore="{preview().entry.whiteScore}"
+    brownScore="{preview().entry.brownScore}" delta="{preview().entry.delta}" team="{preview().team}"
+    style="{`left: ${preview().x}px; top: ${preview().y}px`}" />
 }

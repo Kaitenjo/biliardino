@@ -1,4 +1,4 @@
-@use '../../styles/mixins';
+@use "../../styles/mixins";
 
 // The whole page under the top bar is the 3D scene; the rest floats over it. The panels and the buttons over the scene
 // share the look of the leaderboard and of the board of the matches: dark smoked glass, gold edges, brass and gold
@@ -61,7 +61,9 @@ lobby-aquarium {
   color: #f6dc7a;
   font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 
   &:hover {
     border-color: var(--gold);
@@ -152,7 +154,12 @@ h1 {
   font-weight: 800;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s,
+    opacity 0.15s;
 
   &:hover:not([disabled]) {
     transform: translateY(-1px);
@@ -477,7 +484,9 @@ h1 {
     border: 1px solid var(--line);
     border-radius: 999px;
     background: rgb(255 255 255 / 10%);
-    transition: background-color 0.2s, border-color 0.2s;
+    transition:
+      background-color 0.2s,
+      border-color 0.2s;
   }
 
   .knob {
@@ -581,7 +590,10 @@ h1 {
   cursor: pointer;
   backdrop-filter: blur(6px);
   transform: translateY(-50%);
-  transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
 
   &:hover {
     border-color: var(--gold);
@@ -647,7 +659,7 @@ h1 {
   font-weight: 800;
 
   &::before {
-    content: '';
+    content: "";
     width: 0.8rem;
     height: 0.8rem;
     border-radius: 3px;
@@ -699,7 +711,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .75rem;
+  gap: 0.75rem;
 }
 
 // The result: two goals as big flaps in the middle, what each team earns winning 8-0 or 8-7 beside them, the buttons
@@ -714,7 +726,7 @@ h1 {
 .gains {
   display: flex;
   flex-direction: column;
-  gap: .3rem;
+  gap: 0.3rem;
   font-size: 1.25rem;
 
   &.white {
@@ -740,7 +752,7 @@ h1 {
 
 .gain-score {
   color: var(--ink-muted);
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-family: "Roboto Mono", "Courier New", monospace;
   font-weight: 700;
 }
 
@@ -762,9 +774,17 @@ h1 {
     height: 3.6rem;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: linear-gradient(180deg, #232327 0%, #18181b 48%, #050505 48%, #050505 52%, #141417 52%, #0d0d10 100%);
+    background: linear-gradient(
+      180deg,
+      #232327 0%,
+      #18181b 48%,
+      #050505 48%,
+      #050505 52%,
+      #141417 52%,
+      #0d0d10 100%
+    );
     color: #fde68a;
-    font-family: 'Roboto Mono', 'Courier New', monospace;
+    font-family: "Roboto Mono", "Courier New", monospace;
     font-size: 2rem;
     font-weight: 800;
     text-align: center;
@@ -836,7 +856,7 @@ h1 {
   gap: 0.2rem;
 
   strong {
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: 1.2rem;
   }
 }
@@ -931,7 +951,12 @@ league-leaderboard ~ .arrow.left {
   padding: 44px 58px;
   overflow: hidden;
   // The parchment itself: a warm paper, darker at its edges
-  background: radial-gradient(ellipse at center, #f7ecd2 30%, #ecdbb5 70%, #cdb183 100%);
+  background: radial-gradient(
+    ellipse at center,
+    #f7ecd2 30%,
+    #ecdbb5 70%,
+    #cdb183 100%
+  );
   color: #2b1a0e;
   font-family: Lora, Georgia, serif;
   transform-origin: 0 0;
@@ -976,7 +1001,7 @@ league-leaderboard ~ .arrow.left {
 
     // The bullet: a gilded dot
     &::before {
-      content: '';
+      content: "";
       position: absolute;
       top: 12px;
       left: 4px;
@@ -991,9 +1016,13 @@ league-leaderboard ~ .arrow.left {
 // On a narrow screen held upright the leaderboard is under the podium; held sideways, it stays on the left
 @media (max-width: 900px) and (max-aspect-ratio: 13/10) {
   league-leaderboard {
-    top: 46%;
     right: 1rem;
     width: auto;
+ 
+    // Lowered to its first line, at the bottom
+    &.collapsed {
+      top: auto;
+    }
   }
 
   // Over the podium, not over the leaderboard
@@ -1105,7 +1134,9 @@ league-leaderboard ~ .arrow.left {
 
     select {
       padding: 0.35rem 1.8rem 0.35rem 0.7rem;
-      background-position: right 0.6rem center, 0 0;
+      background-position:
+        right 0.6rem center,
+        0 0;
       font-size: 0.8rem;
     }
   }
@@ -1403,4 +1434,3 @@ league-leaderboard ~ .arrow.left {
     font-size: 0.75rem;
   }
 }
-
