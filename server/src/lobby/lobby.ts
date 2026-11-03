@@ -147,11 +147,20 @@ export async function tick(now = new Date()): Promise<void> {
     return;
   }
 
+  if (clock.minutes === 1050) {
+    await notify('everybody', {
+      title: `Inserimento Tasks`,
+      body: `Inserite i tasks prima di giocare`,
+      url: '/#/lobby'
+    });
+  }
+
   await notify('everybody', {
     title: `Lobby delle ${slot.open} aperta`,
     body: `Entra in lobby entro le ${slot.match} per giocare la prossima partita.`,
     url: '/#/lobby'
   });
+
   // Opened late (e.g. a missed run): the match may be due already
   if (clock.minutes >= toMinutes(slot.match)) {
     const lobby = await get<{ id: number }>('SELECT id FROM lobbies WHERE day = ? AND slot = ?', clock.day, slot.open);
@@ -363,8 +372,16 @@ async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?
     match.white.defense.id
   );
 
+  const title = [
+    'Coglione, tocca a te, muoviti!',
+    'È tempo di giocare',
+    'Chi dorme non piglia squali',
+    'Ignore = Sogliola',
+    'La sfida ha inizio'
+  ][Math.floor(Math.random() * 5)]!;
+
   await notify([match.brown.attack.id, match.brown.defense.id, match.white.attack.id, match.white.defense.id], {
-    title: 'Coglione, tocca a te, muoviti!',
+    title,
     body: `Bianchi: ${match.brown.attack.name} (attacco) e ${match.brown.defense.name} (difesa). Marroni: ${match.white.attack.name} (attacco) e ${match.white.defense.name} (difesa).`,
     url: '/#/lobby'
   });
