@@ -36,12 +36,52 @@
   }
 }
 
-.ban-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.4rem 0;
+.table-wrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+
+.players {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 0.55rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .name {
+    width: 100%;
+    text-align: left;
+  }
+
+  input[type='checkbox'] {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: default;
+    }
+  }
 }
 
 .intro {
@@ -62,21 +102,6 @@
 form {
   display: grid;
   gap: 1rem;
-}
-
-label.check {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-
-  input {
-    width: auto;
-  }
-
-  small {
-    flex-basis: 100%;
-  }
 }
 
 label {

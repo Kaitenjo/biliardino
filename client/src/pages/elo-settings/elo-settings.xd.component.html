@@ -26,17 +26,6 @@
         <small>{ field().hint }</small>
       </label>
     }
-    <label class="check">
-      <input
-        type="checkbox"
-        data-key="filippoRule"
-        @if (filippoOn()) {
-          checked
-        }
-      />
-      Regola Filippo Addabbo
-      <small>Se attiva, Filippo Addabbo guadagna la metà dei punti quando vince e ne perde il doppio quando perde.</small>
-    </label>
     <label>
       ELO iniziale di tutti (facoltativo)
       <input type="text" inputmode="decimal" autocomplete="off" data-key="startElo" placeholder="Lascia vuoto per tenere quello di ciascuno" />
@@ -77,30 +66,64 @@
   </form>
 }
 
-@if (bans()) {
+@if (players()) {
   <section class="card">
-    <h2>Banlist</h2>
+    <h2>Giocatori</h2>
     <p class="muted">
-      Un giocatore bannato non può accedere, viene buttato fuori dalla lobby e, se è nella partita in corso, la partita viene
-      rigenerata senza di lui. Puoi bannare e riammettere in qualsiasi momento.
+      <strong>Ban</strong>: il giocatore non può accedere, viene buttato fuori dalla lobby e, se è nella partita in corso, la
+      partita viene rigenerata senza di lui.
+      <strong>Regola Felix</strong>: nelle partite giocate da quel momento il giocatore guadagna la metà dei punti quando vince
+      e ne perde il doppio quando perde. Le partite già salvate restano come sono, anche disattivandola o ricalcolando.
     </p>
-    @if (banError()) {
-      <p class="error">{ banError() }</p>
+    @if (playerError()) {
+      <p class="error">{ playerError() }</p>
     }
-    @for (player of bans(); track player().id) {
-      <div class="ban-row">
-        <span>{ player().name }</span>
-        <button
-          @if (banBusy()) {
-            disabled
+    <div class="table-wrap">
+      <table class="players">
+        <thead>
+          <tr>
+            <th class="name">Giocatore</th>
+            <th>Ban</th>
+            <th>Regola Felix</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (player of players(); track player().id) {
+            <tr>
+              <td class="name">{ player().name }</td>
+              <td>
+                <input
+                  type="checkbox"
+                  aria-label="Banna {player().name}"
+                  @if (player().banned) {
+                    checked
+                  }
+                  @if (playerBusy() || player().isAdmin) {
+                    disabled
+                  }
+                  (change)="setFlag(player(), 'banned', $event)"
+                />
+              </td>
+              <td>
+                <input
+                  type="checkbox"
+                  aria-label="Regola Felix per {player().name}"
+                  @if (player().felixRule) {
+                    checked
+                  }
+                  @if (playerBusy()) {
+                    disabled
+                  }
+                  (change)="setFlag(player(), 'felixRule', $event)"
+                />
+              </td>
+            </tr>
           }
-          type="button"
-          class="ghost"
-          (click)="toggleBan(player())"
-        >
-          { player().banned ? 'Riammetti' : 'Banna' }
-        </button>
-      </div>
+        </tbody>
+      </table>
+    </div>
+    @if (playerBusy()) {
+      <p class="muted">Salvataggio in corso…</p>
     }
   </section>
 }

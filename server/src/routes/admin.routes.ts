@@ -10,23 +10,27 @@ import { getLobbyState, removeBannedPlayer, tick } from '../lobby/lobby.ts';
 import { readBody } from './read-body.ts';
 
 /**
- * A player as the banlist shows it.
+ * A player as the table of the super admin shows it.
  */
-interface BanEntry {
+interface PlayerFlags {
   id: number;
   name: string;
   icon: string;
+  isAdmin: boolean;
   banned: boolean;
+  felixRule: boolean;
 }
 
 /**
- * Every player with whether it is banned, by name.
+ * Every player with its flags, by name.
  *
  * @returns The players.
  */
-async function listBans(): Promise<BanEntry[]> {
-  const rows = await all<Omit<BanEntry, 'banned'> & { banned: number }>('SELECT id, name, icon, banned FROM players WHERE is_admin = 0 ORDER BY name');
-  return rows.map(row => ({ ...row, banned: Boolean(row.banned) }));
+async function listPlayerFlags(): Promise<PlayerFlags[]> {
+  const rows = await all<{ id: number; name: string; icon: string; isAdmin: number; banned: number; felixRule: number }>(
+    'SELECT id, name, icon, is_admin AS isAdmin, banned, felix_rule AS felixRule FROM players ORDER BY name'
+  );
+  return rows.map(row => ({ ...row, isAdmin: Boolean(row.isAdmin), banned: Boolean(row.banned), felixRule: Boolean(row.felixRule) }));
 }
 
 /**
@@ -95,32 +99,43 @@ adminRouter.post('/recompute', async c => {
   return c.json({ config });
 });
 
-// The banlist: every player, with whether it is banned. A banned player can't log in, is refused on any request, is
-// taken out of the lobby and, if in the match to play, the match is generated again without it
-adminRouter.get('/bans', async c => c.json({ players: await listBans() }));
+// Every player with its flags, which the super admin changes one at a time ({ banned } or { felixRule }):
+// - a banned player can't log in, is refused on any request, is taken out of the lobby and, if in the match to play,
+//   the match is generated again without it;
+// - a player with the Felix rule earns half the points when it wins and loses twice as many when it loses, in the
+//   matches saved from now on: each match keeps the rule the player had, so the past ones never change
+adminRouter.get('/players', async c => c.json({ players: await listPlayerFlags() }));
 
-adminRouter.put('/bans/:playerId', async c => {
+adminRouter.put('/players/:playerId', async c => {
   const playerId = Number(c.req.param('playerId'));
-  const { banned } = await readBody(c);
-  const player = Number.isInteger(playerId) ? await get<{ isAdmin: number }>('SELECT is_admin AS isAdmin FROM players WHERE id = ?', playerId) : undefined;
+  const { banned, felixRule } = await readBody(c);
+  const player = Number.isInteger(playerId)
+    ? await get<{ isAdmin: number; banned: number; felixRule: number }>('SELECT is_admin AS isAdmin, banned, felix_rule AS felixRule FROM players WHERE id = ?', playerId)
+    : undefined;
   if (!player) {
     return c.json({ error: 'Giocatore non trovato' }, 404);
   }
 
-  if (typeof banned !== 'boolean') {
+  if ((banned !== undefined && typeof banned !== 'boolean') || (felixRule !== undefined && typeof felixRule !== 'boolean') || (banned === undefined) === (felixRule === undefined)) {
     return c.json({ error: 'Dati mancanti' }, 400);
   }
 
-  if (banned && player.isAdmin) {
-    return c.json({ error: "L'amministratore non si può bannare" }, 400);
+  if (banned !== undefined && banned !== Boolean(player.banned)) {
+    if (banned && player.isAdmin) {
+      return c.json({ error: "L'amministratore non si può bannare" }, 400);
+    }
+
+    await run('UPDATE players SET banned = ? WHERE id = ?', banned ? 1 : 0, playerId);
+    if (banned) {
+      await removeBannedPlayer(playerId, c.get('user').id);
+    }
   }
 
-  await run('UPDATE players SET banned = ? WHERE id = ?', banned ? 1 : 0, playerId);
-  if (banned) {
-    await removeBannedPlayer(playerId, c.get('user').id);
+  if (felixRule !== undefined && felixRule !== Boolean(player.felixRule)) {
+    await run('UPDATE players SET felix_rule = ? WHERE id = ?', felixRule ? 1 : 0, playerId);
   }
 
-  return c.json({ players: await listBans() });
+  return c.json({ players: await listPlayerFlags() });
 });
 
 // The thresholds of the ranks, that give the border of the icon of the players: saved at once, no recomputation needed

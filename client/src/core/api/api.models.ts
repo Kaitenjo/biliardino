@@ -686,10 +686,6 @@ export interface EloConfig {
    * Least ELO that the winning team earns.
    */
   minWinDelta: number;
-  /**
-   * Whether the personal rule of Filippo Addabbo is on: half the points when he wins, double when he loses.
-   */
-  filippoRule: boolean;
 }
 
 /**
@@ -743,9 +739,9 @@ export interface RankSettings {
 }
 
 /**
- * A player in the banlist page of the super admin.
+ * A player in the table of the super admin, with the flags it can change.
  */
-export interface BanEntry {
+export interface PlayerFlags {
   /**
    * Id of the player.
    */
@@ -759,10 +755,23 @@ export interface BanEntry {
    */
   icon: string;
   /**
+   * Whether it is the super admin, who can't be banned.
+   */
+  isAdmin: boolean;
+  /**
    * Whether it is banned.
    */
   banned: boolean;
+  /**
+   * Whether it has the Felix rule: half the points when it wins, double when it loses.
+   */
+  felixRule: boolean;
 }
+
+/**
+ * A flag of a player that the super admin changes.
+ */
+export type PlayerFlag = 'banned' | 'felixRule';
 
 /**
  * The session opened by a login.

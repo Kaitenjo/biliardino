@@ -1,6 +1,6 @@
 import { untracked } from '@xaendar/core/signals';
 import { sessionToken, setSession } from '../auth/session';
-import type { AuthUser, BanEntry, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, Rank, RankingMode, RankSettings, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
+import type { AuthUser, EloConfig, EloSettings, LeaderboardEntry, Lineup, LobbyState, MatchPage, PlayerDetail, PlayerFlag, PlayerFlags, Rank, RankingMode, RankSettings, RunningMatch, SavedMatch, Session, UserRoles } from './api.models';
 
 /**
  * An error answered by the server, with its message.
@@ -359,24 +359,25 @@ export function putRanks(thresholds: Array<{ key: string; minElo: number }>): Pr
 }
 
 /**
- * Loads the banlist: every player with whether it is banned. Only the super admin can.
+ * Loads every player with its flags (banned, Felix rule). Only the super admin can.
  *
  * @returns The players, by name.
  */
-export function fetchBans(): Promise<BanEntry[]> {
-  return request<{ players: BanEntry[] }>('GET', '/admin/bans').then(answer => answer.players);
+export function fetchPlayerFlags(): Promise<PlayerFlags[]> {
+  return request<{ players: PlayerFlags[] }>('GET', '/admin/players').then(answer => answer.players);
 }
 
 /**
- * Bans a player or lets it back in. A banned one is taken out of the lobby, and the match to play is generated again
- * without it. Only the super admin can.
+ * Changes a flag of a player. A banned one is taken out of the lobby, and the match to play is generated again without
+ * it; the Felix rule applies to the matches saved from now on. Only the super admin can.
  *
  * @param playerId - The id of the player.
- * @param banned - Whether it is banned.
- * @returns The banlist now.
+ * @param flag - The flag.
+ * @param value - Its new value.
+ * @returns The players now.
  */
-export function putBan(playerId: number, banned: boolean): Promise<BanEntry[]> {
-  return request<{ players: BanEntry[] }>('PUT', `/admin/bans/${playerId}`, { banned }).then(answer => answer.players);
+export function putPlayerFlag(playerId: number, flag: PlayerFlag, value: boolean): Promise<PlayerFlags[]> {
+  return request<{ players: PlayerFlags[] }>('PUT', `/admin/players/${playerId}`, { [flag]: value }).then(answer => answer.players);
 }
 
 /**

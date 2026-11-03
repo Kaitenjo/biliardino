@@ -1,8 +1,8 @@
 import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { signal } from '@xaendar/core/signals';
 import type { QuerySignal } from '@xaendar/core/signals';
-import { fetchBans, fetchEloSettings, fetchRankSettings, postEloRecompute, putBan, putRanks } from '../../core/api/api';
-import type { BanEntry, EloConfig, EloSettings, RankSettings } from '../../core/api/api.models';
+import { fetchEloSettings, fetchPlayerFlags, fetchRankSettings, postEloRecompute, putPlayerFlag, putRanks } from '../../core/api/api';
+import type { EloConfig, EloSettings, PlayerFlag, PlayerFlags, RankSettings } from '../../core/api/api.models';
 import { loadRanks } from '../../core/ranks/ranks';
 
 /**
@@ -12,7 +12,7 @@ interface EloField {
   /**
    * Name of the variable.
    */
-  key: Exclude<keyof EloConfig, 'filippoRule'>;
+  key: keyof EloConfig;
   /**
    * Label of the field.
    */
@@ -78,17 +78,17 @@ export class EloSettingsPage extends CustomElement {
    */
   public readonly rankError = signal('');
   /**
-   * The banlist: every player with whether it is banned, `null` until loaded.
+   * Every player with its flags (banned, Felix rule), `null` until loaded.
    */
-  public readonly bans = signal<BanEntry[] | null>(null);
+  public readonly players = signal<PlayerFlags[] | null>(null);
   /**
-   * Whether a ban or an unban is being saved.
+   * Whether a flag of a player is being saved.
    */
-  public readonly banBusy = signal(false);
+  public readonly playerBusy = signal(false);
   /**
-   * The error of the banlist to show, `''` when there is none.
+   * The error of the players to show, `''` when there is none.
    */
-  public readonly banError = signal('');
+  public readonly playerError = signal('');
   /**
    * Whether the settings are loading.
    */
@@ -134,15 +134,6 @@ export class EloSettingsPage extends CustomElement {
   public initial(key: EloField['key']): string {
     const settings = this.settings();
     return settings ? String(settings.config[key]) : '';
-  }
-
-  /**
-   * Whether the rule of Filippo Addabbo is on in the saved variables, shown when the form opens.
-   *
-   * @returns `true` when it is on.
-   */
-  public filippoOn(): boolean {
-    return this.settings()?.config.filippoRule ?? false;
   }
 
   /**
@@ -196,23 +187,31 @@ export class EloSettingsPage extends CustomElement {
   }
 
   /**
-   * Bans a player or lets it back in, at once: a banned one is taken out of the lobby and of the match to play.
+   * Saves a flag of a player at once, as its checkbox was set: a banned one is taken out of the lobby and of the match
+   * to play, the Felix rule applies to the matches saved from now on. When the ban is not confirmed or the saving fails,
+   * the checkbox goes back.
    *
    * @param player - The player.
+   * @param flag - The flag.
+   * @param event - The change event of the checkbox.
    */
-  public async toggleBan(player: BanEntry): Promise<void> {
-    if (!player.banned && !confirm(`Bannare ${player.name}? Sarà buttato fuori dalla lobby e dalla partita in corso, e non potrà più accedere.`)) {
+  public async setFlag(player: PlayerFlags, flag: PlayerFlag, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const value = input.checked;
+    if (flag === 'banned' && value && !confirm(`Bannare ${player.name}? Sarà buttato fuori dalla lobby e dalla partita in corso, e non potrà più accedere.`)) {
+      input.checked = false;
       return;
     }
 
-    this.banError.set('');
-    this.banBusy.set(true);
+    this.playerError.set('');
+    this.playerBusy.set(true);
     try {
-      this.bans.set(await putBan(player.id, !player.banned));
+      this.players.set(await putPlayerFlag(player.id, flag, value));
     } catch (error) {
-      this.banError.set((error as Error).message);
+      input.checked = !value;
+      this.playerError.set((error as Error).message);
     } finally {
-      this.banBusy.set(false);
+      this.playerBusy.set(false);
     }
   }
 
@@ -269,10 +268,10 @@ export class EloSettingsPage extends CustomElement {
    */
   private async _load(): Promise<void> {
     try {
-      const [settings, rankSettings, bans] = await Promise.all([fetchEloSettings(), fetchRankSettings(), fetchBans()]);
+      const [settings, rankSettings, players] = await Promise.all([fetchEloSettings(), fetchRankSettings(), fetchPlayerFlags()]);
       this.settings.set(settings);
       this.rankSettings.set(rankSettings);
-      this.bans.set(bans);
+      this.players.set(players);
     } catch (error) {
       this.error.set((error as Error).message);
     } finally {
@@ -289,11 +288,7 @@ export class EloSettingsPage extends CustomElement {
   private _fill(config: EloConfig, startElo: string): void {
     for (const input of this.inputs()) {
       const key = input.dataset['key']!;
-      if (key === 'filippoRule') {
-        input.checked = config.filippoRule;
-      } else {
-        input.value = key === 'startElo' ? startElo : String(config[key as EloField['key']]);
-      }
+      input.value = key === 'startElo' ? startElo : String(config[key as EloField['key']]);
     }
   }
 
@@ -313,7 +308,7 @@ export class EloSettingsPage extends CustomElement {
    * @returns The variables, or the message of the first field that isn't a number.
    */
   private _readConfig(): EloConfig | string {
-    const config: Partial<EloConfig> = { filippoRule: this.inputs().find(input => input.dataset['key'] === 'filippoRule')?.checked ?? false };
+    const config: Partial<EloConfig> = {};
     for (const { key, label } of FIELDS) {
       const text = this._text(key);
       const value = text ? Number(text) : NaN;
