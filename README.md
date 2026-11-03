@@ -92,7 +92,7 @@ Schema in [server/migrations/](server/migrations):
 | `sessions` | token di login (uno per dispositivo), cancellato al logout |
 | `player_availability` | non più usata: i giorni della settimana in cui un giocatore c'era di solito (0 = domenica), sostituiti da `players.available_on` |
 | `running_match` | la partita generata e non ancora giocata (una sola per vincolo), mostrata a tutti come "in corso" |
-| `lobbies` | le lobby: giorno, orario di apertura (`slot`), se la partita del suo orario è già stata generata, se è chiusa |
+| `lobbies` | la lobby corrente (alla chiusura viene cancellata, con chi c'era): giorno, orario di apertura (`slot`), se la partita del suo orario è già stata generata |
 | `lobby_players` | chi è in ogni lobby, e se è obbligatorio nella prossima partita (`priority`) |
 | `push_subscriptions` | i browser in cui un utente ha attivato le notifiche push |
 | `elo_settings` | le variabili del calcolo dell'ELO (una riga), modificabili dalla pagina ELO |

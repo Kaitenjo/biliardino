@@ -15,7 +15,8 @@ import { isWorkingDay, nextOpening, SLOTS, slotAt, toMinutes } from './calendar.
   another one can be generated with who is in.
   The state lives in the database and `tick` brings it up to date with the clock: it runs every half hour (cron) and
   before each read of the lobby, so a late or missed run only delays it. Each step is claimed by an UPDATE, so that two
-  runs at the same time don't open, notify or generate twice.
+  runs at the same time don't open, notify or generate twice. Only the current lobby is kept: when it closes it is
+  deleted, with who was in.
 */
 
 /**
@@ -120,12 +121,13 @@ interface LobbyRow {
  */
 export async function tick(now = new Date()): Promise<void> {
   const clock = romeClock(now);
-  const open = await all<LobbyRow>('SELECT id, day, slot, matched FROM lobbies WHERE closed = 0');
+  const open = await all<LobbyRow>('SELECT id, day, slot, matched FROM lobbies');
   for (const lobby of open) {
     const slot = slotAt(lobby.slot);
     const ended = !slot || lobby.day < clock.day || (lobby.day === clock.day && clock.minutes >= toMinutes(slot.close));
     if (ended) {
-      await run('UPDATE lobbies SET closed = 1 WHERE id = ?', lobby.id);
+      // Only the current lobby is kept: closing it deletes it, with who was in
+      await run('DELETE FROM lobbies WHERE id = ?', lobby.id);
     } else if (!lobby.matched && lobby.day === clock.day && clock.minutes >= toMinutes(slot.match)) {
       await generateDueMatch(lobby.id, slot.match);
     }
@@ -163,7 +165,7 @@ export async function tick(now = new Date()): Promise<void> {
  * @returns The state of the lobby page.
  */
 export async function getLobbyState(): Promise<LobbyState> {
-  const row = await get<LobbyRow>('SELECT id, day, slot, matched FROM lobbies WHERE closed = 0 ORDER BY day DESC, slot DESC LIMIT 1');
+  const row = await get<LobbyRow>('SELECT id, day, slot, matched FROM lobbies ORDER BY day DESC, slot DESC LIMIT 1');
   const slot = row && slotAt(row.slot);
   if (!row || !slot) {
     const next = nextOpening(romeClock());
@@ -187,7 +189,7 @@ export async function getLobbyState(): Promise<LobbyState> {
  * would enter, `'unchanged'` when the player was already in (or already out), `'changed'` otherwise.
  */
 export async function setInLobby(lobbyId: number, playerId: number, inside: boolean, priority = false): Promise<'closed' | 'banned' | 'unchanged' | 'changed'> {
-  if (!(await get('SELECT 1 FROM lobbies WHERE id = ? AND closed = 0', lobbyId))) {
+  if (!(await get('SELECT 1 FROM lobbies WHERE id = ?', lobbyId))) {
     return 'closed';
   }
 
@@ -210,7 +212,7 @@ export async function setInLobby(lobbyId: number, playerId: number, inside: bool
  * @returns `'closed'` when the lobby is not open, `'unchanged'` when the player is not in it, `'changed'` otherwise.
  */
 export async function setLobbyPriority(lobbyId: number, playerId: number, priority: boolean): Promise<'closed' | 'unchanged' | 'changed'> {
-  if (!(await get('SELECT 1 FROM lobbies WHERE id = ? AND closed = 0', lobbyId))) {
+  if (!(await get('SELECT 1 FROM lobbies WHERE id = ?', lobbyId))) {
     return 'closed';
   }
 
@@ -228,7 +230,7 @@ export async function setLobbyPriority(lobbyId: number, playerId: number, priori
  * none.
  */
 export async function generateNextMatch(lobbyId: number, userId: number): Promise<MatchView | LobbyMatchFailure | 'closed' | 'too-early'> {
-  const lobby = await get<{ matched: number }>('SELECT matched FROM lobbies WHERE id = ? AND closed = 0', lobbyId);
+  const lobby = await get<{ matched: number }>('SELECT matched FROM lobbies WHERE id = ?', lobbyId);
   if (!lobby) {
     return 'closed';
   }
@@ -247,7 +249,7 @@ export async function replaceRunningMatch(userId: number): Promise<MatchView | n
   const deleted = await getRunningMatch();
   await clearRunningMatch();
   await tick();
-  const lobby = await get<{ id: number }>('SELECT id FROM lobbies WHERE closed = 0 AND matched = 1 ORDER BY id DESC LIMIT 1');
+  const lobby = await get<{ id: number }>('SELECT id FROM lobbies WHERE matched = 1 ORDER BY id DESC LIMIT 1');
   if (!lobby) {
     return null;
   }
@@ -270,7 +272,7 @@ export async function replaceRunningMatch(userId: number): Promise<MatchView | n
  * @param userId - The user who banned it, who generates the new match.
  */
 export async function removeBannedPlayer(playerId: number, userId: number): Promise<void> {
-  await run('DELETE FROM lobby_players WHERE player_id = ? AND lobby_id IN (SELECT id FROM lobbies WHERE closed = 0)', playerId);
+  await run('DELETE FROM lobby_players WHERE player_id = ? AND lobby_id IN (SELECT id FROM lobbies)', playerId);
 
   const running = await getRunningMatch();
   const ids = running ? [running.brown.attack.id, running.brown.defense.id, running.white.attack.id, running.white.defense.id] : [];
