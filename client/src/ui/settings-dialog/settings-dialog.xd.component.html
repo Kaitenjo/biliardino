@@ -38,5 +38,20 @@
         (change)="toggleTransitions()"
       />
     </label>
+    <label class="option">
+      <span class="text">
+        <app-icon name="eye" />
+        Dildo viola nella lobby
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="switch"
+        @if (toy()) {
+          checked
+        }
+        (change)="toggleToy()"
+      />
+    </label>
   </div>
 </dialog>

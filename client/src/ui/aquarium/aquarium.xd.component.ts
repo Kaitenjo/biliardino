@@ -5,6 +5,7 @@ import type { LeaderboardEntry, LobbyPlayer, MatchPlayer, PlayerDetail, RankingM
 import { ranks } from '../../core/ranks/ranks';
 import { cameraTransitions } from '../../core/settings/camera';
 import { quality } from '../../core/settings/quality';
+import { purpleToy } from '../../core/settings/toy';
 import type { SeatKey } from './foosball3d';
 import { loadFonts } from './fonts';
 import type { AquariumScene, ChartHover, View, Wall } from './scene';
@@ -177,9 +178,11 @@ export class AquariumComponent extends CustomElement {
       const travels = cameraTransitions();
       untracked(() => this._scene?.setTravels(travels));
     });
-    // Another quality: the scene is built again, with or without what only decorates it
+    // Another quality, or the purple dildo shown or hidden: the scene is built again, with or without what only decorates
+    // it
     this.effect(() => {
       quality();
+      purpleToy();
       untracked(() => {
         if (this._scene) {
           this._createScene();
@@ -218,12 +221,13 @@ export class AquariumComponent extends CustomElement {
   }
 
   /**
-   * Creates the scene, at the quality chosen on this device, in place of the one there is, and gives it all it shows.
+   * Creates the scene, at the quality and with or without the purple dildo as chosen on this device, in place of the one
+   * there is, and gives it all it shows.
    */
   private _createScene(): void {
     this._scene?.dispose();
     // Its canvas goes first in the box, under the names
-    this._scene = this._sceneClass!.create(this.water(), this.labels(), matchMedia('(prefers-reduced-motion: reduce)').matches, untracked(quality));
+    this._scene = this._sceneClass!.create(this.water(), this.labels(), matchMedia('(prefers-reduced-motion: reduce)').matches, untracked(quality), untracked(purpleToy));
     this._scene.onChartHover = hover => this.chartHover.set(hover);
     this._scene.setTravels(untracked(cameraTransitions));
     const water = this.water();

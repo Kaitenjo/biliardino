@@ -769,6 +769,10 @@ export class AquariumScene {
    */
   private readonly _detailed: boolean;
   /**
+   * Whether the purple dildo is shown: floating in the background, and as the creature of a player.
+   */
+  private readonly _showToy: boolean;
+  /**
    * What the metals and the marble reflect, at high quality.
    */
   private readonly _environment: THREE.Texture | null = null;
@@ -790,24 +794,27 @@ export class AquariumScene {
    * @param labels - The layer over the canvas for the names.
    * @param still - Whether to draw a single still frame (less motion).
    * @param quality - How detailed (see detail.ts).
+   * @param showToy - Whether the purple dildo is shown.
    * @returns The scene.
    * @throws When WebGL is not available.
    */
-  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality): AquariumScene {
+  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality, showToy: boolean): AquariumScene {
     // Before anything of the scene is made: its colours too
     setQuality(quality);
-    return new AquariumScene(box, labels, still);
+    return new AquariumScene(box, labels, still, showToy);
   }
 
   /**
    * @param box - Where to draw: the canvas of the scene goes first in it.
    * @param labels - The layer over the canvas for the names.
    * @param still - Whether to draw a single still frame (less motion).
+   * @param showToy - Whether the purple dildo is shown.
    * @throws When WebGL is not available.
    */
-  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean) {
+  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean, showToy: boolean) {
     this._labels = labels;
     this._still = still;
+    this._showToy = showToy;
     this._detailed = isHigh();
     // A canvas of its own: the smoothing of the edges is chosen when it is made, and only the high quality has it
     this._renderer = new THREE.WebGLRenderer({ antialias: this._detailed });
@@ -1706,8 +1713,8 @@ export class AquariumScene {
    * @returns The creature in the water.
    */
   private _release(player: LobbyPlayer, animated: boolean): Inhabitant {
-    // Giuseppe Latrofa is always the dildo
-    const species = player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
+    // Giuseppe Latrofa is always the dildo, when it is shown
+    const species = this._showToy && player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
     const creature = buildCreature(species);
     this._scene.add(creature.object);
     const label = document.createElement('span');
@@ -1857,8 +1864,12 @@ export class AquariumScene {
       counts.set(inhabitant.species, counts.get(inhabitant.species)! + 1);
     }
 
+    if (!this._showToy) {
+      counts.delete('dildo');
+    }
+
     const fewest = Math.min(...counts.values());
-    const candidates = SPECIES.filter(species => counts.get(species) === fewest);
+    const candidates = [...counts.keys()].filter(species => counts.get(species) === fewest);
     return candidates[Math.floor(Math.random() * candidates.length)]!;
   }
 
@@ -1993,11 +2004,32 @@ export class AquariumScene {
     reef(-4.4, -4.6, [0xc084fc, 0xfb7185, 0xfbbf24, 0x2dd4bf], 0xf9a8d4, 0xe11d48);
 
     // The Titan, sunk a few years ago on its way to the Titanic, under the rock arch, and in the background a little purple dildo
+    // (if shown)
     const titan = buildTitan();
     put(titan, 6.5, 0.95, -10, 1.4, -0.3);
     titan.rotation.z = 0.05;
 
-    // The dildo floats up and down about a quarter of the screen from its top (the view looks slightly down)
+    if (this._showToy) {
+      this._buildToy();
+    }
+
+    // What the wreck lost
+    const anchor = buildAnchor();
+    put(anchor, -3.2, -0.2, -5.2, 1.2, 0.8);
+    anchor.rotation.z = 1.15;
+    put(buildBarrel(), -9.3, 0.3, -5.5, 1, 0.7);
+    put(buildBarrel(), -4.6, 0.28, -7, 1, -0.4);
+    const amphora = buildAmphora();
+    put(amphora, -8, 0.2, -3.8, 1.2, 0.4);
+    amphora.rotation.z = 1.35;
+    put(buildAmphora(), -7.3, -0.05, -4.6, 1.1);
+  }
+
+  /**
+   * The purple dildo in the background: it floats up and down about a quarter of the screen from its top (the view looks
+   * slightly down), and the pointer can drag it.
+   */
+  private _buildToy(): void {
     const toy = buildPurpleDildo();
     const toyZ = -8;
     const depth = VIEW_Z - toyZ;
@@ -2027,17 +2059,6 @@ export class AquariumScene {
         toy.rotation.z = Math.sin(time * 0.6) * 0.12;
       }
     });
-
-    // What the wreck lost
-    const anchor = buildAnchor();
-    put(anchor, -3.2, -0.2, -5.2, 1.2, 0.8);
-    anchor.rotation.z = 1.15;
-    put(buildBarrel(), -9.3, 0.3, -5.5, 1, 0.7);
-    put(buildBarrel(), -4.6, 0.28, -7, 1, -0.4);
-    const amphora = buildAmphora();
-    put(amphora, -8, 0.2, -3.8, 1.2, 0.4);
-    amphora.rotation.z = 1.35;
-    put(buildAmphora(), -7.3, -0.05, -4.6, 1.1);
   }
 
   /**
