@@ -13,8 +13,8 @@ self.addEventListener('push', event => {
     Promise.all([
       self.registration.showNotification(notice.title || 'CAlcio Balilla', {
         body: notice.body || '',
-        icon: '/logo.svg',
-        badge: '/logo.svg',
+        icon: '/logo.png',
+        badge: '/logo.png',
         data: { url: notice.url || '/' }
       }),
       // The open tabs read the lobby again: something changed (a lobby opened, a match was generated)
