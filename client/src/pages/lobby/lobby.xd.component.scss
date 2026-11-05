@@ -938,6 +938,80 @@ league-leaderboard ~ .arrow.left {
   opacity: 0;
 }
 
+// The matches, in chalk over the face of their board: the scene keeps them there, as big as the face is seen, and shows
+// them only in front of the board
+match-board[slot='matches'] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+// Over the face of the board of the player, as big as it is seen: it scrolls, and the scene scrolls the board with it,
+// from its figures (painted by the scene, under the empty first page) down to the history of the player
+.player-history {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  container-type: size;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y proximity;
+  scrollbar-color: rgb(201 162 39 / 55%) transparent;
+  scrollbar-width: thin;
+  visibility: hidden;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.history-figures,
+.history-page {
+  height: 100%;
+  scroll-snap-align: start;
+}
+
+.history-page {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding-bottom: 2.5cqh;
+
+  // In gold, as the titles painted on the board
+  h2 {
+    margin: 0;
+    padding: 3cqh 3cqw 0;
+    color: #c9a227;
+    font-family: Lora, Georgia, serif;
+    font-size: min(3.4cqh, 3.2cqw);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  match-board {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.history-pager {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+
+  .btn {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.82rem;
+    backdrop-filter: blur(6px);
+  }
+}
+
 // The rules, written over the parchment of their board: laid out 900px wide (see `RULES_LAYOUT_WIDTH` in scene.ts),
 // then the scene scales them to the parchment as the camera sees it, and shows them only in front of the board
 .rules-paper {

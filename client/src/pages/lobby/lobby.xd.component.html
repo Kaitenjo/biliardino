@@ -18,28 +18,7 @@
   <match-board slot="matches" games="{matchPage()?.matches ?? []}" page="{matchPageNumber()}"
     pageCount="{matchPageCount()}" total="{matchPage()?.total ?? 0}" />
   <nav slot="matchesFoot" class="pager below" aria-label="Pagine delle partite">
-    <button
-      @if (matchPageNumber() <= 1) {
-        disabled
-      }
-      type="button"
-      class="btn ghost"
-      (click)="goToMatches(matchPageNumber() - 1)"
-    >
-      <app-icon name="arrow-left" />
-      Più recenti
-    </button>
-    <button
-      @if (matchPageNumber() >= matchPageCount()) {
-        disabled
-      }
-      type="button"
-      class="btn ghost"
-      (click)="goToMatches(matchPageNumber() + 1)"
-    >
-      Più vecchie
-      <app-icon name="arrow-right" />
-    </button>
+    @render matchPager(matchPageNumber(), matchPageCount(), false)
   </nav>
   <section slot="rules" class="rules-paper" aria-label="Regolamento">
     <h2>Regolamento</h2>
@@ -48,6 +27,19 @@
         <li>{ rule() }</li>
       }
     </ul>
+  </section>
+  <section slot="stats" class="player-history" aria-label="Storico partite del giocatore">
+    <div class="history-figures" />
+    @if (profile()) {
+      <div class="history-page">
+        <h2>Storico partite</h2>
+        <match-board caption="Storico partite" games="{historyGames()}" page="{historyPageNumber()}"
+          pageCount="{historyPageCount()}" total="{history().length}" />
+        <nav class="history-pager" aria-label="Pagine dello storico partite">
+          @render matchPager(historyPageNumber(), historyPageCount(), true)
+        </nav>
+      </div>
+    }
   </section>
 </lobby-aquarium>
 
@@ -412,6 +404,31 @@
     (click)="reload()"
   >
     <app-icon name="refresh" />
+  </button>
+</template>
+
+<template matchPager(page: number, count: number, history: boolean)>
+  <button
+    @if (page() <= 1) {
+      disabled
+    }
+    type="button"
+    class="btn ghost"
+    (click)="turnPage(history(), page() - 1)"
+  >
+    <app-icon name="arrow-left" />
+    Più recenti
+  </button>
+  <button
+    @if (page() >= count()) {
+      disabled
+    }
+    type="button"
+    class="btn ghost"
+    (click)="turnPage(history(), page() + 1)"
+  >
+    Più vecchie
+    <app-icon name="arrow-right" />
   </button>
 </template>
 

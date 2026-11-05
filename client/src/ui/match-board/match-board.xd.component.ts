@@ -1,6 +1,6 @@
 import { CustomElement, Property, WebComponent } from '@xaendar/core';
 import type { InputSignal } from '@xaendar/core/signals';
-import type { MatchSummary } from '../../core/api/api.models';
+import type { MatchSummary, PlayerMatch } from '../../core/api/api.models';
 import { navigate } from '../../core/router/router';
 
 /**
@@ -9,10 +9,17 @@ import { navigate } from '../../core/router/router';
 export const BOARD_LINES = 10;
 
 /**
+ * A line of the board: a match of the list of all of them, or a match of a player (its history).
+ */
+export type BoardMatch = MatchSummary | PlayerMatch;
+
+/**
  * The blackboard of the matches: a line in chalk for each match of the page, newest first, with its day, the icons of
- * the two teams (defender and attacker), the result and the ELO won. No names: the icons tell the players.
+ * the two teams (defender and attacker), the result and the ELO: won by the winners in the list of all the matches,
+ * won or lost by the player in its history. No names: the icons tell the players.
  *
- * It fills its box; the 3D scene puts it over the face of the board on the back wall of the lounge.
+ * It fills its box, and is sized on it: the 3D scene puts the list of all the matches over the face of the board on the
+ * back wall of the lounge, and the history of a player under the figures of its board.
  */
 @WebComponent({
   selector: 'match-board',
@@ -24,7 +31,7 @@ export class MatchBoardComponent extends CustomElement {
    * The matches of the page, newest first (not `matches`: elements already have it).
    */
   @Property.required()
-  public accessor games!: InputSignal<MatchSummary[]>;
+  public accessor games!: InputSignal<BoardMatch[]>;
   /**
    * The page shown, from 1, how many pages there are, and how many matches were played.
    */
@@ -34,14 +41,23 @@ export class MatchBoardComponent extends CustomElement {
   public accessor pageCount!: InputSignal<number>;
   @Property<InputSignal<number>>(0)
   public accessor total!: InputSignal<number>;
+  /**
+   * What the board is, for screen readers.
+   */
+  @Property('Lavagna delle partite')
+  public accessor caption!: InputSignal<string>;
 
   /**
-   * The ELO the winners won.
+   * The ELO of a line: won by the winners, or won or lost by the player in its history.
    *
    * @param match - The match.
-   * @returns The change of each winner.
+   * @returns The change of each winner, or of the player.
    */
-  public gain(match: MatchSummary): number {
+  public gain(match: BoardMatch): number {
+    if ('eloDelta' in match) {
+      return match.eloDelta;
+    }
+
     return match.winner === 'brown' ? match.brownDelta : match.whiteDelta;
   }
 
@@ -56,12 +72,12 @@ export class MatchBoardComponent extends CustomElement {
   }
 
   /**
-   * The ELO the winners won, with its sign.
+   * The ELO of a line, with its sign.
    *
    * @param match - The match.
    * @returns The text, e.g. `+12`.
    */
-  public formatDelta(match: MatchSummary): string {
+  public formatDelta(match: BoardMatch): string {
     const delta = this.gain(match);
     return delta > 0 ? `+${delta}` : String(delta);
   }

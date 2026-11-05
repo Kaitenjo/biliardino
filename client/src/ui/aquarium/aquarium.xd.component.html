@@ -6,6 +6,7 @@
   <slot name="matches" (slotchange)="placeWalls()" />
   <slot name="matchesFoot" (slotchange)="placeWalls()" />
   <slot name="rules" (slotchange)="placeWalls()" />
+  <slot name="stats" (slotchange)="placeWalls()" />
 
   @for (seat of seats(); track seat().key) {
     <a class="{`seat ${seat().side}`}" data-key="{seat().key}" href="{`#/players/${seat().player.id}`}">

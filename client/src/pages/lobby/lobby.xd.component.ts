@@ -1,5 +1,6 @@
-import { CustomElement, WebComponent } from '@xaendar/core';
+import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { computed, signal, untracked } from '@xaendar/core/signals';
+import type { QuerySignal } from '@xaendar/core/signals';
 import {
   ApiError,
   deleteRunningMatch,
@@ -18,7 +19,7 @@ import {
   setPlayerInLobby,
   setPlayerPriority
 } from '../../core/api/api';
-import type { LeaderboardEntry, LobbyPlayer, LobbyState, MatchPage, PlayerDetail, RankingMode, Role, RunningMatch, SavedMatch, UserRoles } from '../../core/api/api.models';
+import type { LeaderboardEntry, LobbyPlayer, LobbyState, MatchPage, PlayerDetail, PlayerMatch, RankingMode, Role, RunningMatch, SavedMatch, UserRoles } from '../../core/api/api.models';
 import { user } from '../../core/auth/session';
 import { untilRomeMidnight } from '../../core/dates/dates';
 import { navigate, route, routeName } from '../../core/router/router';
@@ -197,6 +198,19 @@ export class LobbyPage extends CustomElement {
    */
   public readonly profile = signal<PlayerDetail | null>(null);
   public readonly profileScope = signal<RankingMode>('best');
+  /**
+   * The history of the player, under the figures of its board: its matches in the scope, newest first; the page shown,
+   * from 1, how many pages there are, at least 1, and the matches of the page.
+   */
+  public readonly history = computed(() => this._computeHistory());
+  public readonly historyPageNumber = signal(1);
+  public readonly historyPageCount = computed(() => this._computeHistoryPageCount());
+  public readonly historyGames = computed(() => this._computeHistoryGames());
+  /**
+   * What scrolls the board of the player, from its figures down to its history.
+   */
+  @Query('.player-history')
+  public accessor historyElement!: QuerySignal<HTMLElement | null>;
   /**
    * The buttons of the scopes of the board of the player.
    */
@@ -424,6 +438,31 @@ export class LobbyPage extends CustomElement {
   }
 
   /**
+   * Shows another page of the history of the player.
+   *
+   * @param page - The page, from 1.
+   */
+  public goToHistory(page: number): void {
+    if (page >= 1 && page <= this.historyPageCount()) {
+      this.historyPageNumber.set(page);
+    }
+  }
+
+  /**
+   * Shows another page of a board of matches.
+   *
+   * @param history - Whether of the history of the player, or of all the matches.
+   * @param page - The page, from 1.
+   */
+  public turnPage(history: boolean, page: number): void {
+    if (history) {
+      this.goToHistory(page);
+    } else {
+      this.goToMatches(page);
+    }
+  }
+
+  /**
    * Whether a switch of the roles of the logged user is on: as the user set it, while it waits to be confirmed.
    *
    * @param role - The role.
@@ -508,6 +547,7 @@ export class LobbyPage extends CustomElement {
    */
   public setProfileScope(scope: RankingMode): void {
     this.profileScope.set(scope);
+    this.historyPageNumber.set(1);
   }
 
   /**
@@ -867,6 +907,13 @@ export class LobbyPage extends CustomElement {
     this._profileController = controller;
     try {
       const detail = await fetchPlayer(id, controller.signal);
+      // Another player: its board from the top, its history from its first page (the same one, loaded again, stays where
+      // it was)
+      if (id !== this.profile()?.player.id) {
+        this.historyPageNumber.set(1);
+        this.historyElement()?.scrollTo({ top: 0 });
+      }
+
       this.profile.set(detail);
       this.profileScope.set('best');
     } catch (error) {
@@ -910,6 +957,40 @@ export class LobbyPage extends CustomElement {
 
     const inside = new Set(this.lobby()?.players.map(player => player.id));
     return everybody.filter(player => !inside.has(player.id)).toSorted((first, second) => first.name.localeCompare(second.name));
+  }
+
+  /**
+   * Computes the value of `history`.
+   *
+   * @returns The matches of the player in the scope of its board, newest first; none without a player.
+   */
+  private _computeHistory(): PlayerMatch[] {
+    const matches = this.profile()?.matches;
+    if (!matches?.length) {
+      return [];
+    }
+
+    const scope = this.profileScope();
+    return scope === 'best' ? matches : matches.filter(match => match.role === scope);
+  }
+
+  /**
+   * Computes the value of `historyPageCount`.
+   *
+   * @returns How many pages hold the history, at least 1.
+   */
+  private _computeHistoryPageCount(): number {
+    return Math.max(1, Math.ceil(this.history().length / BOARD_LINES));
+  }
+
+  /**
+   * Computes the value of `historyGames`.
+   *
+   * @returns The matches of the page of the history shown.
+   */
+  private _computeHistoryGames(): PlayerMatch[] {
+    const start = (Math.min(this.historyPageNumber(), this.historyPageCount()) - 1) * BOARD_LINES;
+    return this.history().slice(start, start + BOARD_LINES);
   }
 
   /**

@@ -122,18 +122,20 @@ interface WallBoard {
 }
 
 /**
- * The boards on the walls drawn by the page: the matches, its pages under it, and the rules.
+ * The boards on the walls drawn by the page: the matches, its pages under it, the rules, and the board of the player
+ * (scrolled by the page, the history of the player under its figures).
  */
-export type Wall = 'matches' | 'matchesFoot' | 'rules';
+export type Wall = 'matches' | 'matchesFoot' | 'rules' | 'stats';
 
 /**
- * The boards on the walls drawn by the page, as the board of the matches hangs.
+ * The boards on the walls drawn by the page, as the boards of the matches and of the player hang.
  *
  * @param center - The centre of the face of the board of the matches.
  * @param size - The size of its face.
- * @returns The board, and its pages under its case.
+ * @param statsSize - The size of the face of the board of the player.
+ * @returns The board, its pages under its case, the rules and the board of the player.
  */
-function wallBoards(center: THREE.Vector3, size: BoardSize): Record<Wall, WallBoard> {
+function wallBoards(center: THREE.Vector3, size: BoardSize, statsSize: BoardSize): Record<Wall, WallBoard> {
   const face = (middle: THREE.Vector3, { width, height }: BoardSize): THREE.Vector3[] =>
     [-1, 1].flatMap(z => [-1, 1].map(y => new THREE.Vector3(middle.x, middle.y + (y * height) / 2, middle.z + (z * width) / 2)));
   const corners = face(center, size);
@@ -142,7 +144,8 @@ function wallBoards(center: THREE.Vector3, size: BoardSize): Record<Wall, WallBo
     matches: { view: 'matches', corners, layoutWidth: null },
     matchesFoot: { view: 'matches', corners: corners.map(corner => corner.clone().setY(below)), layoutWidth: null, under: true },
     // Laid out at a width of its own, the writing sized in pixels, then scaled to the parchment
-    rules: { view: 'rules', corners: face(RULES_BOARD, RULES_PAPER), layoutWidth: RULES_LAYOUT_WIDTH }
+    rules: { view: 'rules', corners: face(RULES_BOARD, RULES_PAPER), layoutWidth: RULES_LAYOUT_WIDTH },
+    stats: { view: 'stats', corners: face(STATS_BOARD, statsSize), layoutWidth: null }
   };
 }
 
@@ -526,7 +529,14 @@ export class AquariumScene {
   private _matchBoard: THREE.Group | null = null;
   private _matchSize: BoardSize = MATCH_BOARD_SIZE;
   private _matchCenter = MATCH_BOARD;
-  private _walls = wallBoards(MATCH_BOARD, MATCH_BOARD_SIZE);
+  private _walls = wallBoards(MATCH_BOARD, MATCH_BOARD_SIZE, STATS_BOARD_SIZE);
+  /**
+   * What the page draws over the board of the player, scrolling it: how far it is scrolled, in heights of the face, and
+   * what follows its size.
+   */
+  private _statsElement: HTMLElement | null = null;
+  private _statsScroll = 0;
+  private _statsResize: ResizeObserver | null = null;
   private _shown: { detail: PlayerDetail | null; scope: RankingMode } = { detail: null, scope: 'best' };
   /**
    * Called with the match of the chart under the pointer, `null` when there is none anymore.
@@ -715,7 +725,10 @@ export class AquariumScene {
     this._pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
     this._raycaster.setFromCamera(this._pointer, this._camera);
     const [hit] = this._raycaster.intersectObject(this._playerBoard.slate);
-    const point = hit ? this._playerBoard.hover(this._playerBoard.object.worldToLocal(hit.point.clone())) : null;
+    // The slate scrolled out of the face is not seen: no match there
+    const top = STATS_BOARD.y + this._statsSize.height / 2;
+    const seen = hit && hit.point.y <= top && hit.point.y >= top - this._statsSize.height;
+    const point = seen ? this._playerBoard.hover(this._playerBoard.object.worldToLocal(hit.point.clone())) : null;
     if (!point) {
       this._clearHover();
       return;
@@ -820,6 +833,8 @@ export class AquariumScene {
     this._renderer = new THREE.WebGLRenderer({ antialias: this._detailed });
     box.prepend(this._renderer.domElement);
     this._renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    // The board of the player scrolls inside its face, cut at its edges (see `PlayerBoard.clip`)
+    this._renderer.localClippingEnabled = true;
     this._seaweeds = buildSeaweedBed(this._renderer);
     if (this._detailed) {
       this._renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1022,6 +1037,10 @@ export class AquariumScene {
    * @param element - What to draw over it, `null` for nothing.
    */
   public setWall(wall: Wall, element: HTMLElement | null): void {
+    if (wall === 'stats') {
+      this._followStats(element);
+    }
+
     if (element) {
       this._wallElements.set(wall, element);
     } else {
@@ -1030,6 +1049,66 @@ export class AquariumScene {
 
     this._invalidate();
   }
+
+  /**
+   * Follows what the page draws over the board of the player: the board scrolls with it, and the pointer over it still
+   * marks the matches of the chart, under it.
+   *
+   * @param element - What the page draws, `null` for nothing.
+   */
+  private _followStats(element: HTMLElement | null): void {
+    if (element === this._statsElement) {
+      return;
+    }
+
+    this._unfollowStats();
+    this._statsElement = element;
+    if (element) {
+      element.addEventListener('scroll', this._onStatsScroll, { passive: true });
+      element.addEventListener('pointermove', this._onPointerMove);
+      element.addEventListener('pointerdown', this._onPointerMove);
+      element.addEventListener('pointerleave', this._onPointerLeave);
+      // Sized on the face as it is seen: scrolled as far, in pixels, it is scrolled less of the face
+      this._statsResize = new ResizeObserver(this._onStatsScroll);
+      this._statsResize.observe(element);
+    }
+
+    this._onStatsScroll();
+  }
+
+  /**
+   * Stops following what the page draws over the board of the player.
+   */
+  private _unfollowStats(): void {
+    const element = this._statsElement;
+    if (element) {
+      element.removeEventListener('scroll', this._onStatsScroll);
+      element.removeEventListener('pointermove', this._onPointerMove);
+      element.removeEventListener('pointerdown', this._onPointerMove);
+      element.removeEventListener('pointerleave', this._onPointerLeave);
+    }
+
+    this._statsResize?.disconnect();
+    this._statsResize = null;
+    this._statsElement = null;
+  }
+
+  /**
+   * Scrolls the board of the player as far as the page scrolled what it draws over it.
+   */
+  private readonly _onStatsScroll = (): void => {
+    const element = this._statsElement;
+    const scroll = element?.clientHeight ? element.scrollTop / element.clientHeight : 0;
+    if (scroll === this._statsScroll) {
+      return;
+    }
+
+    this._statsScroll = scroll;
+    this._playerBoard.scroll(scroll);
+    // The match marked moved away from the pointer
+    this._clearHover();
+    this._invalidate();
+  };
 
   /**
    * Puts a creature in the water for each player that entered, and takes out the ones of who left.
@@ -1231,6 +1310,8 @@ export class AquariumScene {
 
     this._statsSize = size;
     this._playerBoard = new PlayerBoard(size.width, size.height);
+    this._playerBoard.clip(STATS_BOARD.y + size.height / 2, STATS_BOARD.y - size.height / 2);
+    this._playerBoard.scroll(this._statsScroll);
     this._playerBoard.show(this._shown.detail, this._shown.scope);
     this._statsBoard = wallBoard(size, 'GIOCATORE');
     this._statsBoard.add(this._playerBoard.object);
@@ -1255,7 +1336,7 @@ export class AquariumScene {
 
     this._matchSize = size;
     this._matchCenter = center;
-    this._walls = wallBoards(center, size);
+    this._walls = wallBoards(center, size, this._statsSize);
     this._matchBoard = wallBoard(size, 'PARTITE');
     this._matchBoard.position.copy(center);
     this._matchBoard.rotation.y = -Math.PI / 2;
@@ -1329,6 +1410,7 @@ export class AquariumScene {
     this._renderer.domElement.removeEventListener('pointermove', this._onToyMove);
     this._renderer.domElement.removeEventListener('pointerup', this._onPointerUp);
     this._renderer.domElement.removeEventListener('pointercancel', this._onPointerUp);
+    this._unfollowStats();
     cancelAnimationFrame(this._frame);
     this._dispose(this._scene);
     (this._scene.background as THREE.Texture | null)?.dispose();

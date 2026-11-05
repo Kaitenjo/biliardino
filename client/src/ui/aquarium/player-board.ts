@@ -255,6 +255,12 @@ export class PlayerBoard {
   private readonly _guide: THREE.Mesh;
   private readonly _marker: THREE.Mesh;
   private readonly _rim: THREE.Mesh;
+  /**
+   * The board scrolls like a page: under the slate of the figures hangs a plain one, where the page writes the history
+   * of the player; what goes out of the face is cut away by these planes, the top and the bottom of the face in the
+   * space of the scene (see `clip`). Every material of the board shares them.
+   */
+  private readonly _clipping = [new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)];
 
   /**
    * @param width - Width of the face of the board.
@@ -270,16 +276,29 @@ export class PlayerBoard {
     this._texture = new THREE.CanvasTexture(this._canvas);
     this._texture.colorSpace = paintedColorSpace();
     this._texture.anisotropy = 8;
-    this.slate = new THREE.Mesh(new THREE.PlaneGeometry(width, height), phong({ map: this._texture, roughness: 0.85 }));
+    this.slate = new THREE.Mesh(new THREE.PlaneGeometry(width, height), phong({ map: this._texture, roughness: 0.85, clippingPlanes: this._clipping }));
     this.slate.position.z = 0.02;
     this.object.add(this.slate);
+    // The slate of the history, under it: as dark, with the same shade, so that the two join without a seam
+    const lower = document.createElement('canvas');
+    lower.width = this._layout.width / 4;
+    lower.height = this._layout.height / 4;
+    const lowerTexture = new THREE.CanvasTexture(lower);
+    lowerTexture.colorSpace = paintedColorSpace();
+    this._paintGround(lower.getContext('2d')!, lower.width, lower.height);
+    const history = new THREE.Mesh(new THREE.PlaneGeometry(width, height), phong({ map: lowerTexture, roughness: 0.85, clippingPlanes: this._clipping }));
+    history.position.set(0, -height, 0.02);
+    this.object.add(history);
 
-    const light = new THREE.MeshBasicMaterial({ color: 0xf6dc7a, transparent: true, opacity: 0.55 });
+    const light = new THREE.MeshBasicMaterial({ color: 0xf6dc7a, transparent: true, opacity: 0.55, clippingPlanes: this._clipping });
     this._guide = new THREE.Mesh(new THREE.BoxGeometry(0.01, ((chart.bottom - chart.top) / this._layout.height) * height, 0.01), light);
     this._guide.position.set(0, this._y((chart.top + chart.bottom) / 2), 0.05);
     // A bead of the colour of its role, as the ones of the chart, outlined by a thin hull of a darker shade just behind it
-    this._marker = new THREE.Mesh(new THREE.SphereGeometry(0.05, detail(8, 16), detail(6, 12)), phong({ color: ROLE_COLORS.attack, emissive: ROLE_COLORS.attack, emissiveIntensity: 0.6, roughness: 0.4 }));
-    this._rim = new THREE.Mesh(new THREE.SphereGeometry(0.064, detail(8, 16), detail(6, 12)), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide }));
+    this._marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, detail(8, 16), detail(6, 12)),
+      phong({ color: ROLE_COLORS.attack, emissive: ROLE_COLORS.attack, emissiveIntensity: 0.6, roughness: 0.4, clippingPlanes: this._clipping })
+    );
+    this._rim = new THREE.Mesh(new THREE.SphereGeometry(0.064, detail(8, 16), detail(6, 12)), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide, clippingPlanes: this._clipping }));
     this._marker.add(this._rim);
     this._guide.visible = false;
     this._marker.visible = false;
@@ -287,6 +306,28 @@ export class PlayerBoard {
 
     this.object.add(this._chart);
     this.show(null, 'best');
+  }
+
+  /**
+   * Where the face of the board is in the scene, up and down: what the board shows is cut at its edges.
+   *
+   * @param top - The height of the top of the face.
+   * @param bottom - The height of its bottom.
+   */
+  public clip(top: number, bottom: number): void {
+    this._clipping[0]!.constant = top;
+    this._clipping[1]!.constant = -bottom;
+  }
+
+  /**
+   * Scrolls the board up, towards the history of the player under its figures.
+   *
+   * @param faces - How far, in heights of the face: 0 the figures, 1 the history.
+   */
+  public scroll(faces: number): void {
+    this.object.position.y = faces * this._height;
+    // The pointer looks for the chart before the next frame updates it
+    this.object.updateMatrixWorld();
   }
 
   /**
@@ -404,13 +445,8 @@ export class PlayerBoard {
    * @param scope - The scope: the general one has fewer rules.
    */
   private _paintSlate(ctx: CanvasRenderingContext2D, scope: RankingMode): void {
-    const { width, height } = this._layout;
     const rules = scope === 'best' ? this._layout.general.rules : this._layout.rules;
-    const slate = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, Math.max(width, height) * 0.7);
-    slate.addColorStop(0, '#1b1f26');
-    slate.addColorStop(1, '#0b0d11');
-    ctx.fillStyle = slate;
-    ctx.fillRect(0, 0, width, height);
+    this._paintGround(ctx, this._layout.width, this._layout.height);
     ctx.strokeStyle = 'rgba(201, 162, 39, 0.35)';
     ctx.lineWidth = 2;
     for (const [fromX, fromY, toX, toY] of rules) {
@@ -419,6 +455,22 @@ export class PlayerBoard {
       ctx.lineTo(toX, toY);
       ctx.stroke();
     }
+  }
+
+  /**
+   * The dark slate, a little lighter in the middle: the same shade at any size of the canvas.
+   *
+   * @param ctx - The canvas.
+   * @param width - Its width.
+   * @param height - Its height.
+   */
+  private _paintGround(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+    const scale = width / this._layout.width;
+    const slate = ctx.createRadialGradient(width / 2, height / 2, 100 * scale, width / 2, height / 2, Math.max(width, height) * 0.7);
+    slate.addColorStop(0, '#1b1f26');
+    slate.addColorStop(1, '#0b0d11');
+    ctx.fillStyle = slate;
+    ctx.fillRect(0, 0, width, height);
   }
 
   /**
@@ -721,9 +773,12 @@ export class PlayerBoard {
         path.add(new THREE.LineCurve3(points[i - 1]!, points[i]!));
       }
 
-      const glow = phong({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4 });
+      const glow = phong({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4, clippingPlanes: this._clipping });
       this._chart.add(new THREE.Mesh(new THREE.TubeGeometry(path, Math.min(detail(400, 800), (points.length - 1) * 2), 0.014, detail(4, 6), false), glow));
-      const bead = new THREE.Mesh(new THREE.SphereGeometry(0.045, detail(8, 16), detail(6, 12)), glow.clone());
+      // A clone copies the planes: it is given the shared ones again
+      const beadGlow = glow.clone();
+      beadGlow.clippingPlanes = this._clipping;
+      const bead = new THREE.Mesh(new THREE.SphereGeometry(0.045, detail(8, 16), detail(6, 12)), beadGlow);
       bead.position.copy(points.at(-1)!);
       this._chart.add(bead);
     }
@@ -745,7 +800,7 @@ export class PlayerBoard {
         continue;
       }
 
-      const beads = new THREE.InstancedMesh(geometry, phong({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4 }), own.length);
+      const beads = new THREE.InstancedMesh(geometry, phong({ color: ROLE_COLORS[role], emissive: ROLE_COLORS[role], emissiveIntensity: 0.6, roughness: 0.4, clippingPlanes: this._clipping }), own.length);
       own.forEach((point, i) => beads.setMatrixAt(i, matrix.makeTranslation(point.position.x, point.position.y, point.position.z)));
       this._chart.add(beads);
     }
