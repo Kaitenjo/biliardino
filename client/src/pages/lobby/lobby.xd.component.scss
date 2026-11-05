@@ -951,8 +951,10 @@ match-board[slot='matches'] {
   will-change: transform, opacity;
 }
 
-// Over the face of the board of the player, as big as it is seen: it scrolls, and the scene scrolls the board with it,
-// from its figures (painted by the scene, under the empty first page) down to the history of the player
+// Over the face of the board of the player, as big as it is seen: it scrolls from the figures of the player (painted by
+// the scene, under the empty first page) down to its history. The browser scrolls it out of step with the frames of the
+// scene: what is seen stays still instead (`.history-view`), and the scene moves it together with the board, in the same
+// frame, as far as it was scrolled (`--scrolled`, in pixels)
 .player-history {
   position: absolute;
   top: 0;
@@ -962,7 +964,6 @@ match-board[slot='matches'] {
   container-type: size;
   overflow: hidden auto;
   overscroll-behavior: contain;
-  scroll-snap-type: y proximity;
   scrollbar-color: rgb(201 162 39 / 55%) transparent;
   scrollbar-width: thin;
   visibility: hidden;
@@ -970,10 +971,23 @@ match-board[slot='matches'] {
   will-change: transform, opacity;
 }
 
+.history-view {
+  position: sticky;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.history-track {
+  height: 100%;
+  transform: translateY(calc(-1px * var(--scrolled, 0)));
+}
+
+// The room to scroll down to the history, under what is seen
+.history-room,
 .history-figures,
 .history-page {
   height: 100%;
-  scroll-snap-align: start;
 }
 
 .history-page {

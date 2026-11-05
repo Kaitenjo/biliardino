@@ -29,16 +29,23 @@
     </ul>
   </section>
   <section slot="stats" class="player-history" aria-label="Storico partite del giocatore">
-    <div class="history-figures" />
-    @if (profile()) {
-      <div class="history-page">
-        <h2>Storico partite</h2>
-        <match-board caption="Storico partite" games="{historyGames()}" page="{historyPageNumber()}"
-          pageCount="{historyPageCount()}" total="{history().length}" />
-        <nav class="history-pager" aria-label="Pagine dello storico partite">
-          @render matchPager(historyPageNumber(), historyPageCount(), true)
-        </nav>
+    <div class="history-view">
+      <div class="history-track">
+        <div class="history-figures" />
+        @if (profile()) {
+          <div class="history-page">
+            <h2>Storico partite</h2>
+            <match-board caption="Storico partite" games="{historyGames()}" page="{historyPageNumber()}"
+              pageCount="{historyPageCount()}" total="{history().length}" />
+            <nav class="history-pager" aria-label="Pagine dello storico partite">
+              @render matchPager(historyPageNumber(), historyPageCount(), true)
+            </nav>
+          </div>
+        }
       </div>
+    </div>
+    @if (profile()) {
+      <div class="history-room" />
     }
   </section>
 </lobby-aquarium>

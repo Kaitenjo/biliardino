@@ -1094,11 +1094,14 @@ export class AquariumScene {
   }
 
   /**
-   * Scrolls the board of the player as far as the page scrolled what it draws over it.
+   * Scrolls the board of the player as far as the page scrolled what it draws over it, and what the page draws with it:
+   * the browser scrolls it on its own, out of step with the frames of the scene, so the page keeps it still and the
+   * scene moves it (`--scrolled`, the pixels scrolled), in the same frame as the board.
    */
   private readonly _onStatsScroll = (): void => {
     const element = this._statsElement;
     const scroll = element?.clientHeight ? element.scrollTop / element.clientHeight : 0;
+    element?.style.setProperty('--scrolled', String(element.scrollTop));
     if (scroll === this._statsScroll) {
       return;
     }
