@@ -21,9 +21,9 @@
 <template outcomes(title: string, color: string, results: MatchOutcome[])>
   <div class="{`outcome-group ${color()}`}">
     <span class="outcome-title">{ title() }</span>
-    @for (result of results(); track result().brownScore) {
+    @for (result of results(); track $index()) {
       <div class="outcome">
-        <strong class="outcome-score">{ result().brownScore }-{ result().whiteScore }</strong>
+        <strong class="outcome-score">{ result().whiteScore }-{ result().brownScore }</strong>
         <b class="outcome-gain">{ formatDelta(gain(result())) }</b>
       </div>
     }

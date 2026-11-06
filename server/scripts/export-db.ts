@@ -11,12 +11,12 @@ const source = process.argv[2] ?? 'data/biliardino.db';
 const target = 'data/d1-import.sql';
 
 /**
- * Reads a team of the old database (red or blue) as one of the schema (brown or white).
+ * Reads a team of the old database (blue or red) as one of the schema (white or brown).
  *
  * @param column - The column with the team.
  * @returns The SQL expression.
  */
-const TEAM = (column: string): string => `CASE ${column} WHEN 'red' THEN 'brown' ELSE 'white' END`;
+const TEAM = (column: string): string => `CASE ${column} WHEN 'blue' THEN 'white' ELSE 'brown' END`;
 
 /**
  * A column of the schema, or one read from something else in the old database.
@@ -25,17 +25,17 @@ type Column = string | readonly [column: string, read: string];
 
 /**
  * The tables, parents first because of the foreign keys, with the columns of the schema: a column of the schema named
- * differently in the old database, or whose values changed, comes with what it is read from there (the teams were red
- * and blue, now brown and white).
+ * differently in the old database, or whose values changed, comes with what it is read from there (the teams were blue
+ * and red, now white and brown).
  */
 const TABLES: ReadonlyArray<readonly [table: string, columns: readonly Column[]]> = [
   ['players', ['id', 'name', 'icon', 'start_elo', 'plays_attack', 'plays_defense', 'roles_changed_on', 'is_admin', 'elo_attack', 'elo_defense', 'created_at']],
   ['users', ['id', 'player_id', 'password_hash']],
   ['player_availability', ['player_id', 'weekday']],
   ['sessions', ['token', 'user_id', 'created_at']],
-  ['matches', ['id', ['brown_score', 'red_score'], ['white_score', 'blue_score'], ['winner', TEAM('winner')], ['white_expected', '1 - red_expected'], 'created_by', 'played_at']],
+  ['matches', ['id', ['white_score', 'blue_score'], ['brown_score', 'red_score'], ['winner', TEAM('winner')], ['white_expected', '1 - red_expected'], 'created_by', 'played_at']],
   ['match_players', ['match_id', 'player_id', ['team', TEAM('team')], 'role', 'elo_before', 'role_elo', 'elo_delta']],
-  ['running_match', ['id', ['brown_attack', 'red_attack'], ['brown_defense', 'red_defense'], ['white_attack', 'blue_attack'], ['white_defense', 'blue_defense'], 'created_by', 'created_at']]
+  ['running_match', ['id', ['white_attack', 'blue_attack'], ['white_defense', 'blue_defense'], ['brown_attack', 'red_attack'], ['brown_defense', 'red_defense'], 'created_by', 'created_at']]
 ];
 
 /**

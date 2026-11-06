@@ -1,7 +1,7 @@
 /**
  * A team of a match.
  */
-export type Team = 'brown' | 'white';
+export type Team = 'white' | 'brown';
 
 /**
  * The role of a player in a match.
@@ -53,13 +53,13 @@ export interface FormEntry {
    */
   role: Role;
   /**
-   * Goals of the brown team.
-   */
-  brownScore: number;
-  /**
    * Goals of the white team.
    */
   whiteScore: number;
+  /**
+   * Goals of the brown team.
+   */
+  brownScore: number;
   /**
    * ELO of the player in its role after the match.
    */
@@ -183,25 +183,25 @@ export interface PlayerMatch {
    */
   playedAt: string;
   /**
-   * Goals of the brown team.
-   */
-  brownScore: number;
-  /**
    * Goals of the white team.
    */
   whiteScore: number;
+  /**
+   * Goals of the brown team.
+   */
+  brownScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The brown team.
-   */
-  brown: Lineup<PlayerRef>;
-  /**
    * The white team.
    */
   white: Lineup<PlayerRef>;
+  /**
+   * The brown team.
+   */
+  brown: Lineup<PlayerRef>;
   /**
    * The team of the player.
    */
@@ -241,33 +241,33 @@ export interface MatchSummary {
    */
   playedAt: string;
   /**
-   * Goals of the brown team.
-   */
-  brownScore: number;
-  /**
    * Goals of the white team.
    */
   whiteScore: number;
+  /**
+   * Goals of the brown team.
+   */
+  brownScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The brown team.
-   */
-  brown: Lineup<PlayerRef>;
-  /**
    * The white team.
    */
   white: Lineup<PlayerRef>;
   /**
-   * Change of ELO of each brown player.
+   * The brown team.
    */
-  brownDelta: number;
+  brown: Lineup<PlayerRef>;
   /**
    * Change of ELO of each white player.
    */
   whiteDelta: number;
+  /**
+   * Change of ELO of each brown player.
+   */
+  brownDelta: number;
 }
 
 /**
@@ -451,21 +451,21 @@ export interface RunningMatch {
    */
   id: number;
   /**
-   * The brown team.
-   */
-  brown: Lineup<MatchPlayer>;
-  /**
    * The white team.
    */
   white: Lineup<MatchPlayer>;
   /**
-   * ELO of the brown team: the average of its players in their roles.
+   * The brown team.
    */
-  brownElo: number;
+  brown: Lineup<MatchPlayer>;
   /**
-   * ELO of the white team.
+   * ELO of the white team: the average of its players in their roles.
    */
   whiteElo: number;
+  /**
+   * ELO of the brown team.
+   */
+  brownElo: number;
   /**
    * Probability that the white team wins.
    */
@@ -489,21 +489,21 @@ export interface RunningMatch {
  */
 export interface MatchOutcome {
   /**
-   * Goals of the brown team.
-   */
-  brownScore: number;
-  /**
    * Goals of the white team.
    */
   whiteScore: number;
   /**
-   * Change of ELO of each brown player.
+   * Goals of the brown team.
    */
-  brownDelta: number;
+  brownScore: number;
   /**
    * Change of ELO of each white player.
    */
   whiteDelta: number;
+  /**
+   * Change of ELO of each brown player.
+   */
+  brownDelta: number;
 }
 
 /**
@@ -515,13 +515,13 @@ export interface SavedMatch {
    */
   id: number;
   /**
-   * Change of ELO of each brown player.
-   */
-  brownDelta: number;
-  /**
    * Change of ELO of each white player.
    */
   whiteDelta: number;
+  /**
+   * Change of ELO of each brown player.
+   */
+  brownDelta: number;
   /**
    * Every player with its new ELO, as `fetchLeaderboard` gives them.
    */
@@ -758,6 +758,10 @@ export interface PlayerFlags {
    * Whether it is the super admin, who can't be banned.
    */
   isAdmin: boolean;
+  /**
+   * Whether it is the player with rules of its own (Dario Spinosa), who can't be banned nor have the Felix rule.
+   */
+  privileged: boolean;
   /**
    * Whether it is banned.
    */

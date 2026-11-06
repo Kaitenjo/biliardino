@@ -20,8 +20,8 @@ function readStoredToy(): boolean {
 }
 
 /**
- * Whether the aquarium of the lobby shows the purple dildo: the one floating in the background and the one a player
- * swims as. Hidden unless chosen.
+ * Whether the purple dildo floats in the background of the aquarium of the lobby. Hidden unless chosen. Only that one:
+ * a player can swim as a dildo anyway.
  */
 export const purpleToy = signal<boolean>(readStoredToy());
 

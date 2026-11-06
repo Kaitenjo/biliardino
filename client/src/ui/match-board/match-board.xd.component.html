@@ -16,14 +16,14 @@
     @for (match of games(); track match().id) {
       <div class="line">
         <span class="date">{ formatDay(match().playedAt) }</span>
-        <span class="team white" [class.lost]="{match().winner === 'brown'}">
+        <span class="team white" [class.lost]="{match().winner !== 'white'}">
           <player-avatar role="link" tabindex="0" icon="{match().white.defense.icon}" label="{match().white.defense.name}"
             (click)="open(match().white.defense.id)" (keydown)="openOnKey($event, match().white.defense.id)" />
           <player-avatar role="link" tabindex="0" icon="{match().white.attack.icon}" label="{match().white.attack.name}"
             (click)="open(match().white.attack.id)" (keydown)="openOnKey($event, match().white.attack.id)" />
         </span>
         <span class="score">{ match().whiteScore } – { match().brownScore }</span>
-        <span class="team brown" [class.lost]="{match().winner !== 'brown'}">
+        <span class="team brown" [class.lost]="{match().winner === 'white'}">
           <player-avatar role="link" tabindex="0" icon="{match().brown.defense.icon}" label="{match().brown.defense.name}"
             (click)="open(match().brown.defense.id)" (keydown)="openOnKey($event, match().brown.defense.id)" />
           <player-avatar role="link" tabindex="0" icon="{match().brown.attack.icon}" label="{match().brown.attack.name}"

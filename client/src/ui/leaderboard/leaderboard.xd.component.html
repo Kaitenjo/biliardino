@@ -110,6 +110,7 @@
                 <span class="form">
                   @for (entry of player().form; track $index()) {
                     <span class="dot" [class.won]="{entry().won}"
+                      (click)="onDotClick($event)"
                       (pointerenter)="showPreview($event, entry(), player().id)" (pointerleave)="hidePreview()">
                       <app-icon name="{entry().role}" />
                     </span>

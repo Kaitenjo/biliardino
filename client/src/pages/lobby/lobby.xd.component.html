@@ -281,7 +281,7 @@
           <span class="team brown">Marroni { 100 - whiteChance() }%</span>
         </p>
         @if (user()) {
-          <form novalidate (submit)="save($event, brownScore.valueAsNumber, whiteScore.valueAsNumber)">
+          <form novalidate (submit)="save($event, whiteScore.valueAsNumber, brownScore.valueAsNumber)">
             <div class="score">
               <div class="gains white" title="Punti ELO a testa se vincono i Bianchi">
                 @for (outcome of whiteWins(); track outcome().brownScore) {

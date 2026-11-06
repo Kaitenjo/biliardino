@@ -60,13 +60,13 @@ export interface MatchmakingContext {
  */
 export interface MatchProposal {
   /**
-   * The brown team.
-   */
-  brown: Lineup<MatchmakingPlayer>;
-  /**
    * The white team.
    */
   white: Lineup<MatchmakingPlayer>;
+  /**
+   * The brown team.
+   */
+  brown: Lineup<MatchmakingPlayer>;
 }
 
 /**
@@ -121,7 +121,7 @@ export function findBestMatch(
   context: MatchmakingContext,
   availableIds: readonly number[],
   priorityIds: readonly number[],
-  avoid?: { brown: Lineup<number>; white: Lineup<number> }
+  avoid?: { white: Lineup<number>; brown: Lineup<number> }
 ): MatchProposal | null {
   if (availableIds.length < 4) {
     return null;
@@ -162,7 +162,7 @@ export function findBestMatch(
           const score = scoreMatch(context, defA, attA, defB, attB, maxEloDiff, maxMatches, maxDiversity);
           if (score > bestScore) {
             bestScore = score;
-            best = { brown: { defense: defA, attack: attA }, white: { defense: defB, attack: attB } };
+            best = { white: { defense: defB, attack: attB }, brown: { defense: defA, attack: attA } };
           }
         }
       }
@@ -182,13 +182,13 @@ export function findBestMatch(
  * @param attB - Its attacker.
  * @returns Whether it is the same.
  */
-function isSame(match: { brown: Lineup<number>; white: Lineup<number> } | undefined, defA: MatchmakingPlayer, attA: MatchmakingPlayer, defB: MatchmakingPlayer, attB: MatchmakingPlayer): boolean {
+function isSame(match: { white: Lineup<number>; brown: Lineup<number> } | undefined, defA: MatchmakingPlayer, attA: MatchmakingPlayer, defB: MatchmakingPlayer, attB: MatchmakingPlayer): boolean {
   if (!match) {
     return false;
   }
 
   const team = (lineup: Lineup<number>, defense: MatchmakingPlayer, attack: MatchmakingPlayer): boolean => lineup.defense === defense.id && lineup.attack === attack.id;
-  return (team(match.brown, defA, attA) && team(match.white, defB, attB)) || (team(match.brown, defB, attB) && team(match.white, defA, attA));
+  return (team(match.white, defB, attB) && team(match.brown, defA, attA)) || (team(match.white, defA, attA) && team(match.brown, defB, attB));
 }
 
 /**

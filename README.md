@@ -96,8 +96,8 @@ Schema in [server/migrations/](server/migrations):
 | `lobby_players` | chi è in ogni lobby, e se è obbligatorio nella prossima partita (`priority`) |
 | `push_subscriptions` | i browser in cui un utente ha attivato le notifiche push |
 | `elo_settings` | le variabili del calcolo dell'ELO (una riga), modificabili dalla pagina ELO |
-| `matches` | punteggio marroni/bianchi (`brown_score`, `white_score`, 0–8), vincitore (`brown`/`white`), probabilità attesa dei bianchi, la prima squadra (`white_expected`, derivata), chi l'ha registrata, data |
-| `match_players` | i 4 giocatori di ogni partita: squadra (`brown`/`white`), ruolo (`attack`/`defense`); derivati: ELO prima, ELO nel ruolo, variazione |
+| `matches` | punteggio bianchi/marroni (`white_score`, `brown_score`, 0–8), vincitore (`white`/`brown`), probabilità attesa dei bianchi, la prima squadra (`white_expected`, derivata), chi l'ha registrata, data |
+| `match_players` | i 4 giocatori di ogni partita: squadra (`white`/`brown`), ruolo (`attack`/`defense`); derivati: ELO prima, ELO nel ruolo, variazione |
 | `player_stats` | derivata: partite, vittorie, goal e forma (ultime 5) di ogni giocatore, in tutto (`all`) e per ruolo |
 | `player_pairs` | derivata: quante volte due giocatori hanno giocato insieme e contro, per il matchmaking |
 
@@ -117,7 +117,9 @@ Le partite nascono dalle **lobby** ([lobby.ts](server/src/lobby/lobby.ts), orari
 | 17:30 | 18:00 | 20:00 |
 
 - All'apertura tutti gli utenti con le notifiche attive ricevono "Lobby aperta". Nella pagina **Lobby** si entra con
-  **Entra in lobby**, e si può uscire e rientrare finché è aperta.
+  **Entra in lobby**, e si può uscire e rientrare finché è aperta. Solo Dario Spinosa entra da solo in ogni lobby
+  appena si apre (può uscire come gli altri); inoltre non si può bannare e non può avere la regola Felix
+  ([privileged-player.ts](server/src/players/privileged-player.ts)).
 - All'orario della partita il matchmaking sceglie la partita migliore tra chi è in lobby, che diventa la partita in corso;
   i 4 giocatori ricevono una notifica. Con meno di 4 persone (o una partita ancora da salvare, o ruoli incompatibili) non
   si genera nulla e chi era in lobby riceve una notifica con il motivo.
@@ -202,7 +204,7 @@ giocatore (streak, compagni e avversari, partite migliori e peggiori, goal) sono
 | POST / DELETE | `/api/push/subscriptions` | ✔ | attiva (`PushSubscription.toJSON()`) o disattiva (`{ endpoint }`) le notifiche di questo browser |
 | DELETE | `/api/matches/running` | ✔ | elimina la partita in corso |
 | PUT | `/api/availability/:playerId` | ✔ | `{ available: boolean }`: se il giocatore è disponibile oggi (si azzera ogni giorno); solo il proprio, il super admin quello di tutti |
-| POST | `/api/matches` | ✔ | `{ brown: { attack, defense }, white: {…}, brownScore, whiteScore }` (0–8, niente pareggi; marroni e bianchi come gli omini) → `{ id, brownDelta, whiteDelta, players }` (`players` come `/api/players`); 409 se nel frattempo è stata salvata un'altra partita |
+| POST | `/api/matches` | ✔ | `{ runningId, white: { attack, defense }, brown: {…}, whiteScore, brownScore }` (0–8, niente pareggi; bianchi e marroni come gli omini) → `{ id, whiteDelta, brownDelta, players }` (`players` come `/api/players`); 409 se nel frattempo è stata salvata un'altra partita |
 | PUT | `/api/admin/roles/:playerId` | admin | `{ attack, defense }`, senza il limite di un cambio al giorno |
 | POST | `/api/admin/recompute` | admin | ricostruisce ELO e statistiche da tutte le partite |
 | POST | `/api/admin/lobby/tick` | admin | porta le lobby in pari con l'orologio, ora o a `{ at }` (per le prove) |

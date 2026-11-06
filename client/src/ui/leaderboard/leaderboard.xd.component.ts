@@ -338,6 +338,10 @@ export class LeaderboardComponent extends CustomElement {
     return `${count} posizioni ${positions > 0 ? 'guadagnate' : 'perse'} oggi`;
   }
 
+  public onDotClick(event: PointerEvent) {
+    event.stopPropagation();
+  }
+
   /**
    * Shows the preview of a match of the form above or below its square.
    *

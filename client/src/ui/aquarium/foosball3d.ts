@@ -9,8 +9,8 @@ import type { Look } from './materials';
   The foosball table in the lounge, low poly, after the classic Italian table: a light oak cabinet whose long sides are
   trapezoids (the ends lean out), white inner walls and a dark green field, black splayed legs joined by an arch at each
   end, chrome rods through black bushings with black handles, a slot with the balls and a bead score counter for each
-  team. Seen from the camera, behind the goal of the brown team, the brown team stands on the
-  right side and the white one on the left.
+  team. Seen from the camera, behind the goal of the brown team, the white team stands on the
+  left side and the brown one on the right.
 */
 
 /**
@@ -399,8 +399,8 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
   const holeColor = new THREE.MeshBasicMaterial({ color: 0x050505 });
   RODS.forEach(([team, count], i) => {
     const x = rodX(i);
-    // The brown team stands on the right side seen from the camera (+z), the white one on the left (-z)
-    const near = team === 'brown' ? 1 : -1;
+    // The white team stands on the left side seen from the camera (-z), the brown one on the right (+z)
+    const near = team === 'white' ? -1 : 1;
     // From inside the far wall to the handle: it doesn't come out on the other side
     const start = -near * (WIDTH / 2 + 0.05);
     const end = near * (WIDTH / 2 + 0.55);
@@ -438,7 +438,7 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
 
     group.add(handle);
 
-    // The little men face the goal of the other team: the brown ones attack to the right
+    // The little men face the goal of the other team: the white ones attack to the left, the brown ones to the right
     const shapes = team === 'white' ? whiteMan : brownMan;
     for (let k = 0; k < count; k++) {
       const z = -WIDTH / 2 + (WIDTH * (k + 1)) / (count + 1);
@@ -448,7 +448,7 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
       }
 
       man.position.set(x, ROD_Y, z);
-      man.rotation.y = team === 'brown' ? 0 : Math.PI;
+      man.rotation.y = team === 'white' ? Math.PI : 0;
       group.add(man);
     }
   });
@@ -461,10 +461,10 @@ export function buildFoosballTable(): { object: THREE.Group; seats: Record<SeatK
     seats: {
       // The two teams face each other across the table, mirrored: the near ones closer to the table, by the
       // near goal, the far ones further along (the white attacker stands by the brown goal, and the other way round)
-      'brown-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, WIDTH / 2 + 0.5),
-      'brown-attack': seat(3, 5, 1),
+      'white-defense': seat(3, 5, -1),
       'white-attack': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, -(WIDTH / 2 + 0.5)),
-      'white-defense': seat(3, 5, -1)
+      'brown-attack': seat(3, 5, 1),
+      'brown-defense': new THREE.Vector3(rodX(0) - 0.35, ROD_Y + 0.35, WIDTH / 2 + 0.5)
     }
   };
 }

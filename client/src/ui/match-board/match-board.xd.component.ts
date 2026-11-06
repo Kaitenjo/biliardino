@@ -58,7 +58,7 @@ export class MatchBoardComponent extends CustomElement {
       return match.eloDelta;
     }
 
-    return match.winner === 'brown' ? match.brownDelta : match.whiteDelta;
+    return match.winner === 'white' ? match.whiteDelta : match.brownDelta;
   }
 
   /**

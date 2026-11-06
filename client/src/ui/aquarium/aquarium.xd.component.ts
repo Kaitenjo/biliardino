@@ -4,6 +4,7 @@ import type { InputSignal, QuerySignal } from '@xaendar/core/signals';
 import type { LeaderboardEntry, LobbyPlayer, MatchPlayer, PlayerDetail, RankingMode, RunningMatch } from '../../core/api/api.models';
 import { ranks } from '../../core/ranks/ranks';
 import { cameraTransitions } from '../../core/settings/camera';
+import { penisFish } from '../../core/settings/penis-fish';
 import { quality } from '../../core/settings/quality';
 import { purpleToy } from '../../core/settings/toy';
 import type { SeatKey } from './foosball3d';
@@ -179,11 +180,12 @@ export class AquariumComponent extends CustomElement {
       const travels = cameraTransitions();
       untracked(() => this._scene?.setTravels(travels));
     });
-    // Another quality, or the purple dildo shown or hidden: the scene is built again, with or without what only decorates
-    // it
+    // Another quality, the purple dildo shown or hidden, the players as penises or fish: the scene is built again, with or
+    // without what only decorates it
     this.effect(() => {
       quality();
       purpleToy();
+      penisFish();
       untracked(() => {
         if (this._scene) {
           this._createScene();
@@ -222,13 +224,20 @@ export class AquariumComponent extends CustomElement {
   }
 
   /**
-   * Creates the scene, at the quality and with or without the purple dildo as chosen on this device, in place of the one
-   * there is, and gives it all it shows.
+   * Creates the scene, at the quality, with or without the purple dildo and with fish or penises as chosen on this device,
+   * in place of the one there is, and gives it all it shows.
    */
   private _createScene(): void {
     this._scene?.dispose();
     // Its canvas goes first in the box, under the names
-    this._scene = this._sceneClass!.create(this.water(), this.labels(), matchMedia('(prefers-reduced-motion: reduce)').matches, untracked(quality), untracked(purpleToy));
+    this._scene = this._sceneClass!.create(
+      this.water(),
+      this.labels(),
+      matchMedia('(prefers-reduced-motion: reduce)').matches,
+      untracked(quality),
+      untracked(purpleToy),
+      untracked(penisFish)
+    );
     this._scene.onChartHover = hover => this.chartHover.set(hover);
     this._scene.setTravels(untracked(cameraTransitions));
     const water = this.water();
@@ -286,10 +295,10 @@ export class AquariumComponent extends CustomElement {
     }
 
     return [
-      { key: 'brown-defense', side: 'brown', role: 'Difesa', player: match.brown.defense },
-      { key: 'brown-attack', side: 'brown', role: 'Attacco', player: match.brown.attack },
+      { key: 'white-defense', side: 'white', role: 'Difesa', player: match.white.defense },
       { key: 'white-attack', side: 'white', role: 'Attacco', player: match.white.attack },
-      { key: 'white-defense', side: 'white', role: 'Difesa', player: match.white.defense }
+      { key: 'brown-attack', side: 'brown', role: 'Attacco', player: match.brown.attack },
+      { key: 'brown-defense', side: 'brown', role: 'Difesa', player: match.brown.defense }
     ];
   }
 }

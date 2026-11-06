@@ -5,6 +5,7 @@ import { all, get, run } from '../db/db.ts';
 import { loadEloConfig, parseEloConfig, START_ELO_LIMITS } from '../elo/elo-config.ts';
 import { DEFAULT_ELO_CONFIG } from '../elo/elo.ts';
 import { recomputeRatings } from '../elo/ratings.ts';
+import { PRIVILEGED_PLAYER } from '../players/privileged-player.ts';
 import { listRanks, RANK_LIMITS, saveRanks } from '../players/ranks.ts';
 import { getLobbyState, removeBannedPlayer, tick } from '../lobby/lobby.ts';
 import { readBody } from './read-body.ts';
@@ -17,6 +18,10 @@ interface PlayerFlags {
   name: string;
   icon: string;
   isAdmin: boolean;
+  /**
+   * Whether it is `PRIVILEGED_PLAYER`, who can't be banned nor have the Felix rule.
+   */
+  privileged: boolean;
   banned: boolean;
   felixRule: boolean;
 }
@@ -27,10 +32,17 @@ interface PlayerFlags {
  * @returns The players.
  */
 async function listPlayerFlags(): Promise<PlayerFlags[]> {
-  const rows = await all<{ id: number; name: string; icon: string; isAdmin: number; banned: number; felixRule: number }>(
-    'SELECT id, name, icon, is_admin AS isAdmin, banned, felix_rule AS felixRule FROM players ORDER BY name'
+  const rows = await all<{ id: number; name: string; icon: string; isAdmin: number; privileged: number; banned: number; felixRule: number }>(
+    'SELECT id, name, icon, is_admin AS isAdmin, name = ? AS privileged, banned, felix_rule AS felixRule FROM players ORDER BY name',
+    PRIVILEGED_PLAYER
   );
-  return rows.map(row => ({ ...row, isAdmin: Boolean(row.isAdmin), banned: Boolean(row.banned), felixRule: Boolean(row.felixRule) }));
+  return rows.map(row => ({
+    ...row,
+    isAdmin: Boolean(row.isAdmin),
+    privileged: Boolean(row.privileged),
+    banned: Boolean(row.banned),
+    felixRule: Boolean(row.felixRule)
+  }));
 }
 
 /**
@@ -103,14 +115,19 @@ adminRouter.post('/recompute', async c => {
 // - a banned player can't log in, is refused on any request, is taken out of the lobby and, if in the match to play,
 //   the match is generated again without it;
 // - a player with the Felix rule earns half the points when it wins and loses twice as many when it loses, in the
-//   matches saved from now on: each match keeps the rule the player had, so the past ones never change
+//   matches saved from now on: each match keeps the rule the player had, so the past ones never change.
+// The super admin can't be banned; PRIVILEGED_PLAYER can't be banned nor have the Felix rule.
 adminRouter.get('/players', async c => c.json({ players: await listPlayerFlags() }));
 
 adminRouter.put('/players/:playerId', async c => {
   const playerId = Number(c.req.param('playerId'));
   const { banned, felixRule } = await readBody(c);
   const player = Number.isInteger(playerId)
-    ? await get<{ isAdmin: number; banned: number; felixRule: number }>('SELECT is_admin AS isAdmin, banned, felix_rule AS felixRule FROM players WHERE id = ?', playerId)
+    ? await get<{ name: string; isAdmin: number; privileged: number; banned: number; felixRule: number }>(
+        'SELECT name, is_admin AS isAdmin, name = ? AS privileged, banned, felix_rule AS felixRule FROM players WHERE id = ?',
+        PRIVILEGED_PLAYER,
+        playerId
+      )
     : undefined;
   if (!player) {
     return c.json({ error: 'Giocatore non trovato' }, 404);
@@ -121,6 +138,10 @@ adminRouter.put('/players/:playerId', async c => {
   }
 
   if (banned !== undefined && banned !== Boolean(player.banned)) {
+    if (banned && player.privileged) {
+      return c.json({ error: `${player.name} non si può bannare` }, 400);
+    }
+
     if (banned && player.isAdmin) {
       return c.json({ error: "L'amministratore non si può bannare" }, 400);
     }
@@ -132,6 +153,10 @@ adminRouter.put('/players/:playerId', async c => {
   }
 
   if (felixRule !== undefined && felixRule !== Boolean(player.felixRule)) {
+    if (felixRule && player.privileged) {
+      return c.json({ error: `${player.name} non può avere la regola Felix` }, 400);
+    }
+
     await run('UPDATE players SET felix_rule = ? WHERE id = ?', felixRule ? 1 : 0, playerId);
   }
 

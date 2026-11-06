@@ -41,7 +41,7 @@
     <label class="option">
       <span class="text">
         <app-icon name="eye" />
-        Dildo viola nella lobby
+        Dildo viola che galleggia nella lobby
       </span>
       <input
         type="checkbox"
@@ -51,6 +51,21 @@
           checked
         }
         (change)="toggleToy()"
+      />
+    </label>
+    <label class="option">
+      <span class="text">
+        <app-icon name="flame" />
+        Pesci della lobby come peni
+      </span>
+      <input
+        type="checkbox"
+        role="switch"
+        class="switch"
+        @if (penises()) {
+          checked
+        }
+        (change)="togglePenises()"
       />
     </label>
   </div>

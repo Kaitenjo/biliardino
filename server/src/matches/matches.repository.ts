@@ -15,33 +15,33 @@ export interface MatchSummary {
    */
   playedAt: string;
   /**
-   * Goals of the brown team.
-   */
-  brownScore: number;
-  /**
    * Goals of the white team.
    */
   whiteScore: number;
+  /**
+   * Goals of the brown team.
+   */
+  brownScore: number;
   /**
    * The winning team.
    */
   winner: Team;
   /**
-   * The brown team.
-   */
-  brown: Lineup<PlayerRef>;
-  /**
    * The white team.
    */
   white: Lineup<PlayerRef>;
   /**
-   * Change of ELO of each brown player, rounded.
+   * The brown team.
    */
-  brownDelta: number;
+  brown: Lineup<PlayerRef>;
   /**
    * Change of ELO of each white player, rounded.
    */
   whiteDelta: number;
+  /**
+   * Change of ELO of each brown player, rounded.
+   */
+  brownDelta: number;
 }
 
 /**
@@ -72,23 +72,23 @@ export interface MatchPage {
 interface MatchSummaryRow {
   id: number;
   playedAt: string;
-  brownScore: number;
   whiteScore: number;
+  brownScore: number;
   winner: Team;
-  brownAttackId: number;
-  brownAttackName: string | null;
-  brownAttackIcon: string | null;
-  brownDefenseId: number;
-  brownDefenseName: string | null;
-  brownDefenseIcon: string | null;
   whiteAttackId: number;
   whiteAttackName: string | null;
   whiteAttackIcon: string | null;
   whiteDefenseId: number;
   whiteDefenseName: string | null;
   whiteDefenseIcon: string | null;
-  brownDelta: number;
+  brownAttackId: number;
+  brownAttackName: string | null;
+  brownAttackIcon: string | null;
+  brownDefenseId: number;
+  brownDefenseName: string | null;
+  brownDefenseIcon: string | null;
   whiteDelta: number;
+  brownDelta: number;
 }
 
 /**
@@ -104,17 +104,17 @@ export async function listMatches(page: number, pageSize: number): Promise<Match
      LEFT JOIN players ${alias}p ON ${alias}p.id = ${alias}.player_id`;
   const [rows, count] = await Promise.all([
     all<MatchSummaryRow>(
-      `SELECT m.id, m.played_at AS playedAt, m.brown_score AS brownScore, m.white_score AS whiteScore, m.winner,
-         ra.player_id AS brownAttackId, rap.name AS brownAttackName, rap.icon AS brownAttackIcon,
-         rd.player_id AS brownDefenseId, rdp.name AS brownDefenseName, rdp.icon AS brownDefenseIcon,
-         ba.player_id AS whiteAttackId, bap.name AS whiteAttackName, bap.icon AS whiteAttackIcon,
-         bd.player_id AS whiteDefenseId, bdp.name AS whiteDefenseName, bdp.icon AS whiteDefenseIcon,
-         rd.elo_delta AS brownDelta, bd.elo_delta AS whiteDelta
+      `SELECT m.id, m.played_at AS playedAt, m.white_score AS whiteScore, m.brown_score AS brownScore, m.winner,
+         wa.player_id AS whiteAttackId, wap.name AS whiteAttackName, wap.icon AS whiteAttackIcon,
+         wd.player_id AS whiteDefenseId, wdp.name AS whiteDefenseName, wdp.icon AS whiteDefenseIcon,
+         ba.player_id AS brownAttackId, bap.name AS brownAttackName, bap.icon AS brownAttackIcon,
+         bd.player_id AS brownDefenseId, bdp.name AS brownDefenseName, bdp.icon AS brownDefenseIcon,
+         wd.elo_delta AS whiteDelta, bd.elo_delta AS brownDelta
        FROM matches m
-       ${slot('ra', 'brown', 'attack')}
-       ${slot('rd', 'brown', 'defense')}
-       ${slot('ba', 'white', 'attack')}
-       ${slot('bd', 'white', 'defense')}
+       ${slot('wa', 'white', 'attack')}
+       ${slot('wd', 'white', 'defense')}
+       ${slot('ba', 'brown', 'attack')}
+       ${slot('bd', 'brown', 'defense')}
        ORDER BY m.played_at DESC, m.id DESC
        LIMIT ? OFFSET ?`,
       pageSize,
@@ -126,19 +126,19 @@ export async function listMatches(page: number, pageSize: number): Promise<Match
   const matches = rows.map(row => ({
     id: row.id,
     playedAt: row.playedAt,
-    brownScore: row.brownScore,
     whiteScore: row.whiteScore,
+    brownScore: row.brownScore,
     winner: row.winner,
-    brown: {
-      attack: toRef(row.brownAttackId, row.brownAttackName, row.brownAttackIcon),
-      defense: toRef(row.brownDefenseId, row.brownDefenseName, row.brownDefenseIcon)
-    },
     white: {
       attack: toRef(row.whiteAttackId, row.whiteAttackName, row.whiteAttackIcon),
       defense: toRef(row.whiteDefenseId, row.whiteDefenseName, row.whiteDefenseIcon)
     },
-    brownDelta: Math.round(row.brownDelta),
-    whiteDelta: Math.round(row.whiteDelta)
+    brown: {
+      attack: toRef(row.brownAttackId, row.brownAttackName, row.brownAttackIcon),
+      defense: toRef(row.brownDefenseId, row.brownDefenseName, row.brownDefenseIcon)
+    },
+    whiteDelta: Math.round(row.whiteDelta),
+    brownDelta: Math.round(row.brownDelta)
   }));
 
   return { matches, page, pageSize, total: count?.total ?? 0 };

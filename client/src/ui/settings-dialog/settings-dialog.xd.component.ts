@@ -2,12 +2,14 @@ import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { computed } from '@xaendar/core/signals';
 import type { QuerySignal } from '@xaendar/core/signals';
 import { cameraTransitions, setCameraTransitions } from '../../core/settings/camera';
+import { penisFish, setPenisFish } from '../../core/settings/penis-fish';
 import { quality, setQuality } from '../../core/settings/quality';
 import { purpleToy, setPurpleToy } from '../../core/settings/toy';
 
 /**
- * The modal with the settings of this device: the quality of the 3D scene, the travel of its camera and whether the
- * aquarium of the lobby shows the purple dildo. Opened from the menu of the user with `open()`.
+ * The modal with the settings of this device: the quality of the 3D scene, the travel of its camera, whether the
+ * purple dildo floats in the aquarium of the lobby and whether its fish are penises. Opened from the menu of the user
+ * with `open()`.
  */
 @WebComponent({
   selector: 'settings-dialog',
@@ -24,9 +26,13 @@ export class SettingsDialogComponent extends CustomElement {
    */
   public readonly transitions = cameraTransitions;
   /**
-   * Whether the aquarium shows the purple dildo.
+   * Whether the purple dildo floats in the aquarium.
    */
   public readonly toy = purpleToy;
+  /**
+   * Whether the creatures of the aquarium are penises.
+   */
+  public readonly penises = penisFish;
 
   /**
    * The modal.
@@ -78,5 +84,12 @@ export class SettingsDialogComponent extends CustomElement {
    */
   public toggleToy(): void {
     setPurpleToy(!this.toy());
+  }
+
+  /**
+   * Turns the creatures of the aquarium into penises, or back into fish.
+   */
+  public togglePenises(): void {
+    setPenisFish(!this.penises());
   }
 }

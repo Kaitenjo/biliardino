@@ -15,10 +15,11 @@ import type { Look } from './materials';
 /**
  * The species of the aquarium.
  */
-export type Species = 'clown' | 'tang' | 'puffer' | 'angel' | 'gold' | 'shark' | 'betta' | 'octopus' | 'sole' | 'sardine' | 'tuna' | 'dildo';
+export type Species = 'clown' | 'tang' | 'puffer' | 'angel' | 'gold' | 'shark' | 'betta' | 'octopus' | 'sole' | 'sardine' | 'tuna' | 'dildo' | 'penis';
 
 /**
- * Every species: each player gets one at random, all different while possible.
+ * Every species a player gets at random, all different while possible. The penis is not among them: it is everybody's
+ * when chosen in the settings, nobody's otherwise.
  */
 export const SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'angel', 'gold', 'shark', 'betta', 'octopus', 'sole', 'sardine', 'tuna', 'dildo'];
 
@@ -422,6 +423,49 @@ function buildDildo(): Creature {
 }
 
 /**
+ * A penis as a creature, low poly like the rest: lying down, its head forward, it wags around its middle as it swims,
+ * like the dildo.
+ *
+ * @returns The creature.
+ */
+function buildPenis(): Creature {
+  const skin = material(0xe0a98a, { roughness: 0.55 });
+  const tip = material(0xd47a80, { roughness: 0.4 });
+  // Built standing, then laid down with its head towards +x: the shaft, the head a bit wider than it, the two balls
+  const body = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.34, 1.9, detail(8, 12)), skin);
+  shaft.position.y = 1.35;
+  body.add(shaft);
+  const headProfile = [[0, 0], [0.38, 0.03], [0.37, 0.14], [0.31, 0.3], [0.21, 0.42], [0.09, 0.49], [0, 0.51]].map(([radius, y]) => new THREE.Vector2(radius!, y!));
+  const head = new THREE.Mesh(new THREE.LatheGeometry(headProfile, detail(8, 12)), tip);
+  head.position.y = 2.27;
+  body.add(head);
+  for (const x of [-0.3, 0.3]) {
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.36, detail(7, 10), detail(5, 7)), skin);
+    ball.position.set(x, 0.32, 0.1);
+    body.add(ball);
+  }
+
+  body.scale.setScalar(0.45);
+  body.rotation.z = -Math.PI / 2;
+  body.position.x = -0.62;
+  const pivot = new THREE.Group();
+  pivot.add(body);
+  const group = new THREE.Group();
+  group.add(pivot);
+  const phase = Math.random() * 10;
+  return {
+    object: group,
+    motion: 'swim',
+    speed: 0.9,
+    height: 0.7,
+    animate(time, pace) {
+      pivot.rotation.y = Math.sin(time * (3 + pace * 5) + phase) * (0.12 + pace * 0.14);
+    }
+  };
+}
+
+/**
  * Builds a creature of a species, its parts drawn in batches.
  *
  * @param species - The species.
@@ -538,6 +582,8 @@ function buildSpecies(species: Species): Creature {
     }
     case 'dildo':
       return buildDildo();
+    case 'penis':
+      return buildPenis();
     case 'tuna': {
       const fish = buildFish({
         length: 1.05, height: 0.32, width: 0.3, fin: 0x1e3a8a, tail: 'crescent', tailSize: 0.42, dorsal: 0.3, anal: 0.16, eye: 0.06,

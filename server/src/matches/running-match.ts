@@ -23,21 +23,21 @@ export interface MatchView {
    */
   id: number;
   /**
-   * The brown team.
-   */
-  brown: Lineup<MatchPlayer>;
-  /**
    * The white team.
    */
   white: Lineup<MatchPlayer>;
   /**
-   * ELO of the brown team: the average of its players in their roles.
+   * The brown team.
    */
-  brownElo: number;
+  brown: Lineup<MatchPlayer>;
   /**
-   * ELO of the white team.
+   * ELO of the white team: the average of its players in their roles.
    */
   whiteElo: number;
+  /**
+   * ELO of the brown team.
+   */
+  brownElo: number;
   /**
    * Probability that the white team wins.
    */
@@ -62,21 +62,21 @@ export interface MatchView {
  */
 export interface MatchOutcome {
   /**
-   * Goals of the brown team.
-   */
-  brownScore: number;
-  /**
    * Goals of the white team.
    */
   whiteScore: number;
   /**
-   * Change of ELO of each brown player, rounded.
+   * Goals of the brown team.
    */
-  brownDelta: number;
+  brownScore: number;
   /**
    * Change of ELO of each white player, rounded.
    */
   whiteDelta: number;
+  /**
+   * Change of ELO of each brown player, rounded.
+   */
+  brownDelta: number;
 }
 
 /**
@@ -106,14 +106,6 @@ interface RunningRow {
    */
   id: number;
   /**
-   * Id of the brown attacker.
-   */
-  brownAttack: number;
-  /**
-   * Id of the brown defender.
-   */
-  brownDefense: number;
-  /**
    * Id of the white attacker.
    */
   whiteAttack: number;
@@ -121,6 +113,14 @@ interface RunningRow {
    * Id of the white defender.
    */
   whiteDefense: number;
+  /**
+   * Id of the brown attacker.
+   */
+  brownAttack: number;
+  /**
+   * Id of the brown defender.
+   */
+  brownDefense: number;
   /**
    * When it was generated.
    */
@@ -138,8 +138,8 @@ interface RunningRow {
  */
 export async function getRunningMatch(): Promise<MatchView | null> {
   const row = await get<RunningRow>(
-    `SELECT r.id, r.brown_attack AS brownAttack, r.brown_defense AS brownDefense, r.white_attack AS whiteAttack,
-       r.white_defense AS whiteDefense, r.created_at AS createdAt, p.name AS generatedBy
+    `SELECT r.id, r.white_attack AS whiteAttack, r.white_defense AS whiteDefense, r.brown_attack AS brownAttack,
+       r.brown_defense AS brownDefense, r.created_at AS createdAt, p.name AS generatedBy
      FROM running_match r
      LEFT JOIN users u ON u.id = r.created_by
      LEFT JOIN players p ON p.id = u.player_id`
@@ -150,19 +150,19 @@ export async function getRunningMatch(): Promise<MatchView | null> {
 /**
  * Stores a generated match as the match to play. The caller checks there is none.
  *
- * @param brown - The ids of the brown players.
  * @param white - The ids of the white players.
+ * @param brown - The ids of the brown players.
  * @param userId - The user who generated it, `null` for the automatic match of a lobby.
  * @returns The new match to play, `null` when somebody else stored one in the meantime (the table holds only one).
  */
-export async function setRunningMatch(brown: Lineup<number>, white: Lineup<number>, userId: number | null): Promise<MatchView | null> {
+export async function setRunningMatch(white: Lineup<number>, brown: Lineup<number>, userId: number | null): Promise<MatchView | null> {
   try {
     await run(
-      'INSERT INTO running_match (brown_attack, brown_defense, white_attack, white_defense, created_by) VALUES (?, ?, ?, ?, ?)',
-      brown.attack,
-      brown.defense,
+      'INSERT INTO running_match (white_attack, white_defense, brown_attack, brown_defense, created_by) VALUES (?, ?, ?, ?, ?)',
       white.attack,
       white.defense,
+      brown.attack,
+      brown.defense,
       userId
     );
   } catch {
@@ -187,33 +187,34 @@ export async function clearRunningMatch(): Promise<void> {
  * @returns The view, `null` when one of its players doesn't exist anymore.
  */
 async function viewOf(row: RunningRow): Promise<MatchView | null> {
-  const [brownAttack, brownDefense, whiteAttack, whiteDefense, config] = await Promise.all([
-    findRatedPlayer(row.brownAttack, 'attack'),
-    findRatedPlayer(row.brownDefense, 'defense'),
+  const [whiteAttack, whiteDefense, brownAttack, brownDefense, config] = await Promise.all([
     findRatedPlayer(row.whiteAttack, 'attack'),
     findRatedPlayer(row.whiteDefense, 'defense'),
+    findRatedPlayer(row.brownAttack, 'attack'),
+    findRatedPlayer(row.brownDefense, 'defense'),
     loadEloConfig()
   ]);
-  if (!brownAttack || !brownDefense || !whiteAttack || !whiteDefense) {
+  
+  if (!whiteAttack || !whiteDefense || !brownAttack || !brownDefense) {
     return null;
   }
 
-  const brown = { attack: brownAttack, defense: brownDefense };
   const white = { attack: whiteAttack, defense: whiteDefense };
-  const brownElo = (brown.attack.eloAttack + brown.defense.eloDefense) / 2;
+  const brown = { attack: brownAttack, defense: brownDefense };
   const whiteElo = (white.attack.eloAttack + white.defense.eloDefense) / 2;
-  const brownPlayers = { attack: toEloPlayer(brown.attack, 'attack'), defense: toEloPlayer(brown.defense, 'defense') };
+  const brownElo = (brown.attack.eloAttack + brown.defense.eloDefense) / 2;
   const whitePlayers = { attack: toEloPlayer(white.attack, 'attack'), defense: toEloPlayer(white.defense, 'defense') };
-  const outcomes = ([[8, 0], [8, 7], [0, 8], [7, 8]] as const).map(([brownScore, whiteScore]) => {
-    const result = computeMatchElo(brownPlayers, whitePlayers, brownScore, whiteScore, config);
-    return { brownScore, whiteScore, brownDelta: roundAwayFromZero(result.brownDelta), whiteDelta: roundAwayFromZero(result.whiteDelta) };
+  const brownPlayers = { attack: toEloPlayer(brown.attack, 'attack'), defense: toEloPlayer(brown.defense, 'defense') };
+  const outcomes = ([[8, 0], [8, 7], [0, 8], [7, 8]] as const).map(([whiteScore, brownScore]) => {
+    const result = computeMatchElo(whitePlayers, brownPlayers, whiteScore, brownScore, config);
+    return { whiteScore, brownScore, whiteDelta: roundAwayFromZero(result.whiteDelta), brownDelta: roundAwayFromZero(result.brownDelta) };
   });
   return {
     id: row.id,
-    brown: { attack: toMatchPlayer(brown.attack, 'attack'), defense: toMatchPlayer(brown.defense, 'defense') },
     white: { attack: toMatchPlayer(white.attack, 'attack'), defense: toMatchPlayer(white.defense, 'defense') },
-    brownElo: Math.round(brownElo),
+    brown: { attack: toMatchPlayer(brown.attack, 'attack'), defense: toMatchPlayer(brown.defense, 'defense') },
     whiteElo: Math.round(whiteElo),
+    brownElo: Math.round(brownElo),
     whiteWinProbability: expectedScore(whiteElo, brownElo, config),
     createdAt: row.createdAt,
     generatedBy: row.generatedBy,

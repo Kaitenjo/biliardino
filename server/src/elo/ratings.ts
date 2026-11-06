@@ -15,13 +15,13 @@ export interface RecordedMatch {
    */
   id: number;
   /**
-   * Change of ELO of each brown player, rounded.
-   */
-  brownDelta: number;
-  /**
    * Change of ELO of each white player, rounded.
    */
   whiteDelta: number;
+  /**
+   * Change of ELO of each brown player, rounded.
+   */
+  brownDelta: number;
 }
 
 /**
@@ -47,7 +47,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
   const records = new Map<number, PlayerRecords>();
   const [playerRows, matches, lineupRows] = await Promise.all([
     all<{ id: number; startElo: number }>('SELECT id, start_elo AS startElo FROM players'),
-    all<{ id: number; brownScore: number; whiteScore: number }>('SELECT id, brown_score AS brownScore, white_score AS whiteScore FROM matches ORDER BY played_at, id'),
+    all<{ id: number; whiteScore: number; brownScore: number }>('SELECT id, white_score AS whiteScore, brown_score AS brownScore FROM matches ORDER BY played_at, id'),
     all<{ matchId: number; playerId: number; team: Team; role: Role; felixRule: number }>(
       'SELECT match_id AS matchId, player_id AS playerId, team, role, felix_rule AS felixRule FROM match_players'
     )
@@ -61,7 +61,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
 
   // The Felix rule is the one each player had when the match was saved, not its current one: "match id-player id"
   const felix = new Set<string>();
-  const lineups = new Map<number, { brown: Partial<Lineup<number>>; white: Partial<Lineup<number>> }>();
+  const lineups = new Map<number, { white: Partial<Lineup<number>>; brown: Partial<Lineup<number>> }>();
   for (let i = 0; i < lineupRows.length; i++) {
     const { matchId, playerId, team, role, felixRule } = lineupRows[i]!;
     if (felixRule) {
@@ -70,7 +70,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
 
     let lineup = lineups.get(matchId);
     if (!lineup) {
-      lineup = { brown: {}, white: {} };
+      lineup = { white: {}, brown: {} };
       lineups.set(matchId, lineup);
     }
 
@@ -85,20 +85,20 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]!;
     const ids = lineups.get(match.id);
-    const brown = ids && resolveLineup(ids.brown, players);
     const white = ids && resolveLineup(ids.white, players);
-    if (!ids || !brown || !white) {
+    const brown = ids && resolveLineup(ids.brown, players);
+    if (!ids || !white || !brown) {
       console.warn(`Partita ${match.id} ignorata nel calcolo dell'ELO: formazione incompleta`);
       continue;
     }
 
-    const result = computeMatchElo(brown, white, match.brownScore, match.whiteScore, config);
+    const result = computeMatchElo(white, brown, match.whiteScore, match.brownScore, config);
     matchUpdates.push([match.id, result.whiteExpected]);
-    for (const team of ['brown', 'white'] as const) {
-      const teamDelta = team === 'brown' ? result.brownDelta : result.whiteDelta;
-      const [goalsFor, goalsAgainst] = team === 'brown' ? [match.brownScore, match.whiteScore] : [match.whiteScore, match.brownScore];
+    for (const team of ['white', 'brown'] as const) {
+      const teamDelta = team === 'white' ? result.whiteDelta : result.brownDelta;
+      const [goalsFor, goalsAgainst] = team === 'white' ? [match.whiteScore, match.brownScore] : [match.brownScore, match.whiteScore];
       for (const role of ['attack', 'defense'] as const) {
-        const player = team === 'brown' ? brown[role] : white[role];
+        const player = team === 'white' ? white[role] : brown[role];
         const playerId = ids[team][role]!;
         const delta = playerDelta(felix.has(`${match.id}-${playerId}`), teamDelta);
         matchPlayerUpdates.push([match.id, playerId, player.elo, player.elo, delta]);
@@ -106,7 +106,7 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
       }
     }
 
-    const matchPairs = pairsOf({ brown: ids.brown as Lineup<number>, white: ids.white as Lineup<number> });
+    const matchPairs = pairsOf({ white: ids.white as Lineup<number>, brown: ids.brown as Lineup<number> });
     for (let j = 0; j < matchPairs.length; j++) {
       const pair = matchPairs[j]!;
       const key = `${pair.playerId}-${pair.otherId}`;
@@ -120,10 +120,10 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
     }
 
     // The four players are updated only once the match is computed: each one entered it with its previous ELO
-    for (const team of ['brown', 'white'] as const) {
-      const teamDelta = team === 'brown' ? result.brownDelta : result.whiteDelta;
+    for (const team of ['white', 'brown'] as const) {
+      const teamDelta = team === 'white' ? result.whiteDelta : result.brownDelta;
       for (const role of ['attack', 'defense'] as const) {
-        const player = team === 'brown' ? brown[role] : white[role];
+        const player = team === 'white' ? white[role] : brown[role];
         player.elo += playerDelta(felix.has(`${match.id}-${ids[team][role]!}`), teamDelta);
         player.matches++;
       }
@@ -172,10 +172,10 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
  * play, in one transaction. The result is the one `recomputeRatings` would give.
  *
  * @param runningId - The id of the match to play whose result this is: only one save can end it.
- * @param brown - The ids of the brown players.
  * @param white - The ids of the white players.
- * @param brownScore - Goals of the brown team.
+ * @param brown - The ids of the brown players.
  * @param whiteScore - Goals of the white team.
+ * @param brownScore - Goals of the brown team.
  * @param userId - The user who saves it.
  * @returns The match with the changes of ELO; `'unknown-player'` when a player doesn't exist, `'not-running'` when the
  * match to play is not that one anymore (somebody else saved or deleted it), `'conflict'` when another match was saved
@@ -183,13 +183,13 @@ export async function recomputeRatings(change?: { config: EloConfig; startElo?: 
  */
 export async function recordMatch(
   runningId: number,
-  brown: Lineup<number>,
   white: Lineup<number>,
-  brownScore: number,
+  brown: Lineup<number>,
   whiteScore: number,
+  brownScore: number,
   userId: number
 ): Promise<RecordedMatch | 'unknown-player' | 'not-running' | 'conflict'> {
-  const ids = [brown.attack, brown.defense, white.attack, white.defense];
+  const ids = [white.attack, white.defense, brown.attack, brown.defense];
   const marks = ids.map(() => '?').join(', ');
   const config = await loadEloConfig();
   // One read transaction: the match to play, the last match and the state it left
@@ -221,20 +221,20 @@ export async function recordMatch(
     const player = players.get(id)!;
     return { elo: role === 'attack' ? player.eloAttack : player.eloDefense, matches: records.get(id)![role].matches };
   };
-  const brownPlayers = { attack: inRole(brown.attack, 'attack'), defense: inRole(brown.defense, 'defense') };
   const whitePlayers = { attack: inRole(white.attack, 'attack'), defense: inRole(white.defense, 'defense') };
-  const result = computeMatchElo(brownPlayers, whitePlayers, brownScore, whiteScore, config);
+  const brownPlayers = { attack: inRole(brown.attack, 'attack'), defense: inRole(brown.defense, 'defense') };
+  const result = computeMatchElo(whitePlayers, brownPlayers, whiteScore, brownScore, config);
 
   // [player id, team, role, ELO before, ELO in the role, change, Felix rule]: the rule the player has now stays with the
   // match, also if it is turned off or on later
   const matchPlayers: Array<[number, Team, Role, number, number, number, number]> = [];
   const elos = new Map<number, Lineup<number>>();
-  for (const team of ['brown', 'white'] as const) {
-    const teamDelta = team === 'brown' ? result.brownDelta : result.whiteDelta;
-    const [goalsFor, goalsAgainst] = team === 'brown' ? [brownScore, whiteScore] : [whiteScore, brownScore];
+  for (const team of ['white', 'brown'] as const) {
+    const teamDelta = team === 'white' ? result.whiteDelta : result.brownDelta;
+    const [goalsFor, goalsAgainst] = team === 'white' ? [whiteScore, brownScore] : [brownScore, whiteScore];
     for (const role of ['attack', 'defense'] as const) {
-      const id = (team === 'brown' ? brown : white)[role];
-      const before = (team === 'brown' ? brownPlayers : whitePlayers)[role].elo;
+      const id = (team === 'white' ? white : brown)[role];
+      const before = (team === 'white' ? whitePlayers : brownPlayers)[role].elo;
       const player = players.get(id)!;
       const delta = playerDelta(Boolean(player.felixRule), teamDelta);
       matchPlayers.push([id, team, role, before, before, delta, player.felixRule ? 1 : 0]);
@@ -254,10 +254,10 @@ export async function recordMatch(
         runningId
       ),
       statement(
-        'INSERT INTO matches (brown_score, white_score, winner, white_expected, created_by) VALUES (?, ?, ?, ?, ?) RETURNING id',
-        brownScore,
+        'INSERT INTO matches (white_score, brown_score, winner, white_expected, created_by) VALUES (?, ?, ?, ?, ?) RETURNING id',
         whiteScore,
-        brownScore > whiteScore ? 'brown' : 'white',
+        brownScore,
+        whiteScore > brownScore ? 'white' : 'brown',
         result.whiteExpected,
         userId
       ),
@@ -275,7 +275,7 @@ export async function recordMatch(
         JSON.stringify([...elos].map(([id, elo]) => [id, elo.attack, elo.defense]))
       ),
       storeRecords(records),
-      addPairs(pairsOf({ brown, white })),
+      addPairs(pairsOf({ white, brown })),
       statement('DELETE FROM running_match')
     ]);
   } catch (error) {
@@ -288,8 +288,8 @@ export async function recordMatch(
 
   return {
     id: (saved[1]!.results[0] as { id: number }).id,
-    brownDelta: roundAwayFromZero(result.brownDelta),
-    whiteDelta: roundAwayFromZero(result.whiteDelta)
+    whiteDelta: roundAwayFromZero(result.whiteDelta),
+    brownDelta: roundAwayFromZero(result.brownDelta)
   };
 }
 

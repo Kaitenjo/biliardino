@@ -655,28 +655,28 @@ export class LobbyPage extends CustomElement {
    * Asks, in the panel, to confirm the result of the match to play.
    *
    * @param event - The submission of the form.
-   * @param brownScore - Goals of the brown team.
    * @param whiteScore - Goals of the white team.
+   * @param brownScore - Goals of the brown team.
    */
-  public async save(event: SubmitEvent, brownScore: number, whiteScore: number): Promise<void> {
+  public async save(event: SubmitEvent, whiteScore: number, brownScore: number): Promise<void> {
     event.preventDefault();
     if (!this.running()) {
       return;
     }
 
-    if (!this._isScore(brownScore) || !this._isScore(whiteScore)) {
+    if (!this._isScore(whiteScore) || !this._isScore(brownScore)) {
       this.error.set('Inserisci i goal di entrambe le squadre, da 0 a 8');
       return;
     }
 
     // The match ends when a team scores 8: one team has exactly 8 and the other fewer, so 7-1 or 8-8 are not results
-    if (Math.max(brownScore, whiteScore) !== 8 || brownScore === whiteScore) {
+    if (Math.max(whiteScore, brownScore) !== 8 || whiteScore === brownScore) {
       this.error.set("Si vince a 8: una squadra deve fare 8 e l'altra meno (ad esempio 8-5)");
       return;
     }
 
     this.error.set('');
-    await this._save(brownScore, whiteScore);
+    await this._save(whiteScore, brownScore);
   }
 
   /**
@@ -708,10 +708,10 @@ export class LobbyPage extends CustomElement {
    * Saves the result of the match to play; then, while the lobby is open after its match, the button to generate
    * another one shows.
    *
-   * @param brownScore - Goals of the brown team.
    * @param whiteScore - Goals of the white team.
+   * @param brownScore - Goals of the brown team.
    */
-  private async _save(brownScore: number, whiteScore: number): Promise<void> {
+  private async _save(whiteScore: number, brownScore: number): Promise<void> {
     const running = this.running();
     if (!running) {
       return;
@@ -722,10 +722,10 @@ export class LobbyPage extends CustomElement {
       try {
         saved = await saveMatch(
           running.id,
-          { attack: running.brown.attack.id, defense: running.brown.defense.id },
           { attack: running.white.attack.id, defense: running.white.defense.id },
-          brownScore,
-          whiteScore
+          { attack: running.brown.attack.id, defense: running.brown.defense.id },
+          whiteScore,
+          brownScore
         );
       } catch (error) {
         // Somebody else saved or deleted it first: the page shows the match to play now

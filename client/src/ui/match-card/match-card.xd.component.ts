@@ -24,13 +24,13 @@ export class MatchCardComponent extends CustomElement {
    */
   public readonly whiteChance = computed(() => this._computeWhiteChance());
   /**
-   * The results the brown team wins, 8-0 and 8-7.
+   * The results the white team wins, 8-0 and 8-7.
    */
-  public readonly brownWins = computed(() => this._computeOutcomes(true));
+  public readonly whiteWins = computed(() => this._computeOutcomes(true));
   /**
-   * The results the white team wins, 0-8 and 7-8.
+   * The results the brown team wins, 0-8 and 7-8.
    */
-  public readonly whiteWins = computed(() => this._computeOutcomes(false));
+  public readonly brownWins = computed(() => this._computeOutcomes(false));
 
   /**
    * Formats a change of ELO with its sign.
@@ -49,17 +49,17 @@ export class MatchCardComponent extends CustomElement {
    * @returns The change of the winning team, positive.
    */
   public gain(outcome: MatchOutcome): number {
-    return Math.max(outcome.brownDelta, outcome.whiteDelta);
+    return Math.max(outcome.whiteDelta, outcome.brownDelta);
   }
 
   /**
-   * Computes the value of `brownWins` and `whiteWins`.
+   * Computes the value of `whiteWins` and `brownWins`.
    *
-   * @param brownWon - Whether the brown team is the winner.
+   * @param whiteWon - Whether the white team is the winner.
    * @returns The two results won by the team, the wider first.
    */
-  private _computeOutcomes(brownWon: boolean): MatchOutcome[] {
-    return this.match().outcomes.filter(outcome => (outcome.brownScore > outcome.whiteScore) === brownWon);
+  private _computeOutcomes(whiteWon: boolean): MatchOutcome[] {
+    return this.match().outcomes.filter(outcome => (outcome.whiteScore > outcome.brownScore) === whiteWon);
   }
 
   /**

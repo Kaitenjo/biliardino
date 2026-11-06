@@ -1,7 +1,7 @@
 /**
  * A team of a match.
  */
-export type Team = 'brown' | 'white';
+export type Team = 'white' | 'brown';
 
 /**
  * The role of a player in a match.

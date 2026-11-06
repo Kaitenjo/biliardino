@@ -5,6 +5,7 @@ import type { MatchView } from '../matches/running-match.ts';
 import { loadMatchmakingContext } from '../matchmaking/matchmaking.context.ts';
 import { findBestMatch } from '../matchmaking/matchmaking.ts';
 import type { Lineup } from '../models.ts';
+import { PRIVILEGED_PLAYER } from '../players/privileged-player.ts';
 import { notify } from '../push/notifications.ts';
 import { isWorkingDay, nextOpening, SLOTS, slotAt, toMinutes } from './calendar.ts';
 
@@ -12,7 +13,7 @@ import { isWorkingDay, nextOpening, SLOTS, slotAt, toMinutes } from './calendar.
   The lobbies. Monday to friday (holidays excluded) one opens at each slot of SLOTS; whoever wants to play enters it,
   and can leave and come back while it is open. At the time of the match the matchmaking picks the best match among who
   is in, which becomes the match to play, and the 4 players are told. Until the lobby closes, once a match is saved
-  another one can be generated with who is in.
+  another one can be generated with who is in. Only PRIVILEGED_PLAYER is put in each lobby as it opens.
   The state lives in the database and `tick` brings it up to date with the clock: it runs every half hour (cron) and
   before each read of the lobby, so a late or missed run only delays it. Each step is claimed by an UPDATE, so that two
   runs at the same time don't open, notify or generate twice. Only the current lobby is kept: when it closes it is
@@ -147,6 +148,17 @@ export async function tick(now = new Date()): Promise<void> {
     return;
   }
 
+  // The only player who enters by itself, once, by the run that created the lobby (it can't be banned: the check is
+  // there only against a change made by hand in the database)
+  await run(
+    `INSERT OR IGNORE INTO lobby_players (lobby_id, player_id)
+     SELECT l.id, p.id FROM lobbies l, players p
+     WHERE l.day = ? AND l.slot = ? AND p.name = ? AND p.banned = 0`,
+    clock.day,
+    slot.open,
+    PRIVILEGED_PLAYER
+  );
+
   if (clock.minutes === 1050) {
     await notify('everybody', {
       title: `Inserimento Tasks`,
@@ -265,9 +277,9 @@ export async function replaceRunningMatch(userId: number): Promise<MatchView | n
 
   const avoid = deleted
     ? {
-        brown: { attack: deleted.brown.attack.id, defense: deleted.brown.defense.id },
-        white: { attack: deleted.white.attack.id, defense: deleted.white.defense.id }
-      }
+      white: { attack: deleted.white.attack.id, defense: deleted.white.defense.id },
+      brown: { attack: deleted.brown.attack.id, defense: deleted.brown.defense.id }
+    }
     : undefined;
   const result = await generateLobbyMatch(lobby.id, userId, avoid);
   return typeof result === 'string' ? null : result;
@@ -284,7 +296,7 @@ export async function removeBannedPlayer(playerId: number, userId: number): Prom
   await run('DELETE FROM lobby_players WHERE player_id = ? AND lobby_id IN (SELECT id FROM lobbies)', playerId);
 
   const running = await getRunningMatch();
-  const ids = running ? [running.brown.attack.id, running.brown.defense.id, running.white.attack.id, running.white.defense.id] : [];
+  const ids = running ? [running.white.attack.id, running.white.defense.id, running.brown.attack.id, running.brown.defense.id] : [];
   if (!ids.includes(playerId)) {
     return;
   }
@@ -321,6 +333,7 @@ async function generateDueMatch(lobbyId: number, time: string): Promise<void> {
     running: "C'è ancora una partita in corso: salvatela o eliminatela, poi generatene un'altra dalla lobby.",
     impossible: 'Con i ruoli di chi è in lobby (e i giocatori obbligatori) non si può formare una partita.'
   };
+
   await notify(
     players.map(player => player.id),
     { title: `Partita delle ${time} annullata`, body: reasons[result], url: '/#/lobby' }
@@ -335,7 +348,7 @@ async function generateDueMatch(lobbyId: number, time: string): Promise<void> {
  * @param avoid - A match not to generate again (the one just deleted); none to leave out none.
  * @returns The match, or why there is none.
  */
-async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?: { brown: Lineup<number>; white: Lineup<number> }): Promise<MatchView | LobbyMatchFailure> {
+async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?: { white: Lineup<number>; brown: Lineup<number> }): Promise<MatchView | LobbyMatchFailure> {
   const players = await lobbyPlayers(lobbyId);
   if (players.length < 4) {
     return 'not-enough';
@@ -354,10 +367,11 @@ async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?
   }
 
   const match = await setRunningMatch(
-    { attack: proposal.brown.attack.id, defense: proposal.brown.defense.id },
     { attack: proposal.white.attack.id, defense: proposal.white.defense.id },
+    { attack: proposal.brown.attack.id, defense: proposal.brown.defense.id },
     userId
   );
+
   if (!match) {
     return 'running';
   }
@@ -366,10 +380,10 @@ async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?
   await run(
     'UPDATE lobby_players SET priority = 0 WHERE lobby_id = ? AND player_id IN (?, ?, ?, ?)',
     lobbyId,
-    match.brown.attack.id,
-    match.brown.defense.id,
     match.white.attack.id,
-    match.white.defense.id
+    match.white.defense.id,
+    match.brown.attack.id,
+    match.brown.defense.id
   );
 
   const title = [
@@ -380,9 +394,9 @@ async function generateLobbyMatch(lobbyId: number, userId: number | null, avoid?
     'La sfida ha inizio'
   ][Math.floor(Math.random() * 5)]!;
 
-  await notify([match.brown.attack.id, match.brown.defense.id, match.white.attack.id, match.white.defense.id], {
+  await notify([match.white.attack.id, match.white.defense.id, match.brown.attack.id, match.brown.defense.id], {
     title,
-    body: `Bianchi: ${match.brown.attack.name} (attacco) e ${match.brown.defense.name} (difesa). Marroni: ${match.white.attack.name} (attacco) e ${match.white.defense.name} (difesa).`,
+    body: `Bianchi: ${match.white.attack.name} (attacco) e ${match.white.defense.name} (difesa). Marroni: ${match.brown.attack.name} (attacco) e ${match.brown.defense.name} (difesa).`,
     url: '/#/lobby'
   });
   return match;

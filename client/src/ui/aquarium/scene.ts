@@ -596,12 +596,13 @@ export class AquariumScene {
    * @param event - The press.
    */
   private readonly _onPointerDown = (event: PointerEvent): void => {
-    if (!this._toy || !this._atSea() || event.button !== 0) {
+    if (!this._atSea() || event.button !== 0) {
       return;
     }
 
     this._aim(event);
-    if (this._raycaster.intersectObject(this._toy, true).length > 0) {
+    // The toy is there only if shown: the fish are frightened anyway
+    if (this._toy && this._raycaster.intersectObject(this._toy, true).length > 0) {
       const point = this._toyPoint();
       if (point) {
         this._toyHeld = true;
@@ -782,9 +783,13 @@ export class AquariumScene {
    */
   private readonly _detailed: boolean;
   /**
-   * Whether the purple dildo is shown: floating in the background, and as the creature of a player.
+   * Whether the purple dildo floats in the background. The creatures of the players can be dildos anyway.
    */
   private readonly _showToy: boolean;
+  /**
+   * Whether the creature of every player is a penis, in place of its fish.
+   */
+  private readonly _penisFish: boolean;
   /**
    * What the metals and the marble reflect, at high quality.
    */
@@ -807,27 +812,30 @@ export class AquariumScene {
    * @param labels - The layer over the canvas for the names.
    * @param still - Whether to draw a single still frame (less motion).
    * @param quality - How detailed (see detail.ts).
-   * @param showToy - Whether the purple dildo is shown.
+   * @param showToy - Whether the purple dildo floats in the background.
+   * @param penisFish - Whether the creature of every player is a penis.
    * @returns The scene.
    * @throws When WebGL is not available.
    */
-  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality, showToy: boolean): AquariumScene {
+  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality, showToy: boolean, penisFish: boolean): AquariumScene {
     // Before anything of the scene is made: its colours too
     setQuality(quality);
-    return new AquariumScene(box, labels, still, showToy);
+    return new AquariumScene(box, labels, still, showToy, penisFish);
   }
 
   /**
    * @param box - Where to draw: the canvas of the scene goes first in it.
    * @param labels - The layer over the canvas for the names.
    * @param still - Whether to draw a single still frame (less motion).
-   * @param showToy - Whether the purple dildo is shown.
+   * @param showToy - Whether the purple dildo floats in the background.
+   * @param penisFish - Whether the creature of every player is a penis.
    * @throws When WebGL is not available.
    */
-  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean, showToy: boolean) {
+  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean, showToy: boolean, penisFish: boolean) {
     this._labels = labels;
     this._still = still;
     this._showToy = showToy;
+    this._penisFish = penisFish;
     this._detailed = isHigh();
     // A canvas of its own: the smoothing of the edges is chosen when it is made, and only the high quality has it
     this._renderer = new THREE.WebGLRenderer({ antialias: this._detailed });
@@ -1798,8 +1806,8 @@ export class AquariumScene {
    * @returns The creature in the water.
    */
   private _release(player: LobbyPlayer, animated: boolean): Inhabitant {
-    // Giuseppe Latrofa is always the dildo, when it is shown
-    const species = this._showToy && player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
+    // Everybody is a penis, when chosen; otherwise Giuseppe Latrofa is always the dildo
+    const species: Species = this._penisFish ? 'penis' : player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
     const creature = buildCreature(species);
     this._scene.add(creature.object);
     const label = document.createElement('span');
@@ -1947,10 +1955,6 @@ export class AquariumScene {
     const counts = new Map<Species, number>(SPECIES.map(species => [species, 0]));
     for (const inhabitant of this._inhabitants.values()) {
       counts.set(inhabitant.species, counts.get(inhabitant.species)! + 1);
-    }
-
-    if (!this._showToy) {
-      counts.delete('dildo');
     }
 
     const fewest = Math.min(...counts.values());

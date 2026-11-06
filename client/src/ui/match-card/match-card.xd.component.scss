@@ -16,16 +16,16 @@
   border-radius: 16px;
   border: 1px solid var(--border);
 
-  &.brown {
-    --team: var(--brown);
-
-    background: linear-gradient(180deg, var(--brown-soft), transparent 125%);
-  }
-
   &.white {
     --team: var(--white);
 
     background: linear-gradient(180deg, var(--white-soft), transparent 125%);
+  }
+
+  &.brown {
+    --team: var(--brown);
+
+    background: linear-gradient(180deg, var(--brown-soft), transparent 125%);
   }
 
   header {
@@ -100,7 +100,7 @@
   box-shadow: 0 0 0 4px var(--primary-soft), 0 4px 18px var(--glow);
 }
 
-// The global box-sizing doesn't enter the shadow root: without it the padding of the brown part is added to its 50%
+// The global box-sizing doesn't enter the shadow root: without it the padding of the white part is added to its width
 .odds,
 .odds div {
   box-sizing: border-box;
@@ -159,12 +159,12 @@
   border-radius: 12px;
   background: var(--surface-solid);
 
-  &.brown .outcome-title {
-    color: var(--brown);
-  }
-
   &.white .outcome-title {
     color: var(--white);
+  }
+
+  &.brown .outcome-title {
+    color: var(--brown);
   }
 }
 

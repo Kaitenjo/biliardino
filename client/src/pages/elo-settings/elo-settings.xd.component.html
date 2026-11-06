@@ -74,6 +74,7 @@
       partita viene rigenerata senza di lui.
       <strong>Regola Felix</strong>: nelle partite giocate da quel momento il giocatore guadagna la metà dei punti quando vince
       e ne perde il doppio quando perde. Le partite già salvate restano come sono, anche disattivandola o ricalcolando.
+      Dario Spinosa non si può bannare e non può avere la regola Felix.
     </p>
     @if (playerError()) {
       <p class="error">{ playerError() }</p>
@@ -98,7 +99,7 @@
                   @if (player().banned) {
                     checked
                   }
-                  @if (playerBusy() || player().isAdmin) {
+                  @if (playerBusy() || player().isAdmin || player().privileged) {
                     disabled
                   }
                   (change)="setFlag(player(), 'banned', $event)"
@@ -111,7 +112,7 @@
                   @if (player().felixRule) {
                     checked
                   }
-                  @if (playerBusy()) {
+                  @if (playerBusy() || (player().privileged && !player().felixRule)) {
                     disabled
                   }
                   (change)="setFlag(player(), 'felixRule', $event)"

@@ -76,6 +76,6 @@ export class MatchPreviewComponent extends CustomElement {
    * @returns The team of the player, or the winners.
    */
   private _computeHighlighted(): Team {
-    return this.team() ?? (this.brownScore() > this.whiteScore() ? 'brown' : 'white');
+    return this.team() ?? (this.whiteScore() > this.brownScore() ? 'white' : 'brown');
   }
 }

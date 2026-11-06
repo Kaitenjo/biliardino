@@ -229,16 +229,16 @@ export function deleteRunningMatch(): Promise<RunningMatch | null> {
  * Saves a played match: the result of the match to play.
  *
  * @param runningId - The id of the match to play.
- * @param brown - The ids of the brown players.
  * @param white - The ids of the white players.
- * @param brownScore - Goals of the brown team.
+ * @param brown - The ids of the brown players.
  * @param whiteScore - Goals of the white team.
+ * @param brownScore - Goals of the brown team.
  * @returns The saved match, with the changes of ELO and every player with its new ELO.
  * @throws {ApiError} With status 409 and the match to play now (or `null`) in `data.running`, when somebody else saved
  * or deleted it first.
  */
-export function saveMatch(runningId: number, brown: Lineup<number>, white: Lineup<number>, brownScore: number, whiteScore: number): Promise<SavedMatch> {
-  return request('POST', '/matches', { runningId, brown, white, brownScore, whiteScore });
+export function saveMatch(runningId: number, white: Lineup<number>, brown: Lineup<number>, whiteScore: number, brownScore: number): Promise<SavedMatch> {
+  return request('POST', '/matches', { runningId, white, brown, whiteScore, brownScore });
 }
 
 /**

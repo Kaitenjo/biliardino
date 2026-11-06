@@ -95,25 +95,25 @@ export interface EloPlayer {
  */
 export interface MatchElo {
   /**
-   * ELO of the brown team: the average of its players in their roles.
-   */
-  brownElo: number;
-  /**
-   * ELO of the white team.
+   * ELO of the white team: the average of its players in their roles.
    */
   whiteElo: number;
+  /**
+   * ELO of the brown team.
+   */
+  brownElo: number;
   /**
    * Expected score of the white team (its probability of winning); the brown team has the complement.
    */
   whiteExpected: number;
   /**
-   * Change of the ELO in the role of each brown player.
-   */
-  brownDelta: number;
-  /**
-   * Change of the ELO in the role of each white player: the opposite of the brown one.
+   * Change of the ELO in the role of each white player.
    */
   whiteDelta: number;
+  /**
+   * Change of the ELO in the role of each brown player: the opposite of the white one.
+   */
+  brownDelta: number;
 }
 
 /**
@@ -142,31 +142,32 @@ export function teamElo(team: Lineup<number>): number {
 /**
  * Computes the changes of ELO of a match.
  *
- * @param brown - The brown players in their roles, before the match.
  * @param white - The white players in their roles, before the match.
- * @param brownScore - Goals of the brown team.
+ * @param brown - The brown players in their roles, before the match.
  * @param whiteScore - Goals of the white team.
+ * @param brownScore - Goals of the brown team.
  * @param config - The variables of the system.
  * @returns The ELOs of the teams, the expected score and the changes.
  */
-export function computeMatchElo(brown: Lineup<EloPlayer>, white: Lineup<EloPlayer>, brownScore: number, whiteScore: number, config: EloConfig): MatchElo {
-  const brownElo = teamElo({ attack: brown.attack.elo, defense: brown.defense.elo });
+export function computeMatchElo(white: Lineup<EloPlayer>, brown: Lineup<EloPlayer>, whiteScore: number, brownScore: number, config: EloConfig): MatchElo {
   const whiteElo = teamElo({ attack: white.attack.elo, defense: white.defense.elo });
+  const brownElo = teamElo({ attack: brown.attack.elo, defense: brown.defense.elo });
 
   const whiteExpected = expectedScore(whiteElo, brownElo, config);
   const brownExpected = 1 - whiteExpected;
 
-  const goalMultiplier = marginMultiplier(brownScore, whiteScore, config);
+  const goalMultiplier = marginMultiplier(whiteScore, brownScore, config);
   const winnerExpected = brownScore > whiteScore ? brownExpected : whiteExpected;
   const winnerSign = winnerExpected > 0.5 ? -1 : 1;
   // Never negative: with a huge favourite the factor would turn the sign of the change
   const surpriseFactor = Math.max(0, 1 + config.surpriseWeight * Math.abs(0.5 - winnerExpected) ** config.surpriseExponent * winnerSign);
 
-  const brownResult = brownScore > whiteScore ? 1 : brownScore === whiteScore ? 0.5 : 0;
-
   // Zero sum: what a team earns the other loses. The K factor is the average of the two teams, so that it is the same
-  // for both (it is, when the two have the same experience)
-  const k = (teamK(brown, config) + teamK(white, config)) / 2;
+  // for both (it is, when the two have the same experience). The change is computed for the brown team and the white
+  // one gets its opposite, as it always was: computed the other way round, the last decimals of the ELOs already saved
+  // could change at the next recalculation
+  const k = (teamK(white, config) + teamK(brown, config)) / 2;
+  const brownResult = brownScore > whiteScore ? 1 : brownScore === whiteScore ? 0.5 : 0;
   let brownDelta = k * goalMultiplier * (brownResult - brownExpected) * surpriseFactor;
   if (brownResult === 1) {
     brownDelta = Math.max(brownDelta, config.minWinDelta);
@@ -174,7 +175,7 @@ export function computeMatchElo(brown: Lineup<EloPlayer>, white: Lineup<EloPlaye
     brownDelta = Math.min(brownDelta, -config.minWinDelta);
   }
 
-  return { brownElo, whiteElo, whiteExpected, brownDelta, whiteDelta: -brownDelta };
+  return { whiteElo, brownElo, whiteExpected, whiteDelta: -brownDelta, brownDelta };
 }
 
 /**

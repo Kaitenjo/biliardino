@@ -118,11 +118,11 @@ export function addMatch(records: PlayerRecords, role: Role, won: boolean, goals
  * @returns The pairs, each counting this match once.
  */
 export function pairsOf(lineup: Record<Team, Lineup<number>>): PairCount[] {
-  const players = [lineup.brown.attack, lineup.brown.defense, lineup.white.attack, lineup.white.defense];
+  const players = [lineup.white.attack, lineup.white.defense, lineup.brown.attack, lineup.brown.defense];
   const pairs: PairCount[] = [];
   for (let i = 0; i < players.length; i++) {
     for (let j = i + 1; j < players.length; j++) {
-      // The first two are brown, the last two white
+      // The first two are white, the last two brown
       const together = i < 2 === j < 2;
       const [playerId, otherId] = players[i]! < players[j]! ? [players[i]!, players[j]!] : [players[j]!, players[i]!];
       pairs.push({ playerId, otherId, together: together ? 1 : 0, against: together ? 0 : 1 });
