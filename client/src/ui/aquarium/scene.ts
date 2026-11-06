@@ -302,6 +302,25 @@ const SIDE_STEPS: Readonly<Record<'rules' | 'matches', CameraStep>> = {
 const BACKGROUND_SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'angel', 'gold', 'betta', 'tuna'];
 
 /**
+ * With the pinification the penis of a player is as big as its ELO: `PENIS_SIZES[0]` times the usual size up to the
+ * first ELO, `PENIS_SIZES[1]` times from the second one, in proportion in between. The ELOs go a step beyond the ranks
+ * (Spigola from 875, Megalodonte from 1175), so that the Sogliole are the smallest and the Megalodonti the biggest.
+ */
+const PENIS_ELOS = [800, 1250] as const;
+const PENIS_SIZES = [0.6, 1.8] as const;
+
+/**
+ * How big the penis of a player is with the pinification.
+ *
+ * @param elo - The ELO of the player.
+ * @returns How many times the usual size.
+ */
+function penisSize(elo: number): number {
+  const progress = THREE.MathUtils.clamp((elo - PENIS_ELOS[0]) / (PENIS_ELOS[1] - PENIS_ELOS[0]), 0, 1);
+  return THREE.MathUtils.lerp(PENIS_SIZES[0], PENIS_SIZES[1], progress);
+}
+
+/**
  * The vertical axis, to turn the schools.
  */
 const UP = new THREE.Vector3(0, 1, 0);
@@ -386,6 +405,11 @@ interface Inhabitant {
    * Its size once grown.
    */
   baseScale: THREE.Vector3;
+  /**
+   * How many times bigger than its species it is (already in `baseScale` and in the height of the creature): the
+   * penises of the pinification grow with the ELO of their players, the others are 1.
+   */
+  size: number;
 }
 
 /**
@@ -787,9 +811,9 @@ export class AquariumScene {
    */
   private readonly _showToy: boolean;
   /**
-   * Whether the creature of every player is a penis, in place of its fish.
+   * Whether the pinification is on: the creature of every player is a penis, as big as its ELO.
    */
-  private readonly _penisFish: boolean;
+  private readonly _pinification: boolean;
   /**
    * What the metals and the marble reflect, at high quality.
    */
@@ -813,14 +837,14 @@ export class AquariumScene {
    * @param still - Whether to draw a single still frame (less motion).
    * @param quality - How detailed (see detail.ts).
    * @param showToy - Whether the purple dildo floats in the background.
-   * @param penisFish - Whether the creature of every player is a penis.
+   * @param pinification - Whether the creature of every player is a penis, as big as its ELO.
    * @returns The scene.
    * @throws When WebGL is not available.
    */
-  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality, showToy: boolean, penisFish: boolean): AquariumScene {
+  public static create(box: HTMLElement, labels: HTMLElement, still: boolean, quality: Quality, showToy: boolean, pinification: boolean): AquariumScene {
     // Before anything of the scene is made: its colours too
     setQuality(quality);
-    return new AquariumScene(box, labels, still, showToy, penisFish);
+    return new AquariumScene(box, labels, still, showToy, pinification);
   }
 
   /**
@@ -828,14 +852,14 @@ export class AquariumScene {
    * @param labels - The layer over the canvas for the names.
    * @param still - Whether to draw a single still frame (less motion).
    * @param showToy - Whether the purple dildo floats in the background.
-   * @param penisFish - Whether the creature of every player is a penis.
+   * @param pinification - Whether the creature of every player is a penis, as big as its ELO.
    * @throws When WebGL is not available.
    */
-  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean, showToy: boolean, penisFish: boolean) {
+  private constructor(box: HTMLElement, labels: HTMLElement, still: boolean, showToy: boolean, pinification: boolean) {
     this._labels = labels;
     this._still = still;
     this._showToy = showToy;
-    this._penisFish = penisFish;
+    this._pinification = pinification;
     this._detailed = isHigh();
     // A canvas of its own: the smoothing of the edges is chosen when it is made, and only the high quality has it
     this._renderer = new THREE.WebGLRenderer({ antialias: this._detailed });
@@ -1141,13 +1165,37 @@ export class AquariumScene {
         this._remove(player.id, current);
       }
 
-      if (!this._inhabitants.has(player.id)) {
+      const inhabitant = this._inhabitants.get(player.id);
+      if (!inhabitant) {
         this._inhabitants.set(player.id, this._release(player, this._populated));
+      } else if (this._pinification) {
+        // When its ELO changed with a match, its penis follows it
+        this._resize(inhabitant, penisSize(player.elo));
       }
     }
 
     this._populated = true;
     this._invalidate();
+  }
+
+  /**
+   * Makes a creature in the water bigger or smaller, from its next frame (at once, if it is not growing in).
+   *
+   * @param inhabitant - The creature.
+   * @param size - How many times bigger than its species.
+   */
+  private _resize(inhabitant: Inhabitant, size: number): void {
+    if (size === inhabitant.size) {
+      return;
+    }
+
+    const ratio = size / inhabitant.size;
+    inhabitant.size = size;
+    inhabitant.creature.height *= ratio;
+    inhabitant.baseScale.multiplyScalar(ratio);
+    if (inhabitant.appear >= 1) {
+      inhabitant.creature.object.scale.copy(inhabitant.baseScale);
+    }
   }
 
   /**
@@ -1806,9 +1854,12 @@ export class AquariumScene {
    * @returns The creature in the water.
    */
   private _release(player: LobbyPlayer, animated: boolean): Inhabitant {
-    // Everybody is a penis, when chosen; otherwise Giuseppe Latrofa is always the dildo
-    const species: Species = this._penisFish ? 'penis' : player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
+    // With the pinification everybody is a penis, as big as its ELO; otherwise Giuseppe Latrofa is always the dildo
+    const species: Species = this._pinification ? 'penis' : player.name.toLowerCase().includes('latrofa') ? 'dildo' : this._pickSpecies();
     const creature = buildCreature(species);
+    const size = this._pinification ? penisSize(player.elo) : 1;
+    creature.object.scale.multiplyScalar(size);
+    creature.height *= size;
     this._scene.add(creature.object);
     const label = document.createElement('span');
     label.className = 'name';
@@ -1830,7 +1881,8 @@ export class AquariumScene {
       label,
       appear: animated && !this._still ? 0 : 1,
       vanish: null,
-      baseScale: creature.object.scale.clone()
+      baseScale: creature.object.scale.clone(),
+      size
     };
     this._place(inhabitant);
     creature.animate(0, 0);
@@ -2290,7 +2342,8 @@ export class AquariumScene {
         label: null,
         appear: 1,
         vanish: null,
-        baseScale: creature.object.scale.clone()
+        baseScale: creature.object.scale.clone(),
+        size: 1
       };
       this._place(fish);
       creature.animate(0, 0);

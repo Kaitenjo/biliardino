@@ -4,7 +4,7 @@ import type { InputSignal, QuerySignal } from '@xaendar/core/signals';
 import type { LeaderboardEntry, LobbyPlayer, MatchPlayer, PlayerDetail, RankingMode, RunningMatch } from '../../core/api/api.models';
 import { ranks } from '../../core/ranks/ranks';
 import { cameraTransitions } from '../../core/settings/camera';
-import { penisFish } from '../../core/settings/penis-fish';
+import { pinification } from '../../core/settings/pinification';
 import { quality } from '../../core/settings/quality';
 import { purpleToy } from '../../core/settings/toy';
 import type { SeatKey } from './foosball3d';
@@ -43,7 +43,8 @@ export interface PodiumPlace {
  * The 3D lobby (three.js), filling its box: the ocean seen through the window of a rich lounge under the sea, with a
  * creature for each
  * player in the lobby (clownfish, surgeonfish, puffer, angelfish, goldfish, great white shark, betta, octopus, sole,
- * sardines and tuna, picked at random and all different while possible) and its name above; and the lounge,
+ * sardines, tuna and penis, picked at random and all different while possible; all penises, as big as their ELOs, with
+ * the pinification) and its name above; and the lounge,
  * with a foosball table where the icons of the 4 players of the match stand by their handles. The camera
  * travels between the two as `view` changes, and to the left of the aquarium, to the hall of fame: a sunken temple
  * with the first three of the leaderboard on its podium. It draws only while it is on the screen.
@@ -180,12 +181,12 @@ export class AquariumComponent extends CustomElement {
       const travels = cameraTransitions();
       untracked(() => this._scene?.setTravels(travels));
     });
-    // Another quality, the purple dildo shown or hidden, the players as penises or fish: the scene is built again, with or
+    // Another quality, the purple dildo shown or hidden, the pinification on or off: the scene is built again, with or
     // without what only decorates it
     this.effect(() => {
       quality();
       purpleToy();
-      penisFish();
+      pinification();
       untracked(() => {
         if (this._scene) {
           this._createScene();
@@ -224,8 +225,8 @@ export class AquariumComponent extends CustomElement {
   }
 
   /**
-   * Creates the scene, at the quality, with or without the purple dildo and with fish or penises as chosen on this device,
-   * in place of the one there is, and gives it all it shows.
+   * Creates the scene, at the quality, with or without the purple dildo and the pinification as chosen on this device, in
+   * place of the one there is, and gives it all it shows.
    */
   private _createScene(): void {
     this._scene?.dispose();
@@ -236,7 +237,7 @@ export class AquariumComponent extends CustomElement {
       matchMedia('(prefers-reduced-motion: reduce)').matches,
       untracked(quality),
       untracked(purpleToy),
-      untracked(penisFish)
+      untracked(pinification)
     );
     this._scene.onChartHover = hover => this.chartHover.set(hover);
     this._scene.setTravels(untracked(cameraTransitions));

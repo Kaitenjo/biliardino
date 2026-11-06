@@ -18,10 +18,10 @@ import type { Look } from './materials';
 export type Species = 'clown' | 'tang' | 'puffer' | 'angel' | 'gold' | 'shark' | 'betta' | 'octopus' | 'sole' | 'sardine' | 'tuna' | 'dildo' | 'penis';
 
 /**
- * Every species a player gets at random, all different while possible. The penis is not among them: it is everybody's
- * when chosen in the settings, nobody's otherwise.
+ * Every species a player gets at random, all different while possible. The dildo is not among them: it is only the
+ * creature of Giuseppe Latrofa.
  */
-export const SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'angel', 'gold', 'shark', 'betta', 'octopus', 'sole', 'sardine', 'tuna', 'dildo'];
+export const SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'angel', 'gold', 'shark', 'betta', 'octopus', 'sole', 'sardine', 'tuna', 'penis'];
 
 /**
  * How a creature moves: freely in the water, lying on the bottom (the sole), or drifting low (the octopus).

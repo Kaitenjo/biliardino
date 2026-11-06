@@ -56,16 +56,16 @@
     <label class="option">
       <span class="text">
         <app-icon name="flame" />
-        Pesci della lobby come peni
+        Pinificazione
       </span>
       <input
         type="checkbox"
         role="switch"
         class="switch"
-        @if (penises()) {
+        @if (pinification()) {
           checked
         }
-        (change)="togglePenises()"
+        (change)="togglePinification()"
       />
     </label>
   </div>

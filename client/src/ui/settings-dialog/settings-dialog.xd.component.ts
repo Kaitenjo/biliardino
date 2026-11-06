@@ -2,13 +2,13 @@ import { CustomElement, Query, WebComponent } from '@xaendar/core';
 import { computed } from '@xaendar/core/signals';
 import type { QuerySignal } from '@xaendar/core/signals';
 import { cameraTransitions, setCameraTransitions } from '../../core/settings/camera';
-import { penisFish, setPenisFish } from '../../core/settings/penis-fish';
+import { pinification, setPinification } from '../../core/settings/pinification';
 import { quality, setQuality } from '../../core/settings/quality';
 import { purpleToy, setPurpleToy } from '../../core/settings/toy';
 
 /**
  * The modal with the settings of this device: the quality of the 3D scene, the travel of its camera, whether the
- * purple dildo floats in the aquarium of the lobby and whether its fish are penises. Opened from the menu of the user
+ * purple dildo floats in the aquarium of the lobby and the pinification of its fish. Opened from the menu of the user
  * with `open()`.
  */
 @WebComponent({
@@ -30,9 +30,9 @@ export class SettingsDialogComponent extends CustomElement {
    */
   public readonly toy = purpleToy;
   /**
-   * Whether the creatures of the aquarium are penises.
+   * Whether the pinification is on: every creature of the aquarium is a penis, as big as the ELO of its player.
    */
-  public readonly penises = penisFish;
+  public readonly pinification = pinification;
 
   /**
    * The modal.
@@ -87,9 +87,9 @@ export class SettingsDialogComponent extends CustomElement {
   }
 
   /**
-   * Turns the creatures of the aquarium into penises, or back into fish.
+   * Turns the pinification on or off.
    */
-  public togglePenises(): void {
-    setPenisFish(!this.penises());
+  public togglePinification(): void {
+    setPinification(!this.pinification());
   }
 }

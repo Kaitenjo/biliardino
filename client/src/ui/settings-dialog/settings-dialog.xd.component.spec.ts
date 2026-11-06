@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { cameraTransitions, setCameraTransitions } from '../../core/settings/camera';
-import { penisFish, setPenisFish } from '../../core/settings/penis-fish';
+import { pinification, setPinification } from '../../core/settings/pinification';
 import { quality, setQuality } from '../../core/settings/quality';
 import { purpleToy, setPurpleToy } from '../../core/settings/toy';
 import { SettingsDialogComponent } from './settings-dialog.xd.component';
 
 describe('SettingsDialogComponent', () => {
-  it('switches the quality of the scene, the travel of the camera, the purple dildo and the penises', async () => {
+  it('switches the quality of the scene, the travel of the camera, the purple dildo and the pinification', async () => {
     setQuality('low');
     setCameraTransitions(true);
     setPurpleToy(false);
-    setPenisFish(false);
+    setPinification(false);
     const element = document.createElement('settings-dialog');
     document.body.append(element);
     await Promise.resolve();
 
     expect(element).toBeInstanceOf(SettingsDialogComponent);
-    const [qualitySwitch, cameraSwitch, toySwitch, penisSwitch] = element.shadowRoot!.querySelectorAll<HTMLInputElement>('input');
+    const [qualitySwitch, cameraSwitch, toySwitch, pinificationSwitch] = element.shadowRoot!.querySelectorAll<HTMLInputElement>('input');
 
     qualitySwitch.click();
     expect(quality()).toBe('high');
@@ -29,11 +29,11 @@ describe('SettingsDialogComponent', () => {
     expect(purpleToy()).toBe(true);
     expect(localStorage.getItem('biliardino-purple-toy')).toBe('on');
     // Independent of the purple dildo
-    expect(penisFish()).toBe(false);
+    expect(pinification()).toBe(false);
 
-    penisSwitch.click();
-    expect(penisFish()).toBe(true);
-    expect(localStorage.getItem('biliardino-penis-fish')).toBe('on');
+    pinificationSwitch.click();
+    expect(pinification()).toBe(true);
+    expect(localStorage.getItem('biliardino-pinification')).toBe('on');
     expect(purpleToy()).toBe(true);
     element.remove();
   });
