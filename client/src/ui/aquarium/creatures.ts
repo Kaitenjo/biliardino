@@ -49,6 +49,11 @@ export interface Creature {
    */
   height: number;
   /**
+   * Where liquid comes out when it is clicked, instead of darting away, with its +z pointing out: only the penis has
+   * one. It moves and grows with the model.
+   */
+  tip?: THREE.Object3D;
+  /**
    * Moves its tail, fins or tentacles.
    *
    * @param time - Seconds since the start.
@@ -429,17 +434,23 @@ function buildDildo(): Creature {
  * @returns The creature.
  */
 function buildPenis(): Creature {
-  const skin = material(0xe0a98a, { roughness: 0.55 });
-  const tip = material(0xd47a80, { roughness: 0.4 });
+  // Glowing a little, warm: the blue fog of the water would turn them grey
+  const skin = material(0xe8a988, { roughness: 0.55, emissive: 0x7c3f2c, emissiveIntensity: 0.45 });
+  const skinTip = material(0xdb6f7c, { roughness: 0.4, emissive: 0x8a2e44, emissiveIntensity: 0.5 });
   // Built standing, then laid down with its head towards +x: the shaft, the head a bit wider than it, the two balls
   const body = new THREE.Group();
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.34, 1.9, detail(8, 12)), skin);
   shaft.position.y = 1.35;
   body.add(shaft);
   const headProfile = [[0, 0], [0.38, 0.03], [0.37, 0.14], [0.31, 0.3], [0.21, 0.42], [0.09, 0.49], [0, 0.51]].map(([radius, y]) => new THREE.Vector2(radius!, y!));
-  const head = new THREE.Mesh(new THREE.LatheGeometry(headProfile, detail(8, 12)), tip);
+  const head = new THREE.Mesh(new THREE.LatheGeometry(headProfile, detail(8, 12)), skinTip);
   head.position.y = 2.27;
   body.add(head);
+  // The end of the head, its +z turned along the shaft, outwards
+  const tip = new THREE.Object3D();
+  tip.position.y = 2.76;
+  tip.rotation.x = -Math.PI / 2;
+  body.add(tip);
   for (const x of [-0.3, 0.3]) {
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.36, detail(7, 10), detail(5, 7)), skin);
     ball.position.set(x, 0.32, 0.1);
@@ -459,6 +470,7 @@ function buildPenis(): Creature {
     motion: 'swim',
     speed: 0.9,
     height: 0.7,
+    tip,
     animate(time, pace) {
       pivot.rotation.y = Math.sin(time * (3 + pace * 5) + phase) * (0.12 + pace * 0.14);
     }

@@ -307,7 +307,7 @@ const BACKGROUND_SPECIES: readonly Species[] = ['clown', 'tang', 'puffer', 'ange
  * (Spigola from 875, Megalodonte from 1175), so that the Sogliole are the smallest and the Megalodonti the biggest.
  */
 const PENIS_ELOS = [800, 1250] as const;
-const PENIS_SIZES = [0.6, 1.8] as const;
+const PENIS_SIZES = [0.6, 4.8] as const;
 
 /**
  * How big the penis of a player is with the pinification.
@@ -439,6 +439,40 @@ const BURST_SECONDS = 0.9;
 const BURST_BUBBLES = 40;
 
 /**
+ * Liquid coming out of the tip of a clicked penis, in a few spurts: the drops shoot out along it, slowed by the water,
+ * sinking a little, and fade away.
+ */
+interface Squirt {
+  /**
+   * The drops, in the order they come out: only the ones out are drawn.
+   */
+  drops: THREE.Points;
+  velocities: Float32Array;
+  /**
+   * When each drop comes out, in seconds from the click, and how many are out.
+   */
+  births: Float32Array;
+  out: number;
+  /**
+   * Where the drops come out, followed as the penis swims.
+   */
+  tip: THREE.Object3D;
+  /**
+   * How big the penis is: a bigger one shoots farther.
+   */
+  size: number;
+  age: number;
+}
+
+/**
+ * Seconds a squirt lasts, its drops, its spurts and the seconds between two spurts.
+ */
+const SQUIRT_SECONDS = 2.2;
+const SQUIRT_DROPS = 48;
+const SQUIRT_SPURTS = 3;
+const SQUIRT_GAP = 0.3;
+
+/**
  * Draws a bubble: a light ring with a faint inside.
  *
  * @returns The texture.
@@ -455,6 +489,27 @@ function bubbleTexture(): THREE.CanvasTexture {
   ctx.arc(16, 16, 12, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+  return new THREE.CanvasTexture(canvas);
+}
+
+/**
+ * Draws a drop of liquid: whitish, full, with a soft edge.
+ *
+ * @returns The texture.
+ */
+function dropTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d')!;
+  const gradient = ctx.createRadialGradient(13, 13, 1, 16, 16, 15);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.55, 'rgba(241,245,249,0.92)');
+  gradient.addColorStop(1, 'rgba(226,232,240,0)');
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(16, 16, 15, 0, Math.PI * 2);
+  ctx.fill();
   return new THREE.CanvasTexture(canvas);
 }
 
@@ -500,6 +555,13 @@ export class AquariumScene {
   private readonly _dummy = new THREE.Object3D();
   private readonly _bubbleMap = bubbleTexture();
   private readonly _bursts: Burst[] = [];
+  /**
+   * The squirts of the penises clicked, the drop they shoot, and where and which way their tips point.
+   */
+  private readonly _squirts: Squirt[] = [];
+  private readonly _dropMap = dropTexture();
+  private readonly _tipPoint = new THREE.Vector3();
+  private readonly _tipDirection = new THREE.Vector3();
   /**
    * Whether the players were already put in the water once: the first ones are there at once, the later ones appear.
    */
@@ -652,7 +714,10 @@ export class AquariumScene {
       }
     }
 
-    if (nearest) {
+    // A penis doesn't dart away: it squirts
+    if (nearest?.creature.tip) {
+      this._squirt(nearest);
+    } else if (nearest) {
       this._startle(nearest);
     }
   };
@@ -733,6 +798,38 @@ export class AquariumScene {
     inhabitant.pause = 0;
     // A sudden dart: the steering slows it down as it nears the target, then it picks another one
     inhabitant.velocity.subVectors(target, position).setLength(inhabitant.speed * 3);
+  }
+
+  /**
+   * A penis clicked doesn't dart away: liquid comes out of its tip, in a few spurts, while it goes on swimming.
+   *
+   * @param inhabitant - The penis clicked, which has a tip.
+   */
+  private _squirt(inhabitant: Inhabitant): void {
+    const births = new Float32Array(SQUIRT_DROPS);
+    const perSpurt = SQUIRT_DROPS / SQUIRT_SPURTS;
+    for (let i = 0; i < SQUIRT_DROPS; i++) {
+      // In order, so that the drops out are always the first ones: each spurt a short gush
+      births[i] = Math.floor(i / perSpurt) * SQUIRT_GAP + (i % perSpurt) * (0.1 / perSpurt);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SQUIRT_DROPS * 3), 3));
+    geometry.setDrawRange(0, 0);
+    const drops = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.15 * inhabitant.size, map: this._dropMap, transparent: true, depthWrite: false }));
+    // The drops move far from where the bounds were computed
+    drops.frustumCulled = false;
+    this._scene.add(drops);
+    this._squirts.push({
+      drops,
+      velocities: new Float32Array(SQUIRT_DROPS * 3),
+      births,
+      out: 0,
+      tip: inhabitant.creature.tip!,
+      size: inhabitant.size,
+      age: 0
+    });
+    this._invalidate();
     this._invalidate();
   }
   /**
@@ -1664,6 +1761,7 @@ export class AquariumScene {
     }
 
     this._moveBursts(delta);
+    this._moveSquirts(delta);
     if (hall) {
       this._hall.animate(time, delta);
     }
@@ -1994,6 +2092,60 @@ export class AquariumScene {
       burst.ring.quaternion.copy(this._camera.quaternion);
       burst.ring.scale.setScalar(burst.size * (0.6 + t * 3.4));
       (burst.ring.material as THREE.MeshBasicMaterial).opacity = (1 - t) ** 0.7;
+    }
+  }
+
+  /**
+   * Moves the squirts: the drops whose time came leave the tip where it is now, along it; the ones out are slowed by the
+   * water and sink a little; all fade away in the last second.
+   *
+   * @param delta - Seconds since the last frame.
+   */
+  private _moveSquirts(delta: number): void {
+    for (let i = this._squirts.length - 1; i >= 0; i--) {
+      const squirt = this._squirts[i]!;
+      squirt.age += delta;
+      if (squirt.age >= SQUIRT_SECONDS) {
+        this._scene.remove(squirt.drops);
+        squirt.drops.geometry.dispose();
+        (squirt.drops.material as THREE.Material).dispose();
+        this._squirts.splice(i, 1);
+        continue;
+      }
+
+      const positions = squirt.drops.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const velocities = squirt.velocities;
+      if (squirt.out < SQUIRT_DROPS && squirt.births[squirt.out]! <= squirt.age) {
+        const tip = squirt.tip.getWorldPosition(this._tipPoint);
+        const direction = squirt.tip.getWorldDirection(this._tipDirection);
+        // A bigger penis shoots farther
+        const reach = Math.sqrt(squirt.size);
+        while (squirt.out < SQUIRT_DROPS && squirt.births[squirt.out]! <= squirt.age) {
+          const j = squirt.out++;
+          const speed = (2.4 + Math.random() * 1.6) * reach;
+          positions.setXYZ(j, tip.x, tip.y, tip.z);
+          velocities[j * 3] = direction.x * speed + (Math.random() - 0.5) * 0.5;
+          velocities[j * 3 + 1] = direction.y * speed + (Math.random() - 0.5) * 0.5;
+          velocities[j * 3 + 2] = direction.z * speed + (Math.random() - 0.5) * 0.5;
+        }
+
+        squirt.drops.geometry.setDrawRange(0, squirt.out);
+      }
+
+      for (let j = 0; j < squirt.out; j++) {
+        velocities[j * 3] = velocities[j * 3]! * (1 - delta * 2.2);
+        velocities[j * 3 + 1] = velocities[j * 3 + 1]! * (1 - delta * 2.2) - delta * 0.9;
+        velocities[j * 3 + 2] = velocities[j * 3 + 2]! * (1 - delta * 2.2);
+        positions.setXYZ(
+          j,
+          positions.getX(j) + velocities[j * 3]! * delta,
+          positions.getY(j) + velocities[j * 3 + 1]! * delta,
+          positions.getZ(j) + velocities[j * 3 + 2]! * delta
+        );
+      }
+
+      positions.needsUpdate = true;
+      (squirt.drops.material as THREE.PointsMaterial).opacity = Math.min(1, SQUIRT_SECONDS - squirt.age);
     }
   }
 
